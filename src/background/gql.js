@@ -1,10 +1,15 @@
 // Client GQL Twitch (lecture seule par défaut).
-// On réutilise la session du navigateur : le jeton `auth-token` est le même que
-// celui du site, on n'en crée ni n'en stocke aucun. Aucun mot de passe n'est lu.
+//
+// Twitch protège cette API par un jeton d'intégrité que seul son propre JavaScript
+// sait calculer. On ne le fabrique pas : on réutilise les en-têtes que la page
+// Twitch envoie déjà, capturés par `header-capture.js`. Conséquence directe,
+// l'extension a besoin d'au moins un onglet Twitch ouvert pour interroger l'API,
+// et elle n'a plus besoin de lire le moindre cookie.
+
+import { buildRequestHeaders } from "../lib/gql-headers.js";
+import { getUsableHeaders } from "./header-capture.js";
 
 const GQL_URL = "https://gql.twitch.tv/gql";
-// Client-ID public du client web Twitch (visible dans n'importe quelle requête du site).
-const CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 
 export class GqlError extends Error {
   constructor(message, { status = null, kind = "gql" } = {}) {
@@ -15,32 +20,20 @@ export class GqlError extends Error {
   }
 }
 
-export async function getAuthToken() {
-  const cookie = await chrome.cookies.get({
-    url: "https://www.twitch.tv",
-    name: "auth-token",
-  });
-  const value = cookie?.value?.trim();
-  if (!value) {
-    throw new GqlError("Pas de session Twitch : connecte-toi sur twitch.tv.", {
-      kind: "auth",
-    });
-  }
-  return value;
-}
-
 async function request(operationName, query, variables = {}) {
-  const token = await getAuthToken();
+  const captured = await getUsableHeaders();
+  if (!captured) {
+    throw new GqlError(
+      "En attente d'un onglet Twitch : l'extension y récupère le jeton d'intégrité exigé par l'API.",
+      { kind: "integrity" },
+    );
+  }
 
   let res;
   try {
     res = await fetch(GQL_URL, {
       method: "POST",
-      headers: {
-        "Client-Id": CLIENT_ID,
-        Authorization: `OAuth ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers: buildRequestHeaders(captured),
       body: JSON.stringify({ operationName, query, variables }),
     });
   } catch (cause) {
@@ -60,9 +53,24 @@ async function request(operationName, query, variables = {}) {
   const json = await res.json();
   const payload = Array.isArray(json) ? json[0] : json;
 
-  if (payload?.errors?.length) {
-    throw new GqlError(payload.errors.map((e) => e.message).join(" / "));
+  const failure = payload?.errors?.length
+    ? payload.errors.map((e) => e.message).join(" / ")
+    : typeof payload?.error === "string"
+      ? payload.error
+      : null;
+
+  if (failure) {
+    // Le jeton capturé a expiré : on le jette pour forcer une nouvelle capture.
+    if (/integrity/i.test(failure)) {
+      await chrome.storage.session.remove("gqlHeaders");
+      throw new GqlError(
+        "Jeton d'intégrité périmé, il sera repris sur le prochain chargement d'une page Twitch.",
+        { kind: "integrity" },
+      );
+    }
+    throw new GqlError(failure);
   }
+
   return payload?.data ?? {};
 }
 

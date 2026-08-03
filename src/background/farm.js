@@ -304,6 +304,21 @@ export async function runClaimSweep(settings) {
   return { mode: "dom", claimed: 0, tabId };
 }
 
+/**
+ * Ouvre un onglet Twitch quand il n'y en a aucun, uniquement pour que l'extension
+ * puisse reprendre le jeton d'intégrité au passage. L'inventaire est le meilleur
+ * candidat : c'est de toute façon la page dont on a besoin pour réclamer.
+ */
+export async function ensureHarvestTab() {
+  const state = await store.getState();
+  if (await tabExists(state.inventoryTabId)) return state;
+  if (await tabExists(state.pointsTabId)) return state;
+  if (await tabExists(state.dropsTabId)) return state;
+
+  const tabId = await openBackgroundTab(INVENTORY_URL);
+  return store.setState({ inventoryTabId: tabId });
+}
+
 export async function closeAllTabs() {
   const state = await store.getState();
   await Promise.all([

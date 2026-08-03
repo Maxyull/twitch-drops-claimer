@@ -19,7 +19,7 @@
     "default_title": "__MSG_ext_name__"
   },
   "options_page": "src/options/options.html",
-  "permissions": ["storage", "alarms", "notifications", "cookies"],
+  "permissions": ["storage", "alarms", "notifications", "webRequest"],
   "optional_permissions": [],
   "host_permissions": ["https://www.twitch.tv/*", "https://gql.twitch.tv/*"],
   "content_scripts": [

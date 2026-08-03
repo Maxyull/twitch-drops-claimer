@@ -25,15 +25,26 @@ Désinstaller l'extension efface l'ensemble, Chrome s'en charge.
 
 ## Votre session Twitch
 
-Pour interroger l'API de Twitch en votre nom, l'extension lit le cookie de session
-`auth-token` du domaine `www.twitch.tv`, le même que celui qu'utilise le site quand
-vous êtes connecté.
+Pour interroger l'API de Twitch en votre nom, l'extension observe les requêtes que la
+page Twitch envoie déjà et en reprend sept en-têtes, dont votre jeton de session et le
+jeton d'intégrité exigé par Twitch. Elle ne fabrique aucun identifiant.
 
-- Il est lu **au moment de la requête**, gardé dans une variable le temps de l'appel,
-  et **jamais écrit dans le stockage**.
-- Il n'est envoyé qu'à `https://gql.twitch.tv`, c'est-à-dire à Twitch lui-même.
+- Ces en-têtes sont gardés en **mémoire uniquement** (`chrome.storage.session`) :
+  effacés à la fermeture de Chrome, jamais écrits sur le disque.
+- Votre en-tête `Cookie` n'est **jamais** repris ni conservé.
+- Ils ne sont envoyés qu'à `https://gql.twitch.tv`, c'est-à-dire à Twitch lui-même.
 - L'extension ne demande jamais votre mot de passe et ne touche à aucun formulaire
   de connexion.
+
+Conséquence : l'extension a besoin d'au moins un onglet Twitch ouvert pour fonctionner.
+Elle en ouvre un elle-même si nécessaire.
+
+## Ce que l'extension observe sur le réseau
+
+Pour afficher si Twitch vous compte bien comme spectateur, l'extension observe, sans
+jamais les bloquer ni les modifier, deux familles de requêtes émises par vos onglets
+Twitch : les segments vidéo (`*.ttvnw.net`) et les requêtes vers l'API de Twitch
+(`gql.twitch.tv`). Seuls la date et le type sont retenus, jamais le contenu.
 
 ## Ce qui sort de votre machine
 

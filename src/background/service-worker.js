@@ -10,6 +10,7 @@ import { validateMessage } from "../lib/message-guard.js";
 import * as store from "../lib/storage.js";
 import * as farm from "./farm.js";
 import * as notify from "./notify.js";
+import { registerHeaderCapture } from "./header-capture.js";
 
 const ALARM_TICK = "tdc-tick";
 const ALARM_DISCOVER = "tdc-discover";
@@ -89,7 +90,12 @@ async function discover() {
     await store.setLastError(null);
   } catch (err) {
     await store.setLastError(err.message);
-    if (err.kind === "auth" && settings.notifyActions) notify.notifyProblem(err.message);
+
+    // Sans onglet Twitch ouvert, aucun jeton d'intégrité à reprendre, donc aucune
+    // requête possible. On en ouvre un : il servira aussi au prochain passage de
+    // réclamation, et la capture se fera toute seule au chargement de la page.
+    if (err.kind === "integrity") await farm.ensureHarvestTab();
+    else if (err.kind === "auth" && settings.notifyActions) notify.notifyProblem(err.message);
   }
   await updateBadge();
 }
@@ -379,6 +385,10 @@ notify.registerNotificationHandlers(async (actionId) => {
   await store.setActions(setDone(await store.getActions(), actionId, true));
   await updateBadge();
 });
+
+// À enregistrer au chargement du module, de façon synchrone : le service worker
+// est réveillé et tué en permanence, un écouteur posé plus tard raterait des requêtes.
+registerHeaderCapture();
 
 // Pas de `tick()` au chargement du module : le service worker est réveillé à
 // chaque message, ça relancerait la mécanique en boucle. C'est l'alarme qui pilote.
