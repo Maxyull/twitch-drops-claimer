@@ -90,7 +90,8 @@ async function tick() {
       await farm.ensureDropsTab(settings, { force: status.drops.code === STATUS.OFFLINE });
     }
     await farm.closeInventoryIfRedundant();
-    await farm.refreshPointsBalance();
+    const points = await farm.refreshPoints(settings);
+    if (points?.claimed && settings.notifyDrops) notify.notifyPointsClaimed(points.channel);
     await farm.refreshWatchProof();
     if (settings.dedicatedWindow) await farm.regroupTabs(settings);
     if (settings.wakeStuckTabs) await wakeStuckTabs(status);
@@ -356,10 +357,12 @@ async function onClaimed(payload) {
   const name = dropName || label;
 
   if (kind === CLAIM_KIND.POINTS) {
-    await store.bumpStat("points", name);
-    if (settings.notifyDrops) notify.notifyPointsClaimed(channel);
+    // Même garde que le chemin API : le coffre ne se compte qu'une fois, quel
+    // que soit celui des deux qui l'a pris.
+    const compte = await farm.recordPointsClaim(channel);
+    if (compte && settings.notifyDrops) notify.notifyPointsClaimed(channel);
     await updateBadge();
-    return { ok: true };
+    return { ok: true, counted: compte };
   }
 
   // Le compteur de drops ne suit PAS nos clics : un clic peut échouer, et Twitch

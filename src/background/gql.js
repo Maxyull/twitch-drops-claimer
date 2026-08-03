@@ -186,6 +186,13 @@ query TdcChannelPoints($login: String!) {
   }
 }`;
 
+const M_CLAIM_POINTS = `
+mutation TdcClaimPoints($input: ClaimCommunityPointsInput!) {
+  claimCommunityPoints(input: $input) {
+    error { code }
+  }
+}`;
+
 const M_CLAIM = `
 mutation TdcClaimDrop($input: ClaimDropRewardsInput!) {
   claimDropRewards(input: $input) { status }
@@ -245,12 +252,30 @@ export async function gameDropStreams(slug, limit = 10) {
 export async function channelPoints(login) {
   if (!login) return null;
   const data = await request("TdcChannelPoints", Q_POINTS, { login });
-  const points = data?.community?.channel?.self?.communityPoints;
+  const community = data?.community;
+  const points = community?.channel?.self?.communityPoints;
   if (!points) return null;
+
   return {
     balance: Number(points.balance) || 0,
-    hasBonus: Boolean(points.availableClaim?.id),
+    // Identifiant du coffre en attente. C'est lui qui permet de le réclamer
+    // sans dépendre du DOM de Twitch.
+    claimId: points.availableClaim?.id ?? null,
+    channelId: community.channel?.id ?? community.id ?? null,
   };
+}
+
+/**
+ * Réclame le bonus de points en attente.
+ * @returns {{ok: boolean, error: string|null}}
+ */
+export async function claimCommunityPoints(channelId, claimId) {
+  if (!channelId || !claimId) return { ok: false, error: "identifiants manquants" };
+  const data = await request("TdcClaimPoints", M_CLAIM_POINTS, {
+    input: { channelID: String(channelId), claimID: String(claimId) },
+  });
+  const error = data?.claimCommunityPoints?.error?.code ?? null;
+  return { ok: !error, error };
 }
 
 /** Réclamation directe (mode rapide, désactivé par défaut). */

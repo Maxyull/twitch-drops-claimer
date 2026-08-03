@@ -179,6 +179,8 @@ const EMPTY_STATE = {
   rotationIndex: -1,
   // { channel, balance, hasBonus, at } : solde de points de la chaîne suivie.
   pointsBalance: null,
+  // Dernier coffre réclamé, pour ne pas le réclamer deux fois.
+  claimedBonusId: null,
   // tabId -> chaîne demandée. Évite de relire l'adresse de l'onglet, donc évite
   // la permission "tabs".
   tabChannels: {},
