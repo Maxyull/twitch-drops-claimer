@@ -137,9 +137,13 @@ npx playwright test       # e2e sur dist/ chargé dans Chromium
 vues, avec un bouchon de l'API `chrome` et des données factices. Pratique pour travailler
 la mise en page sans recharger l'extension.
 
-Les conventions du projet sont dans [CONTRIBUTING.md](CONTRIBUTING.md), l'audit de
-sécurité dans [docs/AUDIT-SECU.md](docs/AUDIT-SECU.md), la politique de confidentialité
-dans [docs/PRIVACY.md](docs/PRIVACY.md).
+| Où | Quoi |
+|---|---|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | conventions, workflow issue / PR / merge |
+| [docs/PIEGES.md](docs/PIEGES.md) | **à lire avant de toucher au code** : ce que Chrome et Twitch imposent, et pourquoi le code est écrit comme ça |
+| [docs/AUDIT-SECU.md](docs/AUDIT-SECU.md) | permissions justifiées une par une, trois passes d'audit |
+| [docs/PRIVACY.md](docs/PRIVACY.md) | ce qui est stocké, ce qui sort de la machine |
+| [docs/TESTER-DANS-CHROME.md](docs/TESTER-DANS-CHROME.md) | vérifier chaque fonction à la main |
 
 ### Limite connue de l'environnement
 

@@ -24,10 +24,16 @@ Cible : Chrome, Edge, Brave. Firefox n'est pas prioritaire.
 │   └── options/
 ├── scripts/{build,bump-version}.py
 ├── tests/                     # unitaires + régression (node --test), e2e/ en Playwright
-├── docs/{AUDIT-SECU,PRIVACY,TESTER-DANS-CHROME}.md
+├── docs/{PIEGES,AUDIT-SECU,PRIVACY,TESTER-DANS-CHROME}.md
 ├── dev/                       # prévisualisation locale des vues, hors paquet
 └── .github/workflows/ci.yml
 ```
+
+## Avant tout : lire docs/PIEGES.md
+
+Il rassemble ce que Chrome et Twitch imposent, et qui ne se devine pas en lisant le
+code : chaque entrée a coûté un bug. Y toucher sans l'avoir lu revient à refaire les
+mêmes.
 
 ## Règles non négociables
 
