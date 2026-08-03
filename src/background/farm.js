@@ -9,6 +9,7 @@ import {
   isActive,
 } from "../lib/campaigns.js";
 import { buildPendingActions, linkedOverrides, pruneActions } from "../lib/actions.js";
+import { mergeClaimed, trimRemembered } from "../lib/claimed-drops.js";
 import { mapLimited } from "../lib/concurrency.js";
 import * as gql from "./gql.js";
 import * as store from "../lib/storage.js";
@@ -200,6 +201,41 @@ export async function refreshCampaigns() {
   const campaigns = [...byId.values()];
   await store.setCampaigns(campaigns);
   return campaigns;
+}
+
+/**
+ * Compte les drops réellement obtenus, d'après l'inventaire et non d'après nos
+ * clics : Twitch peut créditer un palier sans nous, et un clic peut échouer.
+ */
+export async function syncClaimedDrops(campaigns) {
+  const { ids, seeded } = await store.getClaimedDrops();
+  const merged = mergeClaimed(ids, seeded, campaigns);
+  await store.setClaimedDrops(trimRemembered(merged.ids));
+
+  if (merged.added.length) await store.bumpStat("drops", "", merged.added.length);
+  return merged.added.length;
+}
+
+/** Solde de points de la chaîne suivie, rafraîchi sans marteler l'API. */
+const POINTS_TTL_MS = 2 * 60_000;
+
+export async function refreshPointsBalance() {
+  const state = await store.getState();
+  const channel = state.pointsChannel;
+  if (!channel) return null;
+
+  const cached = state.pointsBalance;
+  if (cached?.channel === channel && Date.now() - cached.at < POINTS_TTL_MS) return cached;
+
+  try {
+    const points = await gql.channelPoints(channel);
+    if (!points) return cached ?? null;
+    const fresh = { channel, balance: points.balance, hasBonus: points.hasBonus, at: Date.now() };
+    await store.setState({ pointsBalance: fresh });
+    return fresh;
+  } catch {
+    return cached ?? null; // API muette : on garde la dernière valeur connue
+  }
 }
 
 /** Met à jour la liste « actions requises » et renvoie les nouvelles. */

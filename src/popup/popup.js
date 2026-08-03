@@ -108,7 +108,16 @@ function renderWatchers(state) {
     line1.append(el("span", `tag ${tone}`.trim(), t(`counted_${w.counted.code}`)));
     body.append(line1);
 
-    const bits = [statusText(w.status.code), w.campaignName, fmtElapsed(w.since)].filter(Boolean);
+    const bits = [
+      statusText(w.status.code),
+      w.campaignName,
+      // Le solde de points dit ce que le visionnage rapporte vraiment, là où un
+      // compteur de coffres cliqués ne dit rien.
+      typeof w.points === "number"
+        ? t("popup_points_balance", [w.points.toLocaleString()])
+        : null,
+      fmtElapsed(w.since),
+    ].filter(Boolean);
     body.append(el("small", null, bits.join(" · ")));
 
     row.append(dot, body);

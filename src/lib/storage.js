@@ -77,13 +77,39 @@ export async function getStats() {
   return { ...DEFAULT_STATS, ...stats };
 }
 
-export async function bumpStat(kind, label = "") {
+export async function bumpStat(kind, label = "", amount = 1) {
   const stats = await getStats();
-  if (kind === "drops" || kind === "points") stats[kind] += 1;
+  if (kind === "drops" || kind === "points") stats[kind] += amount;
   stats.lastClaim = Date.now();
   if (label) stats.lastClaimLabel = label;
   await write("local", { stats });
   return stats;
+}
+
+/** Une réclamation vient d'avoir lieu, sans qu'on sache encore ce qu'elle a rapporté. */
+export async function touchLastClaim(label = "") {
+  const stats = await getStats();
+  stats.lastClaim = Date.now();
+  if (label) stats.lastClaimLabel = label;
+  await write("local", { stats });
+  return stats;
+}
+
+/** Paliers déjà vus comme obtenus, pour ne compter chaque drop qu'une fois. */
+export async function getClaimedDrops() {
+  const { claimedDropIds = [], claimedSeeded = false } = await chrome.storage.local.get([
+    "claimedDropIds",
+    "claimedSeeded",
+  ]);
+  return {
+    ids: Array.isArray(claimedDropIds) ? claimedDropIds : [],
+    seeded: Boolean(claimedSeeded),
+  };
+}
+
+export async function setClaimedDrops(ids) {
+  await write("local", { claimedDropIds: ids, claimedSeeded: true });
+  return ids;
 }
 
 // --- actions à cocher -----------------------------------------------------
@@ -151,6 +177,8 @@ const EMPTY_STATE = {
   wokeAt: {},
   // Position dans le tour de rôle des onglets de la fenêtre dédiée.
   rotationIndex: -1,
+  // { channel, balance, hasBonus, at } : solde de points de la chaîne suivie.
+  pointsBalance: null,
   // tabId -> chaîne demandée. Évite de relire l'adresse de l'onglet, donc évite
   // la permission "tabs".
   tabChannels: {},

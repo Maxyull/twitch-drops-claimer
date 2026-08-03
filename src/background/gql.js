@@ -173,6 +173,19 @@ query TdcGameStreams($slug: String!, $limit: Int!) {
   }
 }`;
 
+const Q_POINTS = `
+query TdcChannelPoints($login: String!) {
+  community(name: $login) {
+    id
+    channel {
+      id
+      self {
+        communityPoints { balance availableClaim { id } }
+      }
+    }
+  }
+}`;
+
 const M_CLAIM = `
 mutation TdcClaimDrop($input: ClaimDropRewardsInput!) {
   claimDropRewards(input: $input) { status }
@@ -222,6 +235,22 @@ export async function gameDropStreams(slug, limit = 10) {
     .map((e) => e?.node?.broadcaster?.login)
     .filter(Boolean)
     .map((l) => l.toLowerCase());
+}
+
+/**
+ * Solde de points de chaîne sur une chaîne, et bonus en attente s'il y en a un.
+ * C'est la seule façon de savoir ce que le visionnage rapporte vraiment : compter
+ * les coffres cliqués ne dit rien du solde.
+ */
+export async function channelPoints(login) {
+  if (!login) return null;
+  const data = await request("TdcChannelPoints", Q_POINTS, { login });
+  const points = data?.community?.channel?.self?.communityPoints;
+  if (!points) return null;
+  return {
+    balance: Number(points.balance) || 0,
+    hasBonus: Boolean(points.availableClaim?.id),
+  };
 }
 
 /** Réclamation directe (mode rapide, désactivé par défaut). */

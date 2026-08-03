@@ -473,5 +473,13 @@
   },
   "options_rotate_interval_hint": {
     "message": "Active chaque onglet à tour de rôle et recharge ceux qui ne sont pas au vert. 0 désactive ce passage."
+  },
+  "popup_points_balance": {
+    "message": "$N$ points",
+    "placeholders": {
+      "n": {
+        "content": "$1"
+      }
+    }
   }
 }
