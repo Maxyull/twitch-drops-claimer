@@ -188,6 +188,29 @@ test("RÉGRESSION : rien qui exigerait la permission « tabs »", () => {
   }
 });
 
+test("RÉGRESSION : on ne peut pas ouvrir un onglet sans passer par farm.js", () => {
+  // Chacun des chemins de farm.js vérifie d'abord qu'un onglet n'existe pas
+  // déjà. Exporter l'ouverture rouvrirait la porte à un appel sans contrôle,
+  // et c'est comme ça que naissaient les onglets et les fenêtres en double.
+  const farm = read("src/background/farm.js");
+  assert.match(farm, /async function openBackgroundTab/, "l'ouverture doit vivre dans farm.js");
+  assert.equal(
+    /export\s+(async\s+)?function openBackgroundTab|export\s*\{[^}]*openBackgroundTab/.test(farm),
+    false,
+    "openBackgroundTab ne doit pas être exportée",
+  );
+
+  // Ailleurs, un onglet ne s'ouvre qu'en réponse à un geste de l'utilisateur,
+  // donc visible (`active: true`). Un onglet d'arrière-plan hors de farm.js
+  // échapperait au contrôle.
+  for (const file of SRC_JS) {
+    if (file.endsWith("farm.js")) continue;
+    for (const m of read(file).matchAll(/chrome\.tabs\.create\(\s*\{([^}]*)\}/g)) {
+      assert.match(m[1], /active:\s*true/, `${file} ouvre un onglet d'arrière-plan`);
+    }
+  }
+});
+
 test("tout le réseau sortant reste sur Twitch, en HTTPS", () => {
   // `*.ttvnw.net` est le CDN vidéo de Twitch : on l'observe, on ne le contacte jamais.
   const OBSERVED_ONLY = /ttvnw\.net$/;
