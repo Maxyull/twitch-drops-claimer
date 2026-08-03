@@ -88,9 +88,48 @@ python scripts/bump-version.py patch --tag    # manifest.json + package.json + t
 
 Le zip exclut `tests/`, `docs/`, `dev/`, `scripts/`, `.github/` et `package.json`.
 
+## Workflow
+
+Une modification par branche, une branche par pull request. Jamais de commit direct
+sur `main`.
+
+| Situation | Ce qu'on ouvre |
+|---|---|
+| Une fonctionnalité | une PR `feat/...` |
+| Un bug, une faille de sécurité | une **issue** d'abord, puis une PR `fix/...` qui la référence |
+
+### L'issue, pour un bug ou une faille
+
+Elle décrit le symptôme tel qu'il a été constaté, la cause **vérifiée** et non supposée,
+l'impact, et ce qui est prévu.
+
+Vérifier avant d'affirmer. Une sonde jetable qui prouve la cause vaut mieux qu'un
+raisonnement convaincant : deux fois sur ce dépôt, la cause évidente n'était pas la
+bonne. Une hypothèse écartée a sa place dans l'issue, savoir ce qui n'était **pas** la
+cause fait gagner du temps à la panne suivante.
+
+### La pull request
+
+Elle référence l'issue avec `Closes #N`, ce qui la ferme au merge. Elle explique ce qui
+se passait, pourquoi, et ce qui change. Le titre dit le résultat, pas le fichier touché.
+
+Une PR, une chose. Deux corrections sans rapport font deux PR, même minuscules. Si une
+fonctionnalité et un correctif se retrouvent sur la même branche, on sépare avant de
+pousser.
+
+### Le merge
+
+Dès que la CI est verte : squash, et suppression de la branche. Pas d'attente de revue,
+la trace reste dans la PR.
+
+Si la CI est rouge, elle a raison jusqu'à preuve du contraire. Elle a déjà trouvé des
+défauts réels de l'extension sur ce dépôt, pas seulement des tests mal écrits.
+
 ## Avant d'ouvrir une pull request
 
 - `npm test` au vert.
+- Un correctif s'accompagne du test qui échoue sans lui. Sans ça, rien n'empêche la
+  régression de revenir.
 - Toute modification de `manifest.json` s'accompagne de la mise à jour de la table des
   permissions dans `docs/AUDIT-SECU.md`, **dans le même commit**.
 - Toute nouvelle surface (domaine, permission, type de message, ressource exposée) entre
