@@ -743,14 +743,40 @@ export async function ensureHarvestTab() {
  * Si la fenêtre dédiée est utilisée, l'utilisateur ne voit rien passer, seule la
  * fenêtre réduite de l'extension change d'onglet actif.
  */
+/** Temps laissé au lecteur pour démarrer avant de rendre la place. */
+const WAKE_VISIBLE_MS = 5_000;
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function wakeTab(tabId) {
   if (!(await tabExists(tabId))) return false;
+
+  let precedent = null;
   try {
+    const tab = await chrome.tabs.get(tabId);
+    if (tab.active) return true; // déjà devant, rien à voler ni à rendre
+
+    // On note qui occupait la place avant de la prendre.
+    const [actif] = await chrome.tabs.query({ active: true, windowId: tab.windowId });
+    if (actif && actif.id !== tabId) precedent = actif.id;
+
     await chrome.tabs.update(tabId, { active: true });
-    return true;
   } catch {
     return false;
   }
+
+  if (precedent === null) return true;
+
+  // Quelques secondes au premier plan suffisent à débloquer un lecteur. Rester
+  // devant plus longtemps reviendrait à confisquer l'onglet que l'utilisateur
+  // regardait, ce qui ne vaut jamais le gain.
+  await wait(WAKE_VISIBLE_MS);
+  try {
+    await chrome.tabs.update(precedent, { active: true });
+  } catch {
+    /* l'onglet précédent a été fermé entre-temps */
+  }
+  return true;
 }
 
 /**

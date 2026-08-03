@@ -164,14 +164,17 @@ test("RÉGRESSION : rien qui exigerait la permission « tabs »", () => {
   for (const file of SRC_JS) {
     const code = read(file);
 
-    // `tabs.query` est permis, mais uniquement filtré par URL : c'est la
-    // permission d'hôte qui donne alors accès au résultat. Sans filtre, il
-    // faudrait la permission « tabs ».
+    // `tabs.query` est permis sans la permission « tabs » dans deux cas :
+    // filtré par une URL couverte par `host_permissions`, ce qui donne accès au
+    // resultat ; ou restreint à l'onglet actif, dont on ne lit que l'identifiant.
     for (const m of code.matchAll(/chrome\.tabs\.query\(\s*\{([^}]*)\}/g)) {
-      assert.match(m[1], /url:/, `${file} interroge les onglets sans filtre d'URL`);
+      const filtre = m[1];
+      if (/active:/.test(filtre)) continue;
+
+      assert.match(filtre, /url:/, `${file} interroge les onglets sans filtre`);
       // On résout la constante quand le filtre en est une, sinon le test ne
       // vérifierait plus rien dès qu'on sort le motif dans une variable.
-      const motif = m[1].match(/url:\s*([A-Za-z_$][\w$]*|"[^"]+")/)?.[1] ?? "";
+      const motif = filtre.match(/url:\s*([A-Za-z_$][\w$]*|"[^"]+")/)?.[1] ?? "";
       const litteral = motif.startsWith('"')
         ? motif.slice(1, -1)
         : (code.match(new RegExp(`${motif}\\s*=\\s*"([^"]+)"`))?.[1] ?? null);
