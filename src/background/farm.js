@@ -43,16 +43,49 @@ async function normalWindows() {
  * d'activer un onglet pour débloquer son lecteur sans jamais voler le focus de
  * la fenêtre dans laquelle l'utilisateur travaille.
  */
+/**
+ * Fenêtre qui porte déjà des onglets marqués par l'extension.
+ * C'est le seul moyen de la retrouver après un rechargement, `state.windowId`
+ * étant perdu avec `storage.session`.
+ */
+async function findOwnWindow() {
+  try {
+    const tabs = await chrome.tabs.query({ url: TWITCH_TABS });
+    return tabs.find((tab) => (tab.url ?? "").includes(TAB_MARK))?.windowId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function targetWindowId(settings) {
   const windows = await normalWindows();
+  const existe = (id) => id != null && windows.some((w) => w.id === id);
 
   if (settings?.dedicatedWindow) {
     const state = await store.getState();
-    if (state.windowId && windows.some((w) => w.id === state.windowId)) return state.windowId;
+    if (existe(state.windowId)) return state.windowId;
+
+    // Avant d'en créer une : l'extension en avait peut-être déjà une, dont elle
+    // a perdu la trace au rechargement. Ses onglets marqués la trahissent.
+    const retrouvee = await findOwnWindow();
+    if (existe(retrouvee)) {
+      await store.setState({ windowId: retrouvee });
+      return retrouvee;
+    }
 
     const created = await chrome.windows.create({ state: "minimized", focused: false });
     await store.setState({ windowId: created.id });
     return created.id;
+  }
+
+  // Hors mode dédié, `windows[0]` est la première de la liste de Chrome, pas
+  // celle où l'utilisateur travaille. Avec une seule fenêtre ça ne se voyait
+  // pas ; avec plusieurs, les onglets atterrissaient n'importe où.
+  try {
+    const derniere = await chrome.windows.getLastFocused();
+    if (derniere?.type === "normal") return derniere.id;
+  } catch {
+    /* aucune fenêtre active, on retombe plus bas */
   }
 
   if (windows.length) return windows[0].id;
@@ -140,8 +173,15 @@ export async function closeOrphanTabs() {
     return 0;
   }
 
-  const miens = await ownTabIds(await store.getState());
+  const state = await store.getState();
+  const miens = await ownTabIds(state);
   const orphelins = tabs.filter((tab) => (tab.url ?? "").includes(TAB_MARK) && !miens.has(tab.id));
+  if (!orphelins.length) return 0;
+
+  // On reprend la fenêtre avant de vider ses onglets : une fois qu'ils sont
+  // fermés, plus rien ne permet de la reconnaître, et on en ouvrirait une
+  // seconde juste à côté de celles de l'utilisateur.
+  if (!state.windowId) await store.setState({ windowId: orphelins[0].windowId });
 
   for (const tab of orphelins) await closeTab(tab.id);
   // La fenêtre qui les portait se ferme d'elle-même avec son dernier onglet.

@@ -153,16 +153,34 @@ function renderCampaigns(campaigns) {
   }
 }
 
+/**
+ * Tant que les réglages n'ont pas été lus, les champs sont vides. Enregistrer à
+ * ce moment-là écrirait ce vide par-dessus les vrais réglages : une liste de
+ * chaînes favorites effacée pour avoir cliqué trop tôt. Les boutons ne sont donc
+ * actifs qu'une fois le chargement réussi.
+ */
+function setReady(pret) {
+  $("save").disabled = !pret;
+  $("reset").disabled = !pret;
+}
+
 async function load() {
   const state = await send(MSG.GET_STATE);
-  if (!state?.settings) return;
+  if (!state?.settings) {
+    setReady(false);
+    showError(state?.error ?? "réglages illisibles");
+    return;
+  }
+
   fill(state.settings);
   blacklist = new Set(state.settings.campaignBlacklist || []);
   focus = new Set(state.settings.focusCampaigns || []);
   renderCampaigns(state.campaigns || []);
+  setReady(true);
 }
 
 localizeDocument();
+setReady(false);
 
 $("save").addEventListener("click", async () => {
   const res = await send(MSG.SET_SETTINGS, collect());
