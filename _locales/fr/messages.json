@@ -116,10 +116,10 @@
     "message": "Cocher quand c'est fait"
   },
   "popup_section_campaigns": {
-    "message": "Campagnes suivies"
+    "message": "Campagnes"
   },
   "popup_campaigns_empty": {
-    "message": "Aucune campagne connue. Lance une recherche."
+    "message": "Aucune campagne connue. Lancez une recherche."
   },
   "popup_btn_refresh": {
     "message": "Rechercher"
@@ -444,5 +444,28 @@
   },
   "options_wake_tabs_hint": {
     "message": "Active l'onglet quelques instants quand le navigateur a refusé de lancer la vidéo. Au plus une fois toutes les trois minutes par onglet."
+  },
+  "popup_section_quick": {
+    "message": "Réglages rapides"
+  },
+  "popup_campaigns_hint": {
+    "message": "Décochez celles que vous ne voulez pas farmer."
+  },
+  "popup_campaign_include": {
+    "message": "Farmer cette campagne"
+  },
+  "popup_campaign_done": {
+    "message": "terminée"
+  },
+  "popup_campaigns_count": {
+    "message": "$KEPT$ / $TOTAL$ suivies",
+    "placeholders": {
+      "kept": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

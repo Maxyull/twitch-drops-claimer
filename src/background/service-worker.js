@@ -4,7 +4,7 @@
 
 import { evaluateBeat, summarize, STATUS } from "../lib/status.js";
 import { evaluateCounted } from "../lib/counted.js";
-import { campaignProgress, rankCampaigns, claimableDrops } from "../lib/campaigns.js";
+import { campaignProgress, rankCampaigns, claimableDrops, isActive } from "../lib/campaigns.js";
 import { countOpen, linkedOverrides, redeemAction, addAction, setDone } from "../lib/actions.js";
 import { MSG, CLAIM_KIND, ROLE } from "../lib/messaging.js";
 import { validateMessage } from "../lib/message-guard.js";
@@ -339,6 +339,13 @@ async function onInventoryDone() {
   return { ok: true };
 }
 
+/** Poids de tri d'une campagne dans la liste du popup. */
+function sortWeight(c) {
+  if (c.rank !== null) return c.rank;
+  if (!c.selected) return 20_000;
+  return 10_000; // gardée mais hors rotation : terminée, ou compte non lié
+}
+
 async function onGetState() {
   const [settings, stats, actions, status, state, lastError, cached] = await Promise.all([
     store.getSettings(),
@@ -350,22 +357,36 @@ async function onGetState() {
     store.getCampaigns(),
   ]);
 
-  const campaigns = rankCampaigns(cached.campaigns, {
-    strategy: settings.priority,
-    blacklist: settings.campaignBlacklist,
-    linkedOverrides: linkedOverrides(actions),
-    onlyLinkedCampaigns: settings.onlyLinkedCampaigns,
-  }).map((c) => ({
-    id: c.id,
-    name: c.name,
-    game: c.gameName,
-    endAt: c.endAt,
-    accountLinkURL: c.accountLinkURL,
-    detailsURL: c.detailsURL,
-    progress: campaignProgress(c),
-    claimable: claimableDrops(c).length,
-    current: c.id === state.dropsCampaignId,
-  }));
+  // Le popup montre TOUTES les campagnes actives, pas seulement celles qu'on
+  // farme : on ne peut pas choisir ce qu'on ne voit pas. `rank` dit la place
+  // dans la rotation, `selected` si l'utilisateur la veut.
+  const blacklist = new Set(settings.campaignBlacklist);
+  const rank = new Map(
+    rankCampaigns(cached.campaigns, {
+      strategy: settings.priority,
+      blacklist: settings.campaignBlacklist,
+      linkedOverrides: linkedOverrides(actions),
+      onlyLinkedCampaigns: settings.onlyLinkedCampaigns,
+    }).map((c, i) => [c.id, i]),
+  );
+
+  const campaigns = cached.campaigns
+    .filter((c) => isActive(c))
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      game: c.gameName,
+      endAt: c.endAt,
+      accountLinkURL: c.accountLinkURL,
+      detailsURL: c.detailsURL,
+      progress: campaignProgress(c),
+      claimable: claimableDrops(c).length,
+      current: c.id === state.dropsCampaignId,
+      selected: !blacklist.has(c.id),
+      rank: rank.has(c.id) ? rank.get(c.id) : null,
+    }))
+    // Dans l'ordre de la rotation, puis les terminées, puis les écartées.
+    .sort((a, b) => sortWeight(a) - sortWeight(b));
 
   return {
     settings,

@@ -88,6 +88,8 @@ export const FAKE_STATE = {
       progress: { total: 4, claimed: 2, claimable: 1, pct: 62, remainingMinutes: 45, done: false },
       claimable: 1,
       current: true,
+      selected: true,
+      rank: 0,
     },
     {
       id: "camp-2",
@@ -97,6 +99,8 @@ export const FAKE_STATE = {
       progress: { total: 6, claimed: 0, claimable: 0, pct: 8, remainingMinutes: 110, done: false },
       claimable: 0,
       current: false,
+      selected: true,
+      rank: 1,
     },
     {
       id: "camp-3",
@@ -106,6 +110,19 @@ export const FAKE_STATE = {
       progress: { total: 3, claimed: 1, claimable: 0, pct: 41, remainingMinutes: 25, done: false },
       claimable: 0,
       current: false,
+      selected: true,
+      rank: 2,
+    },
+    {
+      id: "camp-ignoree",
+      name: "Valorant, Champions",
+      game: "Valorant",
+      endAt: Date.now() + 12 * DAY,
+      progress: { total: 2, claimed: 0, claimable: 0, pct: 0, remainingMinutes: 240, done: false },
+      claimable: 0,
+      current: false,
+      selected: false,
+      rank: null,
     },
   ],
   current: {
