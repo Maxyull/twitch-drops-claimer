@@ -467,5 +467,11 @@
         "content": "$2"
       }
     }
+  },
+  "options_rotate_interval": {
+    "message": "Passage sur les onglets (min)"
+  },
+  "options_rotate_interval_hint": {
+    "message": "Active chaque onglet à tour de rôle et recharge ceux qui ne sont pas au vert. 0 désactive ce passage."
   }
 }

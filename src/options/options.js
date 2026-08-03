@@ -17,7 +17,7 @@ const CHECKS = [
   "notifyDrops",
   "notifyActions",
 ];
-const NUMBERS = ["claimIntervalMin", "discoverIntervalMin", "volumePercent"];
+const NUMBERS = ["claimIntervalMin", "discoverIntervalMin", "rotateIntervalMin", "volumePercent"];
 const SELECTS = ["priority", "quality"];
 
 let blacklist = new Set();

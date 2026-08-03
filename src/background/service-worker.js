@@ -17,6 +17,7 @@ import { registerWatchCounter, forgetCountedTab, flushWatchCounter } from "./wat
 const ALARM_TICK = "tdc-tick";
 const ALARM_DISCOVER = "tdc-discover";
 const ALARM_CLAIM = "tdc-claim";
+const ALARM_ROTATE = "tdc-rotate";
 
 const COLOR_GREEN = "#00b37e";
 const COLOR_RED = "#e02f2f";
@@ -36,6 +37,12 @@ async function installAlarms() {
     periodInMinutes: settings.claimIntervalMin,
     delayInMinutes: 0.5,
   });
+  if (settings.rotateIntervalMin > 0) {
+    chrome.alarms.create(ALARM_ROTATE, {
+      periodInMinutes: settings.rotateIntervalMin,
+      delayInMinutes: settings.rotateIntervalMin,
+    });
+  }
 }
 
 // La migration tourne au démarrage du service worker, pas seulement sur
@@ -59,6 +66,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_TICK) void tick();
   if (alarm.name === ALARM_DISCOVER) void discover();
   if (alarm.name === ALARM_CLAIM) void claimSweep();
+  if (alarm.name === ALARM_ROTATE) void rotate();
 });
 
 // --- boucles --------------------------------------------------------------
@@ -76,12 +84,40 @@ async function tick() {
 
   try {
     if (!status.points.green) await farm.ensurePointsTab(settings);
-    if (!status.drops.green) await farm.ensureDropsTab(settings);
+    if (!status.drops.green) {
+      // Une chaîne passée hors ligne ne reviendra pas : on force le changement
+      // plutôt que d'attendre que l'API confirme ce que le lecteur constate déjà.
+      await farm.ensureDropsTab(settings, { force: status.drops.code === STATUS.OFFLINE });
+    }
+    await farm.closeInventoryIfRedundant();
     if (settings.dedicatedWindow) await farm.regroupTabs(settings);
     if (settings.wakeStuckTabs) await wakeStuckTabs(status);
     await store.setLastError(null);
   } catch (err) {
     await store.setLastError(err.message);
+  }
+  await updateBadge();
+}
+
+/**
+ * Passage périodique sur chaque onglet : on l'active pour lui redonner du
+ * contexte, et on ne recharge que ceux qui ne sont pas au vert. Recharger un
+ * onglet qui marche coupe le visionnage pour rien.
+ */
+async function rotate() {
+  const settings = await store.getSettings();
+  if (!settings.enabled || settings.rotateIntervalMin <= 0) return;
+
+  const status = await computeStatus();
+  const state = await store.getState();
+
+  for (const [tabId, s] of [
+    [state.pointsTabId, status.points],
+    [state.dropsTabId, status.drops],
+  ]) {
+    if (!tabId) continue;
+    await farm.wakeTab(tabId);
+    if (!s.green) await farm.reloadTab(tabId);
   }
   await updateBadge();
 }
@@ -336,6 +372,7 @@ async function onClaimed(payload) {
 
 async function onInventoryDone() {
   void discover(); // l'inventaire a bougé : on rafraîchit la progression réelle
+  void farm.closeInventoryIfRedundant();
   return { ok: true };
 }
 
@@ -412,7 +449,8 @@ async function onSetSettings(payload) {
 
   if (
     before.claimIntervalMin !== settings.claimIntervalMin ||
-    before.discoverIntervalMin !== settings.discoverIntervalMin
+    before.discoverIntervalMin !== settings.discoverIntervalMin ||
+    before.rotateIntervalMin !== settings.rotateIntervalMin
   ) {
     await installAlarms();
   }

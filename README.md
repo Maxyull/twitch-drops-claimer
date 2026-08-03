@@ -95,6 +95,10 @@ travaillez. La qualité est descendue à 160p pour la bande passante.
 - **Twitch ne compte la progression que sur un flux à la fois.** L'onglet « points » et
   l'onglet « drops » cumulent tous les deux des points de chaîne, mais un seul fait
   avancer les drops.
+- **Les onglets se ferment tout seuls quand ils ne servent plus.** Aucune chaîne favorite
+  en direct, plus aucune campagne à farmer, inventaire déjà passé : l'onglet disparaît.
+  Le seul cas où l'inventaire est conservé est quand c'est le dernier onglet Twitch, car
+  il sert alors aussi à reprendre le jeton d'intégrité.
 - **Ne mettez pas les onglets d'arrière-plan en veille.** L'extension pose
   `autoDiscardable: false`, ce qui suffit dans la plupart des cas. Si un voyant reste au
   rouge en « aucune réponse de l'onglet », désactiver l'économiseur de mémoire pour

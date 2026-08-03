@@ -467,5 +467,11 @@
         "content": "$2"
       }
     }
+  },
+  "options_rotate_interval": {
+    "message": "Tab sweep (min)"
+  },
+  "options_rotate_interval_hint": {
+    "message": "Activates each tab in turn and reloads those that are not green. 0 disables the sweep."
   }
 }
