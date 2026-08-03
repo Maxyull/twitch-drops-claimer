@@ -263,14 +263,17 @@ function renderCampaigns(campaigns) {
 
 // L'état replié est une préférence d'affichage, pas un réglage de
 // fonctionnement : il reste local à la page du popup.
-const COLLAPSE_KEY = "tdc.campaignsOpen";
+const COLLAPSIBLE = [
+  ["campaignsBox", "tdc.campaignsOpen"],
+  ["actionsBox", "tdc.actionsOpen"],
+];
 
 function setupCollapse() {
-  const box = $("campaignsBox");
-  box.open = localStorage.getItem(COLLAPSE_KEY) !== "0";
-  box.addEventListener("toggle", () => {
-    localStorage.setItem(COLLAPSE_KEY, box.open ? "1" : "0");
-  });
+  for (const [id, key] of COLLAPSIBLE) {
+    const box = $(id);
+    box.open = localStorage.getItem(key) !== "0";
+    box.addEventListener("toggle", () => localStorage.setItem(key, box.open ? "1" : "0"));
+  }
 }
 
 function renderError(lastError) {
