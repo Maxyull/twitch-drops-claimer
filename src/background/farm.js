@@ -19,7 +19,8 @@ const DETAILS_TTL_MS = 6 * 60 * 60 * 1000;
 // --- onglets --------------------------------------------------------------
 
 async function anyWindowId() {
-  const windows = await chrome.windows.getAll({ windowTypes: ["normal"] });
+  // On filtre en JS plutôt que par `windowTypes`, déprécié dans getAll().
+  const windows = (await chrome.windows.getAll()).filter((w) => w.type === "normal");
   if (windows.length) return windows[0].id;
   const created = await chrome.windows.create({ state: "minimized", focused: false });
   return created.id;

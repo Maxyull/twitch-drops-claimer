@@ -302,8 +302,13 @@ async function onSetSettings(payload) {
   ) {
     await installAlarms();
   }
-  if (!settings.enabled) await farm.closeAllTabs();
-  else await tick();
+  if (!settings.enabled) {
+    await farm.closeAllTabs();
+  } else {
+    // Surtout pas d'`await` : `tick()` interroge Twitch et ouvre des onglets.
+    // La page d'options n'a pas à attendre tout ça pour savoir que c'est enregistré.
+    void tick();
+  }
 
   await updateBadge();
   return { ok: true, settings };

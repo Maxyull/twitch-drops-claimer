@@ -106,22 +106,27 @@ export function validateMessage(msg, sender, extensionId) {
   }
   const origin = MESSAGE_ORIGIN[type];
 
-  // `sender.tab` n'existe que pour un script de contenu.
-  const fromContent = Boolean(sender.tab);
-  if (origin === SENDER.PRIVILEGED && fromContent) {
-    return { ok: false, error: "une page web ne peut pas piloter l'extension" };
-  }
-  if (origin === SENDER.CONTENT && !fromContent) {
-    return { ok: false, error: "message attendu depuis un onglet" };
-  }
-  if (fromContent && !isTwitchUrl(sender.url)) {
-    return { ok: false, error: "onglet hors périmètre" };
+  // On tranche sur l'URL de l'expéditeur, pas sur la présence de `sender.tab` :
+  // la page d'options est elle aussi un onglet, elle a donc un `sender.tab`.
+  if (origin === SENDER.PRIVILEGED) {
+    if (!isExtensionUrl(sender.url, extensionId)) {
+      return { ok: false, error: "une page web ne peut pas piloter l'extension" };
+    }
+  } else if (!isTwitchUrl(sender.url) || !sender.tab) {
+    return { ok: false, error: "message attendu depuis un onglet Twitch" };
   }
 
   const payload = SANITIZERS[type](msg.payload);
   if (payload === null) return { ok: false, error: "charge utile invalide" };
 
   return { ok: true, type, payload };
+}
+
+/** Page de l'extension elle-même : popup, page d'options. */
+export function isExtensionUrl(url, extensionId) {
+  return typeof url === "string" && Boolean(extensionId)
+    ? url.startsWith(`chrome-extension://${extensionId}/`)
+    : false;
 }
 
 export function isTwitchUrl(url) {

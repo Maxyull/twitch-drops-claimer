@@ -5,11 +5,28 @@
 import { test, expect, chromium } from "@playwright/test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { mkdtempSync, existsSync } from "node:fs";
+import { mkdtempSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const DIST = path.join(ROOT, "dist");
+
+// La langue de l'interface suit celle du navigateur, et le runner de la CI est en
+// anglais : on accepte donc la traduction, quelle que soit la locale active.
+const LOCALES = ["fr", "en"].map((code) =>
+  JSON.parse(readFileSync(path.join(ROOT, "_locales", code, "messages.json"), "utf8")),
+);
+
+function translations(key) {
+  return LOCALES.map((dict) => dict[key]?.message).filter(Boolean);
+}
+
+async function expectTranslated(locator, key) {
+  const actual = await locator.textContent();
+  const expected = translations(key);
+  expect(expected.length).toBeGreaterThan(0);
+  expect(expected, `texte "${actual}" absent des traductions de ${key}`).toContain(actual.trim());
+}
 
 let context;
 let extensionId;
@@ -54,8 +71,8 @@ test("le popup s'affiche, traduit, sans erreur console", async () => {
   page.on("console", (msg) => msg.type() === "error" && errors.push(msg.text()));
 
   await page.goto(url("popup/popup.html"));
-  await expect(page.locator("h1")).toHaveText("Twitch Drops & Points");
-  await expect(page.locator("#refresh")).toHaveText("Rechercher");
+  await expectTranslated(page.locator("h1"), "popup_title");
+  await expectTranslated(page.locator("#refresh"), "popup_btn_refresh");
 
   // Aucune clé i18n laissée vide.
   const empties = await page.locator("[data-i18n]:empty").count();
@@ -69,7 +86,7 @@ test("les voyants et le badge existent dès le premier lancement", async () => {
   await page.goto(url("popup/popup.html"));
   // Sans chaîne favorite, le voyant des points doit être rouge et le dire.
   await expect(page.locator("#pointsDot")).toHaveClass(/red/);
-  await expect(page.locator("#pointsInfo")).toHaveText("aucune chaîne favorite (Réglages)");
+  await expectTranslated(page.locator("#pointsInfo"), "popup_points_none");
   await page.close();
 });
 
