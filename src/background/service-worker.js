@@ -55,6 +55,10 @@ const migrated = store.migrate().catch((err) => {
 
 async function boot() {
   await migrated;
+  // Avant toute alarme, donc avant que quoi que ce soit ouvre un onglet : la
+  // session précédente a peut-être laissé une fenêtre, et on ne veut surtout pas
+  // en ouvrir une seconde à côté.
+  await farm.adoptExistingWindow();
   await installAlarms();
   await updateBadge();
 }

@@ -345,7 +345,9 @@ $("rebuildWindow").addEventListener("click", async () => {
 });
 
 $("inventory").addEventListener("click", () => {
-  chrome.tabs.create({ url: "https://www.twitch.tv/drops/inventory" });
+  // `active: true` explicite : c'est le défaut de Chrome, mais l'écrire dit que
+  // cet onglet-là est voulu au premier plan, contrairement à ceux de l'extension.
+  chrome.tabs.create({ url: "https://www.twitch.tv/drops/inventory", active: true });
 });
 
 $("options").addEventListener("click", () => chrome.runtime.openOptionsPage());

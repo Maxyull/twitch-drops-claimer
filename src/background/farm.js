@@ -227,6 +227,15 @@ async function anyDropTabAlive(state) {
  * l'extension, `storage.session` est vide et elle rouvrirait ce qui existe
  * déjà, chaque ouverture pouvant entraîner une fenêtre avec elle.
  */
+/** N'importe quel onglet Twitch, marqué ou non : le script de contenu y tourne. */
+async function anyTwitchTab() {
+  try {
+    return (await chrome.tabs.query({ url: TWITCH_TABS }))[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function findMarkedTab(channel) {
   const prefixe = `https://www.twitch.tv/${channel}`;
   try {
@@ -687,7 +696,13 @@ export async function runClaimSweep(settings) {
     await store.setState({ inventorySince: Date.now() });
     return { mode: "dom", claimed: 0, tabId: state.inventoryTabId };
   }
-  const tabId = await openBackgroundTab(INVENTORY_URL);
+
+  // Un onglet d'inventaire marqué peut trainer d'une session précédente : on le
+  // reprend plutôt que d'en ouvrir un second sur la même page.
+  const dejaLa = await findMarkedTab("drops/inventory");
+  const tabId = dejaLa?.id ?? (await openBackgroundTab(INVENTORY_URL));
+  if (dejaLa) await chrome.tabs.reload(tabId);
+
   await store.setState({ inventoryTabId: tabId, inventorySince: Date.now() });
   return { mode: "dom", claimed: 0, tabId };
 }
@@ -734,8 +749,28 @@ export async function ensureHarvestTab() {
   if (await tabExists(state.pointsTabId)) return state;
   if (await anyDropTabAlive(state)) return state;
 
+  // Cet onglet ne sert qu'à reprendre le jeton d'intégrité, et le script de
+  // contenu tourne sur TOUS les onglets Twitch : celui que l'utilisateur a déjà
+  // ouvert fait aussi bien l'affaire. En ouvrir un de plus, et donc une fenêtre,
+  // pour une page qu'on a déjà sous la main n'a aucun sens.
+  if (await anyTwitchTab()) return state;
+
   const tabId = await openBackgroundTab(INVENTORY_URL);
-  return store.setState({ inventoryTabId: tabId });
+  return store.setState({ inventoryTabId: tabId, inventorySince: Date.now() });
+}
+
+/**
+ * Reprend la fenêtre de la session précédente. Appelé au démarrage, avant que
+ * quoi que ce soit ouvre un onglet : sinon la première ouverture en crée une
+ * autre à côté de celle qui existait déjà.
+ */
+export async function adoptExistingWindow() {
+  const state = await store.getState();
+  if (state.windowId) return state.windowId;
+
+  const retrouvee = await findOwnWindow();
+  if (retrouvee != null) await store.setState({ windowId: retrouvee });
+  return retrouvee;
 }
 
 /**
@@ -868,4 +903,7 @@ export async function refreshTabMute(settings) {
   }
 }
 
-export { tabExists, closeTab, openBackgroundTab };
+// `openBackgroundTab` reste privée : chacun des trois chemins qui l'appellent
+// vérifie d'abord qu'un onglet n'existe pas déjà. L'exporter ouvrirait une porte
+// où cette vérification pourrait être oubliée.
+export { tabExists, closeTab };
