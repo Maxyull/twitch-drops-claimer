@@ -106,6 +106,12 @@ test("aller-retour de messages : la page d'options écrit, le worker répond", a
   // La réponse du service worker est déjà normalisée.
   await expect(page.locator("#favoriteChannels")).toHaveValue("zerator\ngotaga");
   await expect(page.locator("#volumePercent")).toHaveValue("1");
+
+  // Et c'est bien écrit dans le stockage, pas seulement affiché.
+  await expect
+    .poll(() => page.evaluate(() => chrome.storage.local.get("favoriteChannels")))
+    .toEqual({ favoriteChannels: ["zerator", "gotaga"] });
+
   await page.close();
 });
 
@@ -132,11 +138,39 @@ test("les réglages survivent au rechargement de la page", async () => {
   await page.close();
 });
 
-test("les réglages survivent à la mort du service worker (redémarrage du navigateur)", async () => {
+/**
+ * Fermer le navigateur juste après une écriture peut la perdre : `storage.local`
+ * n'est pas encore sur le disque. On relit la valeur depuis une page de
+ * l'extension avant de couper, ce qui garantit qu'elle est bien posée et rend
+ * ces deux tests déterministes plutôt qu'intermittents.
+ */
+async function restartBrowser() {
+  const page = await context.newPage();
+  await page.goto(url("options/options.html"));
+
+  // On dump tout le stockage : si la valeur manque, le message d'échec doit
+  // dire ce qu'il y a à la place, pas seulement ce qui manque.
+  await expect
+    .poll(async () => {
+      const brut = await page.evaluate(() => chrome.storage.local.get(null));
+      return JSON.stringify({
+        favoriteChannels: brut.favoriteChannels,
+        storageVersion: brut.storageVersion,
+        cles: Object.keys(brut).sort(),
+      });
+    })
+    .toContain('"favoriteChannels":["zerator","gotaga"]');
+
+  await page.close();
+
   await context.close();
   const relaunched = await launch(profileDir);
   context = relaunched.ctx;
   extensionId = relaunched.id;
+}
+
+test("les réglages survivent à la mort du service worker (redémarrage du navigateur)", async () => {
+  await restartBrowser();
 
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
@@ -154,10 +188,7 @@ test("RÉGRESSION : une montée de schéma ne perd aucun réglage", async () => 
   await page.evaluate(() => chrome.storage.local.set({ storageVersion: 1 }));
   await page.close();
 
-  await context.close();
-  const relaunched = await launch(profileDir);
-  context = relaunched.ctx;
-  extensionId = relaunched.id;
+  await restartBrowser();
 
   const after = await context.newPage();
   await after.goto(url("options/options.html"));
