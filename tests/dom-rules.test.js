@@ -14,12 +14,28 @@ function btn(overrides = {}) {
     testSelector: "",
     aTarget: "",
     ariaLabel: "",
+    inner: "",
     context: "/directory",
     visible: true,
     disabled: false,
     ...overrides,
   };
 }
+
+/** Le bouton du solde, toujours présent à côté du chat, coffre ou pas. */
+const SOLDE_DE_POINTS = btn({
+  text: "1 234",
+  aTarget: "community-points-summary",
+  ariaLabel: "Points de chaîne",
+  context: "/zerator community-points-summary tw-flex",
+});
+
+/** Le coffre : sa classe est portée par une icône À L'INTÉRIEUR du bouton. */
+const COFFRE = btn({
+  ariaLabel: "Réclamer un bonus",
+  inner: "claimable-bonus__icon tw-svg",
+  context: "/zerator community-points-summary",
+});
 
 const INVENTORY_CTX = "/drops/inventory drops-campaign-in-progress tw-tower";
 
@@ -75,17 +91,30 @@ test("un libellé approchant ne suffit pas", () => {
 });
 
 test("coffre de points de chaîne", () => {
+  assert.equal(isPointsBonusButton(COFFRE), true, "marqueur porté par un enfant du bouton");
   assert.equal(isPointsBonusButton(btn({ context: "claimable-bonus__icon" })), true);
-  assert.equal(
-    isPointsBonusButton(btn({ testSelector: "community-points-summary", ariaLabel: "Bonus" })),
-    true,
-  );
-  assert.equal(
-    isPointsBonusButton(btn({ ariaLabel: "Réclamer un bonus", context: "community-points-summary" })),
-    true,
-  );
-  assert.equal(isPointsBonusButton(btn({ text: "Bonus", context: "/zerator chat" })), false);
-  assert.equal(isPointsBonusButton(btn({ context: "claimable-bonus__icon", visible: false })), false);
+  assert.equal(isPointsBonusButton(btn({ testSelector: "claimable-bonus" })), true);
+  assert.equal(isPointsBonusButton(btn({ ariaLabel: "Claim your bonus" })), true);
+  assert.equal(isPointsBonusButton({ ...COFFRE, visible: false }), false);
+  assert.equal(isPointsBonusButton({ ...COFFRE, disabled: true }), false);
+});
+
+test("RÉGRESSION : le bouton du solde de points n'est pas le coffre", () => {
+  // Il est TOUJOURS là, coffre ou pas. Le reconnaître revenait à cliquer le
+  // solde, à ouvrir le menu des points, et à ne jamais atteindre le coffre,
+  // tout en rapportant une réclamation qui n'avait pas eu lieu.
+  assert.equal(isPointsBonusButton(SOLDE_DE_POINTS), false);
+});
+
+test("RÉGRESSION : le conteneur des points ne suffit pas à lui seul", () => {
+  const voisins = [
+    btn({ context: "community-points-summary", text: "Voir les récompenses" }),
+    btn({ aTarget: "community-points-summary", ariaLabel: "Ouvrir le menu" }),
+    btn({ context: "community-points-summary", ariaLabel: "Bonus" }), // « bonus » sans verbe
+  ];
+  for (const b of voisins) {
+    assert.equal(isPointsBonusButton(b), false, `cliqué à tort : ${b.ariaLabel || b.text}`);
+  }
 });
 
 test("bandeaux à écarter pour relancer le lecteur", () => {

@@ -66,12 +66,25 @@ export function isDropClaimButton(d) {
   return DROP_CONTEXT_RE.test(`${d.context || ""} ${d.ariaLabel || ""}`);
 }
 
-/** Coffre violet « bonus de points de chaîne ». */
+/**
+ * Coffre violet « bonus de points de chaîne ».
+ *
+ * Le conteneur des points (`community-points-summary`) ne prouve RIEN : il est
+ * toujours présent à côté du chat, coffre ou pas, et le bouton du solde s'y
+ * trouve aussi. S'en contenter revenait à cliquer le solde et à ne jamais
+ * atteindre le coffre.
+ * Le vrai marqueur est `claimable-bonus`, porté par un enfant du bouton, d'où
+ * la lecture de `inner` en plus des ancêtres.
+ */
 export function isPointsBonusButton(d) {
   if (!usable(d)) return false;
-  const sel = `${d.testSelector || ""} ${d.aTarget || ""} ${d.context || ""}`;
-  if (/claimable-bonus|community-points-summary/i.test(sel)) return true;
-  return /bonus/i.test(`${d.ariaLabel || ""} ${d.text || ""}`) && /point/i.test(sel);
+
+  const markers = `${d.testSelector || ""} ${d.aTarget || ""} ${d.inner || ""} ${d.context || ""}`;
+  if (/claimable-bonus/i.test(markers)) return true;
+
+  // Repli sur le libellé accessible : « Réclamer un bonus », « Claim bonus ».
+  const label = `${d.ariaLabel || ""} ${d.text || ""}`;
+  return /bonus/i.test(label) && /(réclamer|reclamer|récupérer|recuperer|claim)/i.test(label);
 }
 
 /** Bandeaux à écarter pour que le lecteur reparte : « toujours là ? », contenu sensible… */
