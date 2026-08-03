@@ -13,21 +13,18 @@
 
   <div id="error" class="err" hidden></div>
 
-  <h2 data-i18n="popup_section_watch">Visionnage</h2>
+  <h2 data-i18n="popup_section_watch">Regardé en arrière-plan</h2>
+  <ul id="watchers"></ul>
+  <p class="empty" id="watchersEmpty" data-i18n="popup_watchers_empty"></p>
+
   <div class="card watch">
     <span class="dot" id="pointsDot"></span>
-    <span class="who">
-      <b data-i18n="popup_points">Points de chaîne</b>
-      <small id="pointsInfo"></small>
-    </span>
+    <span class="who"><b data-i18n="popup_points">Points de chaîne</b></span>
     <button id="watchFavorite" class="toggle" data-i18n-label="popup_toggle_watch"></button>
   </div>
   <div class="card watch">
     <span class="dot" id="dropsDot"></span>
-    <span class="who">
-      <b data-i18n="popup_drops">Farm des drops</b>
-      <small id="dropsInfo"></small>
-    </span>
+    <span class="who"><b data-i18n="popup_drops">Farm des drops</b></span>
     <button id="farmDrops" class="toggle" data-i18n-label="popup_toggle_farm"></button>
   </div>
 

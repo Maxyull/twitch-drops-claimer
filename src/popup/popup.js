@@ -2,8 +2,9 @@
 // Tout est posé en textContent, jamais d'injection HTML : les noms de campagnes
 // viennent de Twitch et ne sont pas de confiance (docs/AUDIT-SECU.md, passe 1).
 
-import { MSG } from "../lib/messaging.js";
+import { MSG, ROLE } from "../lib/messaging.js";
 import { ACTION_KIND } from "../lib/actions.js";
+import { COUNTED } from "../lib/counted.js";
 import { t, localizeDocument } from "../lib/i18n.js";
 
 const $ = (id) => document.getElementById(id);
@@ -51,23 +52,68 @@ function fmtMinutes(min) {
 
 // --- rendu ----------------------------------------------------------------
 
+const statusText = (code) => t(`status_${code}`);
+
+/** Classe du badge de comptage : vert prouvé, orange probable, rouge non compté. */
+function countedTone(code) {
+  if (code === COUNTED.CONFIRMED) return "counted";
+  if (code === COUNTED.STREAMING) return "partial";
+  if (code === COUNTED.UNKNOWN) return "";
+  return "uncounted";
+}
+
+function fmtElapsed(since) {
+  if (!since) return "";
+  const min = Math.floor((Date.now() - since) / 60_000);
+  if (min < 1) return t("popup_just_started");
+  if (min < 60) return t("popup_elapsed_min", [String(min)]);
+  return t("popup_elapsed_hours", [String(Math.floor(min / 60)), String(min % 60)]);
+}
+
+/** La liste des chaînes que l'extension regarde vraiment, en arrière-plan. */
 function renderWatchers(state) {
-  const { status, current, settings } = state;
+  const { status, settings } = state;
 
-  setDot($("globalDot"), status.global.green, status.global.label);
+  setDot($("globalDot"), status.global.green, statusText(status.global.code));
+  setDot($("pointsDot"), status.points.green, statusText(status.points.code));
+  setDot($("dropsDot"), status.drops.green, statusText(status.drops.code));
 
-  setDot($("pointsDot"), status.points.green, status.points.label);
-  $("pointsInfo").textContent = settings.favoriteChannels.length
-    ? `${current.pointsChannel || settings.favoriteChannels[0]}, ${status.points.label}`
-    : t("popup_points_none");
+  const list = $("watchers");
+  list.replaceChildren();
 
-  setDot($("dropsDot"), status.drops.green, status.drops.label);
-  const campaign = state.campaigns.find((c) => c.id === current.dropsCampaignId);
-  $("dropsInfo").textContent = current.dropsChannel
-    ? `${current.dropsChannel}, ${campaign ? campaign.name : status.drops.label}`
-    : settings.farmDrops
-      ? t("popup_drops_none")
-      : t("popup_disabled");
+  const watchers = state.watchers ?? [];
+  $("watchersEmpty").hidden = watchers.length > 0;
+  if (!watchers.length) {
+    $("watchersEmpty").textContent = settings.favoriteChannels.length
+      ? t("popup_watchers_empty")
+      : t("popup_points_none");
+    return;
+  }
+
+  for (const w of watchers) {
+    const row = el("button", "watcher");
+    row.title = t("popup_watcher_focus");
+    row.addEventListener("click", () => chrome.tabs.update(w.tabId, { active: true }));
+
+    const dot = el("span", "dot");
+    dot.classList.add(w.status.green ? "green" : "red");
+
+    const body = el("div", "body");
+    const line1 = el("div", "line1");
+    line1.append(el("b", null, w.channel));
+    line1.append(
+      el("span", "tag", w.role === ROLE.POINTS ? t("popup_tag_points") : t("popup_tag_drops")),
+    );
+    const tone = countedTone(w.counted.code);
+    line1.append(el("span", `tag ${tone}`.trim(), t(`counted_${w.counted.code}`)));
+    body.append(line1);
+
+    const bits = [statusText(w.status.code), w.campaignName, fmtElapsed(w.since)].filter(Boolean);
+    body.append(el("small", null, bits.join(" · ")));
+
+    row.append(dot, body);
+    list.append(row);
+  }
 }
 
 function renderStats(stats) {

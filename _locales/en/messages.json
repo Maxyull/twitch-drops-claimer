@@ -1,153 +1,424 @@
 {
-  "ext_name": { "message": "Twitch Drops & Points Auto-Claimer" },
+  "ext_name": {
+    "message": "Twitch Drops & Points Auto-Claimer"
+  },
   "ext_description": {
     "message": "Watches a channel in the background, claims channel points and Twitch Drops, and finds active campaigns on its own."
   },
-
   "badge_actions": {
     "message": "$COUNT$ action(s) to do outside Twitch",
-    "placeholders": { "count": { "content": "$1" } }
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
-  "badge_disabled": { "message": "Disabled" },
-  "badge_watching": { "message": "Watching" },
+  "badge_disabled": {
+    "message": "Disabled"
+  },
+  "badge_watching": {
+    "message": "Watching"
+  },
   "badge_problem": {
     "message": "Problem: $REASON$",
-    "placeholders": { "reason": { "content": "$1" } }
+    "placeholders": {
+      "reason": {
+        "content": "$1"
+      }
+    }
   },
-
-  "notif_drop_title": { "message": "Drop claimed" },
-  "notif_drop_fallback": { "message": "Reward" },
-  "notif_points_title": { "message": "Channel points bonus claimed" },
+  "notif_drop_title": {
+    "message": "Drop claimed"
+  },
+  "notif_drop_fallback": {
+    "message": "Reward"
+  },
+  "notif_points_title": {
+    "message": "Channel points bonus claimed"
+  },
   "notif_points_body": {
     "message": "Channel $CHANNEL$",
-    "placeholders": { "channel": { "content": "$1" } }
+    "placeholders": {
+      "channel": {
+        "content": "$1"
+      }
+    }
   },
-  "notif_link_title": { "message": "Account linking required" },
-  "notif_link_body": { "message": "Twitch will not track progress until the account is linked." },
-  "notif_redeem_title": { "message": "Reward to collect on the publisher's site" },
-  "notif_redeem_body": { "message": "The reward is activated on the publisher's website." },
-  "notif_btn_open": { "message": "Open site" },
-  "notif_btn_done": { "message": "Done" },
-  "notif_problem_title": { "message": "Twitch Drops: problem" },
-
-  "popup_title": { "message": "Twitch Drops & Points" },
-  "popup_section_watch": { "message": "Watching" },
-  "popup_points": { "message": "Channel points" },
-  "popup_points_none": { "message": "no favourite channel (Settings)" },
-  "popup_drops": { "message": "Drop farming" },
-  "popup_drops_none": { "message": "no live channel found" },
-  "popup_disabled": { "message": "disabled" },
-  "popup_stat_drops": { "message": "drops claimed" },
-  "popup_stat_points": { "message": "point bonuses" },
-  "popup_no_claim": { "message": "nothing claimed yet" },
+  "notif_link_title": {
+    "message": "Account linking required"
+  },
+  "notif_link_body": {
+    "message": "Twitch will not track progress until the account is linked."
+  },
+  "notif_redeem_title": {
+    "message": "Reward to collect on the publisher's site"
+  },
+  "notif_redeem_body": {
+    "message": "The reward is activated on the publisher's website."
+  },
+  "notif_btn_open": {
+    "message": "Open site"
+  },
+  "notif_btn_done": {
+    "message": "Done"
+  },
+  "notif_problem_title": {
+    "message": "Twitch Drops: problem"
+  },
+  "popup_title": {
+    "message": "Twitch Drops & Points"
+  },
+  "popup_section_watch": {
+    "message": "Watching"
+  },
+  "popup_points": {
+    "message": "Channel points"
+  },
+  "popup_points_none": {
+    "message": "no favourite channel (Settings)"
+  },
+  "popup_drops": {
+    "message": "Drop farming"
+  },
+  "popup_stat_drops": {
+    "message": "drops claimed"
+  },
+  "popup_stat_points": {
+    "message": "point bonuses"
+  },
+  "popup_no_claim": {
+    "message": "nothing claimed yet"
+  },
   "popup_last_claim": {
     "message": "last claim: $WHEN$",
-    "placeholders": { "when": { "content": "$1" } }
+    "placeholders": {
+      "when": {
+        "content": "$1"
+      }
+    }
   },
-  "popup_section_actions": { "message": "Actions required" },
-  "popup_actions_empty": { "message": "Nothing to do outside Twitch." },
+  "popup_section_actions": {
+    "message": "Actions required"
+  },
+  "popup_actions_empty": {
+    "message": "Nothing to do outside Twitch."
+  },
   "popup_action_link": {
     "message": "Link your account on the publisher's site, otherwise nothing accrues."
   },
-  "popup_action_redeem": { "message": "Reward to collect on the publisher's site." },
-  "popup_action_open": { "message": "open site" },
-  "popup_action_check": { "message": "Tick once done" },
-  "popup_section_campaigns": { "message": "Tracked campaigns" },
-  "popup_campaigns_empty": { "message": "No campaign known yet. Run a search." },
-  "popup_btn_refresh": { "message": "Search" },
-  "popup_btn_searching": { "message": "Searching…" },
-  "popup_btn_switch": { "message": "Switch channel" },
-  "popup_btn_inventory": { "message": "Inventory" },
-  "popup_btn_options": { "message": "Settings" },
-  "popup_toggle_enabled": { "message": "Enable the extension" },
-  "popup_toggle_watch": { "message": "Watch the favourite channel in the background" },
-  "popup_toggle_farm": { "message": "Farm drops automatically" },
+  "popup_action_redeem": {
+    "message": "Reward to collect on the publisher's site."
+  },
+  "popup_action_open": {
+    "message": "open site"
+  },
+  "popup_action_check": {
+    "message": "Tick once done"
+  },
+  "popup_section_campaigns": {
+    "message": "Tracked campaigns"
+  },
+  "popup_campaigns_empty": {
+    "message": "No campaign known yet. Run a search."
+  },
+  "popup_btn_refresh": {
+    "message": "Search"
+  },
+  "popup_btn_searching": {
+    "message": "Searching…"
+  },
+  "popup_btn_switch": {
+    "message": "Switch channel"
+  },
+  "popup_btn_inventory": {
+    "message": "Inventory"
+  },
+  "popup_btn_options": {
+    "message": "Settings"
+  },
+  "popup_toggle_enabled": {
+    "message": "Enable the extension"
+  },
+  "popup_toggle_watch": {
+    "message": "Watch the favourite channel in the background"
+  },
+  "popup_toggle_farm": {
+    "message": "Farm drops automatically"
+  },
   "popup_tiers": {
     "message": "$DONE$/$TOTAL$ tiers",
-    "placeholders": { "done": { "content": "$1" }, "total": { "content": "$2" } }
+    "placeholders": {
+      "done": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   },
   "popup_claimable": {
     "message": "$COUNT$ to claim",
-    "placeholders": { "count": { "content": "$1" } }
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   },
-  "popup_ready": { "message": "ready" },
+  "popup_ready": {
+    "message": "ready"
+  },
   "popup_left_min": {
     "message": "$MIN$ min left",
-    "placeholders": { "min": { "content": "$1" } }
+    "placeholders": {
+      "min": {
+        "content": "$1"
+      }
+    }
   },
   "popup_left_hours": {
     "message": "$H$ h $MIN$ min left",
-    "placeholders": { "h": { "content": "$1" }, "min": { "content": "$2" } }
+    "placeholders": {
+      "h": {
+        "content": "$1"
+      },
+      "min": {
+        "content": "$2"
+      }
+    }
   },
-  "popup_end_hours": { "message": "ends in $H$ h", "placeholders": { "h": { "content": "$1" } } },
-  "popup_end_days": { "message": "ends in $D$ d", "placeholders": { "d": { "content": "$1" } } },
-  "popup_ended": { "message": "ended" },
-
-  "options_title": { "message": "Settings" },
-  "options_intro": { "message": "Everything is configured here. Quick toggles stay in the popup." },
-  "options_section_channels": { "message": "Favourite channels" },
-  "options_channels_label": { "message": "One channel per line" },
+  "popup_end_hours": {
+    "message": "ends in $H$ h",
+    "placeholders": {
+      "h": {
+        "content": "$1"
+      }
+    }
+  },
+  "popup_end_days": {
+    "message": "ends in $D$ d",
+    "placeholders": {
+      "d": {
+        "content": "$1"
+      }
+    }
+  },
+  "popup_ended": {
+    "message": "ended"
+  },
+  "options_title": {
+    "message": "Settings"
+  },
+  "options_intro": {
+    "message": "Everything is configured here. Quick toggles stay in the popup."
+  },
+  "options_section_channels": {
+    "message": "Favourite channels"
+  },
+  "options_channels_label": {
+    "message": "One channel per line"
+  },
   "options_channels_hint": {
     "message": "The extension opens a background tab on the first channel of the list that is live, and claims channel points there. A username or a URL both work."
   },
-  "options_watch_favorite": { "message": "Watch the favourite in the background" },
+  "options_watch_favorite": {
+    "message": "Watch the favourite in the background"
+  },
   "options_watch_favorite_hint": {
     "message": "Unchecked, the extension only claims on Twitch tabs you already have open."
   },
-  "options_claim_points": { "message": "Claim channel point bonuses" },
-  "options_claim_points_hint": { "message": "The purple chest, on every open channel." },
-  "options_section_drops": { "message": "Drops" },
-  "options_farm_drops": { "message": "Claim drops automatically" },
+  "options_claim_points": {
+    "message": "Claim channel point bonuses"
+  },
+  "options_claim_points_hint": {
+    "message": "The purple chest, on every open channel."
+  },
+  "options_section_drops": {
+    "message": "Drops"
+  },
+  "options_farm_drops": {
+    "message": "Claim drops automatically"
+  },
   "options_farm_drops_hint": {
     "message": "As soon as a Claim button shows up, in-stream or in the inventory."
   },
-  "options_auto_discover": { "message": "Find campaigns automatically" },
+  "options_auto_discover": {
+    "message": "Find campaigns automatically"
+  },
   "options_auto_discover_hint": {
     "message": "Opens a second background tab on a channel handing out drops, and moves from campaign to campaign."
   },
-  "options_only_linked": { "message": "Skip campaigns whose account is not linked" },
+  "options_only_linked": {
+    "message": "Skip campaigns whose account is not linked"
+  },
   "options_only_linked_hint": {
     "message": "Otherwise they are farmed anyway, and reported under \"actions required\"."
   },
-  "options_priority": { "message": "Priority order" },
-  "options_priority_ending": { "message": "Ending soonest" },
-  "options_priority_closest": { "message": "Closest to completion" },
-  "options_priority_order": { "message": "Twitch's own order" },
-  "options_claim_interval": { "message": "Claim sweep (min)" },
-  "options_claim_interval_hint": { "message": "Reloads the inventory and clicks everything claimable." },
-  "options_discover_interval": { "message": "Campaign search (min)" },
-  "options_fast_claim": { "message": "Fast mode (claim through the API)" },
+  "options_priority": {
+    "message": "Priority order"
+  },
+  "options_priority_ending": {
+    "message": "Ending soonest"
+  },
+  "options_priority_closest": {
+    "message": "Closest to completion"
+  },
+  "options_priority_order": {
+    "message": "Twitch's own order"
+  },
+  "options_claim_interval": {
+    "message": "Claim sweep (min)"
+  },
+  "options_claim_interval_hint": {
+    "message": "Reloads the inventory and clicks everything claimable."
+  },
+  "options_discover_interval": {
+    "message": "Campaign search (min)"
+  },
+  "options_fast_claim": {
+    "message": "Fast mode (claim through the API)"
+  },
   "options_fast_claim_hint": {
     "message": "More reliable and instant, but no longer a simulated click: enable it knowingly."
   },
-  "options_section_player": { "message": "Background player" },
-  "options_quality": { "message": "Forced quality" },
-  "options_quality_hint": { "message": "Only on tabs opened by the extension." },
-  "options_quality_160": { "message": "160p (lowest bandwidth)" },
-  "options_quality_source": { "message": "Source" },
-  "options_volume": { "message": "Volume (%)" },
+  "options_section_player": {
+    "message": "Background player"
+  },
+  "options_quality": {
+    "message": "Forced quality"
+  },
+  "options_quality_hint": {
+    "message": "Only on tabs opened by the extension."
+  },
+  "options_quality_160": {
+    "message": "160p (lowest bandwidth)"
+  },
+  "options_quality_source": {
+    "message": "Source"
+  },
+  "options_volume": {
+    "message": "Volume (%)"
+  },
   "options_volume_hint": {
     "message": "Never 0: a muted hidden tab gets throttled by Chrome, and watch time stops counting."
   },
-  "options_section_notifs": { "message": "Notifications" },
-  "options_notify_drops": { "message": "On every claim" },
-  "options_notify_drops_hint": { "message": "Drop or channel points bonus." },
-  "options_notify_actions": { "message": "When something is required outside Twitch" },
+  "options_section_notifs": {
+    "message": "Notifications"
+  },
+  "options_notify_drops": {
+    "message": "On every claim"
+  },
+  "options_notify_drops_hint": {
+    "message": "Drop or channel points bonus."
+  },
+  "options_notify_actions": {
+    "message": "When something is required outside Twitch"
+  },
   "options_notify_actions_hint": {
     "message": "Account to link, reward to collect at the publisher. The checklist lives in the popup."
   },
-  "options_section_ignored": { "message": "Campaigns to skip" },
-  "options_ignored_hint": { "message": "Tick to remove a campaign from the rotation." },
-  "options_ignored_empty": { "message": "No campaign known yet." },
-  "options_ignored_title": { "message": "Skip this campaign" },
-  "options_btn_save": { "message": "Save" },
-  "options_btn_reset": { "message": "Reset to defaults" },
-  "options_saved": { "message": "Saved" },
+  "options_section_ignored": {
+    "message": "Campaigns to skip"
+  },
+  "options_ignored_hint": {
+    "message": "Tick to remove a campaign from the rotation."
+  },
+  "options_ignored_empty": {
+    "message": "No campaign known yet."
+  },
+  "options_ignored_title": {
+    "message": "Skip this campaign"
+  },
+  "options_btn_save": {
+    "message": "Save"
+  },
+  "options_btn_reset": {
+    "message": "Reset to defaults"
+  },
+  "options_saved": {
+    "message": "Saved"
+  },
   "options_save_failed": {
     "message": "Nothing was saved: $REASON$",
-    "placeholders": { "reason": { "content": "$1" } }
+    "placeholders": {
+      "reason": {
+        "content": "$1"
+      }
+    }
   },
   "options_reset_confirm": {
     "message": "Reset every setting to its default? Favourite channels will be cleared."
+  },
+  "status_ok": {
+    "message": "watching"
+  },
+  "status_ads": {
+    "message": "ad playing"
+  },
+  "status_stalled": {
+    "message": "stream frozen"
+  },
+  "status_paused": {
+    "message": "player paused"
+  },
+  "status_offline": {
+    "message": "channel offline"
+  },
+  "status_no_beat": {
+    "message": "no answer from the tab"
+  },
+  "status_no_tab": {
+    "message": "tab closed"
+  },
+  "status_wrong_channel": {
+    "message": "wrong channel loaded"
+  },
+  "status_disabled": {
+    "message": "disabled"
+  },
+  "counted_confirmed": {
+    "message": "counted as viewer"
+  },
+  "counted_streaming": {
+    "message": "stream downloading"
+  },
+  "counted_no": {
+    "message": "not counted"
+  },
+  "counted_unknown": {
+    "message": "checking"
+  },
+  "popup_watchers_empty": {
+    "message": "no background tab yet"
+  },
+  "popup_watcher_focus": {
+    "message": "Show this tab"
+  },
+  "popup_tag_points": {
+    "message": "points"
+  },
+  "popup_tag_drops": {
+    "message": "drops"
+  },
+  "popup_just_started": {
+    "message": "just started"
+  },
+  "popup_elapsed_min": {
+    "message": "for $MIN$ min",
+    "placeholders": {
+      "min": {
+        "content": "$1"
+      }
+    }
+  },
+  "popup_elapsed_hours": {
+    "message": "for $H$ h $MIN$",
+    "placeholders": {
+      "h": {
+        "content": "$1"
+      },
+      "min": {
+        "content": "$2"
+      }
+    }
   }
 }

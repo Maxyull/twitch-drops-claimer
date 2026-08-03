@@ -89,7 +89,43 @@ h2 {
 .watch .who small { color: var(--muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .watch .toggle { margin-left: auto; }
 
-.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.watcher {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 9px 11px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.watcher:hover { background: var(--panel-hi); }
+.watcher .dot { margin-top: 4px; }
+.watcher .body { flex: 1; min-width: 0; }
+.watcher .line1 { display: flex; align-items: baseline; gap: 6px; }
+.watcher b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.watcher small { color: var(--muted); font-size: 11px; display: block; }
+
+.tag {
+  flex: none;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #322b45;
+  color: var(--purple-soft);
+}
+.tag.counted { background: #0d3d31; color: var(--green); }
+.tag.partial { background: #3d3312; color: var(--orange); }
+.tag.uncounted { background: #3d1717; color: var(--red); }
+
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .stat { background: var(--panel); border-radius: 8px; padding: 9px; text-align: center; }
 .stat b { display: block; font-size: 19px; color: var(--purple-soft); }
 .stat small { color: var(--muted); }

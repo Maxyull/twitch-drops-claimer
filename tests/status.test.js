@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { evaluateBeat, summarize, statusLabel, isGreen, STATUS, BEAT_TIMEOUT_MS } from "../src/lib/status.js";
+import { evaluateBeat, summarize, isGreen, STATUS, BEAT_TIMEOUT_MS } from "../src/lib/status.js";
 
 const NOW = 1_800_000_000_000;
 
@@ -78,12 +78,18 @@ test("aucun battement du tout", () => {
   assert.equal(evaluateBeat(null, null, { now: NOW }).code, STATUS.NO_BEAT);
 });
 
-test("isGreen et statusLabel restent cohérents", () => {
+test("isGreen distingue ce qui fait avancer le temps de visionnage", () => {
   assert.equal(isGreen(STATUS.OK), true);
   assert.equal(isGreen(STATUS.ADS), true);
   assert.equal(isGreen(STATUS.STALLED), false);
-  assert.equal(typeof statusLabel(STATUS.NO_TAB), "string");
-  assert.equal(statusLabel("code-inconnu"), "code-inconnu");
+  assert.equal(isGreen(STATUS.DISABLED), false);
+});
+
+test("RÉGRESSION : aucun libellé lisible ne sort de ce module", () => {
+  // Les textes d'interface vivent dans _locales, pas ici : un libellé en dur
+  // échapperait à la traduction et au test de couverture i18n.
+  const state = evaluateBeat(beat(), null, { now: NOW });
+  assert.deepEqual(Object.keys(state).sort(), ["age", "channel", "code", "green"]);
 });
 
 test("summarize remonte le premier problème", () => {

@@ -21,7 +21,12 @@
   "options_page": "src/options/options.html",
   "permissions": ["storage", "alarms", "notifications", "webRequest"],
   "optional_permissions": [],
-  "host_permissions": ["https://www.twitch.tv/*", "https://gql.twitch.tv/*"],
+  "host_permissions": [
+    "https://www.twitch.tv/*",
+    "https://gql.twitch.tv/*",
+    "https://spade.twitch.tv/*",
+    "https://*.ttvnw.net/*"
+  ],
   "content_scripts": [
     {
       "matches": ["https://www.twitch.tv/*"],
