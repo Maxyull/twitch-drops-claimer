@@ -88,10 +88,15 @@ couvre ce cas.
 
 L'extension garde par défaut **une fenêtre réduite à elle** pour ses onglets. C'est ce
 qui lui permet de faire ce réveil sans jamais voler le focus de la fenêtre où vous
-travaillez. Elle y **avance d'un onglet à chaque passage**, pour que chacun ait son tour
-au premier plan, ce qui suffit à relancer un lecteur que le navigateur avait mis de
-côté. Un clic sur une ligne de la liste affiche l'onglet correspondant si vous voulez y
-aller vous-même. La qualité est descendue à 160p pour la bande passante.
+travaillez. Elle y avance d'un onglet à chaque passage, pour que chacun ait son tour au
+premier plan, ce qui suffit à relancer un lecteur que le navigateur avait mis de côté.
+
+**Elle rend toujours la place.** Un onglet activé le reste cinq secondes, le temps que
+le lecteur démarre, puis celui qui était devant revient. Une extension qui confisque
+l'onglet qu'on regardait ne vaut pas le gain. Un clic sur une ligne de la liste affiche
+l'onglet correspondant si vous voulez y aller vous-même, et là il y reste.
+
+La qualité est descendue à 160p pour la bande passante.
 
 ## Ce qu'il faut savoir
 
