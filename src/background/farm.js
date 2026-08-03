@@ -213,7 +213,10 @@ export async function pickTarget(campaigns, settings) {
 
 // --- boucles d'entretien --------------------------------------------------
 
-/** Onglet dédié aux points de chaîne, sur la première chaîne favorite en direct. */
+/**
+ * Onglet dédié aux points de chaîne, sur la première chaîne favorite en direct.
+ * Aucune favorite en direct : l'onglet ne sert plus à rien, on le ferme.
+ */
 export async function ensurePointsTab(settings) {
   const state = await store.getState();
 
@@ -222,19 +225,32 @@ export async function ensurePointsTab(settings) {
     return store.setState({ pointsTabId: null, pointsChannel: null });
   }
 
-  let live = [];
+  // `null` et `[]` ne veulent pas dire la même chose : l'un est une absence
+  // d'information, l'autre une réponse. On ne ferme jamais un onglet sur une
+  // information qu'on n'a pas.
+  let live = null;
   try {
     live = await gql.liveLogins(settings.favoriteChannels);
   } catch {
-    live = [];
+    live = null;
   }
 
-  // Sans info de direct (API muette), on garde la première favorite : le voyant
-  // passera au rouge « chaîne hors ligne » et dira la vérité.
-  let target = settings.favoriteChannels.find((c) => live.includes(c)) ?? settings.favoriteChannels[0];
-  if (state.pointsChannel && live.includes(state.pointsChannel)) {
-    target = state.pointsChannel; // ne pas zapper une favorite qui marche
+  if (live === null) {
+    if (state.pointsChannel && (await tabExists(state.pointsTabId))) return state;
+    const fallback = settings.favoriteChannels[0];
+    const tabId = await ensureChannelTab(state.pointsTabId, fallback);
+    return store.setState({ pointsTabId: tabId, pointsChannel: fallback });
   }
+
+  if (!live.length) {
+    if (state.pointsTabId) await closeTab(state.pointsTabId);
+    return store.setState({ pointsTabId: null, pointsChannel: null });
+  }
+
+  // On ne zappe pas une favorite qui marche pour une autre mieux classée.
+  const target = live.includes(state.pointsChannel)
+    ? state.pointsChannel
+    : settings.favoriteChannels.find((c) => live.includes(c));
 
   const tabId = await ensureChannelTab(state.pointsTabId, target);
   return store.setState({ pointsTabId: tabId, pointsChannel: target });
@@ -317,11 +333,43 @@ export async function runClaimSweep(settings) {
   const state = await store.getState();
   if (await tabExists(state.inventoryTabId)) {
     await chrome.tabs.reload(state.inventoryTabId);
+    await store.setState({ inventorySince: Date.now() });
     return { mode: "dom", claimed: 0, tabId: state.inventoryTabId };
   }
   const tabId = await openBackgroundTab(INVENTORY_URL);
-  await store.setState({ inventoryTabId: tabId });
+  await store.setState({ inventoryTabId: tabId, inventorySince: Date.now() });
   return { mode: "dom", claimed: 0, tabId };
+}
+
+/** Durée laissée à la page d'inventaire pour charger et cliquer avant fermeture. */
+const INVENTORY_GRACE_MS = 90_000;
+
+/**
+ * L'inventaire n'a pas à rester ouvert entre deux passages. On ne le garde que
+ * s'il est le seul onglet Twitch : il sert alors aussi à reprendre le jeton
+ * d'intégrité, sans lequel plus rien ne fonctionne.
+ */
+export async function closeInventoryIfRedundant() {
+  const state = await store.getState();
+  if (!state.inventoryTabId) return state;
+  if (Date.now() - (state.inventorySince ?? 0) < INVENTORY_GRACE_MS) return state;
+
+  const stillNeeded =
+    !(await tabExists(state.pointsTabId)) && !(await tabExists(state.dropsTabId));
+  if (stillNeeded) return state;
+
+  await closeTab(state.inventoryTabId);
+  return store.setState({ inventoryTabId: null, inventorySince: null });
+}
+
+export async function reloadTab(tabId) {
+  if (!(await tabExists(tabId))) return false;
+  try {
+    await chrome.tabs.reload(tabId);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

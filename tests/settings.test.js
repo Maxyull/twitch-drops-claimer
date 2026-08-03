@@ -47,8 +47,17 @@ test("normalizeSettings borne les intervalles et le volume", () => {
   });
   assert.equal(s.claimIntervalMin, 1);
   assert.equal(s.discoverIntervalMin, 240);
-  // Régression : un volume à 0 ferait brider l'onglet caché par Chrome.
   assert.equal(s.volumePercent, 1);
+});
+
+test("0 coupe la rotation, mais ne coupe pas les autres boucles", () => {
+  // Seul `rotateIntervalMin` accepte 0 : ailleurs, 0 voudrait dire « en boucle
+  // sans fin », ce qui n'est pas une intention exprimable.
+  assert.equal(normalizeSettings({ rotateIntervalMin: 0 }).rotateIntervalMin, 0);
+  assert.equal(normalizeSettings({ rotateIntervalMin: -5 }).rotateIntervalMin, 0);
+  assert.equal(normalizeSettings({ rotateIntervalMin: 9999 }).rotateIntervalMin, 240);
+  assert.equal(normalizeSettings({ claimIntervalMin: 0 }).claimIntervalMin, 1);
+  assert.equal(normalizeSettings({ discoverIntervalMin: 0 }).discoverIntervalMin, 1);
 });
 
 test("normalizeSettings refuse une qualité ou une priorité inconnue", () => {

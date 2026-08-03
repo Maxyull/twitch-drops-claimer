@@ -31,6 +31,9 @@ export const DEFAULT_SETTINGS = {
   // réveiller sans jamais voler le focus de la fenêtre où l'on travaille.
   dedicatedWindow: true,
   wakeStuckTabs: true,
+  // Passage périodique sur chaque onglet : on l'active, et on le recharge s'il
+  // n'est pas au vert. 0 désactive la rotation.
+  rotateIntervalMin: 15,
 
   // --- Lecteur en arrière-plan ---
   volumePercent: 1,
@@ -114,6 +117,8 @@ export function normalizeSettings(raw = {}) {
     muteTabs: bool(raw.muteTabs, d.muteTabs),
     dedicatedWindow: bool(raw.dedicatedWindow, d.dedicatedWindow),
     wakeStuckTabs: bool(raw.wakeStuckTabs, d.wakeStuckTabs),
+    // 0 est une valeur légitime ici : elle coupe la rotation.
+    rotateIntervalMin: clampInt(raw.rotateIntervalMin, 0, MAX_INTERVAL, d.rotateIntervalMin),
 
     // 0 % couperait le son : Chrome bride alors les timers de l'onglet caché.
     // On garde donc un plancher à 1 %.

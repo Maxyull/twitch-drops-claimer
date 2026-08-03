@@ -144,6 +144,7 @@ const EMPTY_STATE = {
   dropsCampaignId: null,
   dropsSince: null,
   inventoryTabId: null,
+  inventorySince: null,
   // Fenêtre dédiée aux onglets de l'extension, quand l'option est active.
   windowId: null,
   // tabId -> date du dernier réveil, pour ne pas s'acharner.
