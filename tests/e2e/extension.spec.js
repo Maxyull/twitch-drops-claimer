@@ -115,9 +115,19 @@ test("aller-retour de messages : la page d'options écrit, le worker répond", a
   await page.close();
 });
 
+test("RÉGRESSION : enregistrer est impossible avant que les réglages soient lus", async () => {
+  // Sinon le formulaire vide s'écrit par-dessus les vrais réglages, et les
+  // chaînes favorites disparaissent pour avoir cliqué trop tôt.
+  const page = await context.newPage();
+  await page.goto(url("options/options.html"));
+  await expect(page.locator("#save")).toBeEnabled();
+  await page.close();
+});
+
 test("RÉGRESSION : « Enregistré » ne s'affiche pas si rien n'est enregistré", async () => {
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
+  await expect(page.locator("#save")).toBeEnabled();
 
   // On coupe la ligne avec le service worker : l'envoi échouera forcément.
   await page.evaluate(() => {
@@ -127,6 +137,12 @@ test("RÉGRESSION : « Enregistré » ne s'affiche pas si rien n'est enregistré
 
   await expect(page.locator("#error")).toBeVisible();
   await expect(page.locator("#saved")).not.toHaveClass(/show/);
+
+  // Et surtout : rien n'a été écrasé au passage.
+  await expect
+    .poll(() => page.evaluate(() => chrome.storage.local.get("favoriteChannels")))
+    .toEqual({ favoriteChannels: ["zerator", "gotaga"] });
+
   await page.close();
 });
 
