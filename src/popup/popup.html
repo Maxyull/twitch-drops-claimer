@@ -35,10 +35,6 @@
     <button id="farmDrops" class="toggle" data-i18n-label="popup_toggle_farm"></button>
   </div>
 
-  <h2><span data-i18n="popup_section_actions">Actions requises</span> <span id="actionsCount"></span></h2>
-  <ul id="actions"></ul>
-  <p class="empty" id="actionsEmpty" data-i18n="popup_actions_empty"></p>
-
   <details id="campaignsBox" open>
     <summary>
       <span data-i18n="popup_section_campaigns">Campagnes</span>
@@ -61,6 +57,15 @@
     <button class="act" id="rebuildWindow" data-i18n="popup_btn_rebuild_window"
             data-i18n-title="popup_btn_rebuild_window_hint"></button>
   </div>
+
+  <details id="actionsBox" open>
+    <summary>
+      <span data-i18n="popup_section_actions">Actions requises</span>
+      <span id="actionsCount"></span>
+    </summary>
+    <ul id="actions"></ul>
+    <p class="empty" id="actionsEmpty" data-i18n="popup_actions_empty"></p>
+  </details>
 
   <script src="popup.js" type="module"></script>
 </body>
