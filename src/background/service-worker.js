@@ -84,10 +84,11 @@ async function tick() {
 
   try {
     if (!status.points.green) await farm.ensurePointsTab(settings);
-    if (!status.drops.green) {
+    if (status.drops.some((s) => !s.green)) {
       // Une chaîne passée hors ligne ne reviendra pas : on force le changement
       // plutôt que d'attendre que l'API confirme ce que le lecteur constate déjà.
-      await farm.ensureDropsTab(settings, { force: status.drops.code === STATUS.OFFLINE });
+      const horsLigne = status.drops.some((s) => s.code === STATUS.OFFLINE);
+      await farm.ensureDropsTabs(settings, { force: horsLigne });
     }
     await farm.closeInventoryIfRedundant();
     const points = await farm.refreshPoints(settings);
@@ -119,8 +120,8 @@ async function rotate() {
 
   const tabs = [
     [state.pointsTabId, status.points],
-    [state.dropsTabId, status.drops],
-  ].filter(([tabId]) => tabId);
+    ...(state.dropTabs ?? []).map((entry, i) => [entry.tabId, status.drops[i]]),
+  ].filter(([tabId, s]) => tabId && s);
   if (!tabs.length) return;
 
   const index = ((state.rotationIndex ?? -1) + 1) % tabs.length;
@@ -148,8 +149,8 @@ async function wakeStuckTabs(status) {
 
   const stuck = [
     [state.pointsTabId, status.points],
-    [state.dropsTabId, status.drops],
-  ];
+    ...(state.dropTabs ?? []).map((entry, i) => [entry.tabId, status.drops[i]]),
+  ].filter(([tabId, s]) => tabId && s);
 
   for (const [tabId, s] of stuck) {
     if (!tabId || s.code !== STATUS.BLOCKED) continue;
@@ -196,7 +197,7 @@ async function discover() {
       for (const action of added) await notify.notifyActionRequired(action);
     }
     try {
-      await farm.ensureDropsTab(settings);
+      await farm.ensureDropsTabs(settings);
     } catch (err) {
       await store.setLastError(err.message);
     }
@@ -238,16 +239,17 @@ async function computeStatus() {
     state.pointsChannel,
     settings.enabled && settings.watchFavorite && settings.favoriteChannels.length > 0,
   );
-  const drops = await one(
-    state.dropsTabId,
-    state.dropsChannel,
-    settings.enabled && settings.farmDrops && settings.autoDiscover,
-  );
+  const actif = settings.enabled && settings.farmDrops && settings.autoDiscover;
+  const drops = [];
+  for (const entry of state.dropTabs ?? []) {
+    const s = await one(entry.tabId, entry.channel, actif);
+    drops.push({ ...s, channel: s.channel ?? entry.channel });
+  }
 
   return {
     points: { ...points, channel: points.channel ?? state.pointsChannel },
-    drops: { ...drops, channel: drops.channel ?? state.dropsChannel },
-    global: summarize([points, drops]),
+    drops,
+    global: summarize([points, ...drops]),
   };
 }
 
@@ -263,16 +265,21 @@ async function computeWatchers(status) {
   const now = Date.now();
 
   const rows = [
-    { role: ROLE.POINTS, tabId: state.pointsTabId, channel: state.pointsChannel, status: status.points },
     {
-      role: ROLE.DROPS,
-      tabId: state.dropsTabId,
-      channel: state.dropsChannel,
-      status: status.drops,
-      campaignId: state.dropsCampaignId,
-      since: state.dropsSince,
+      role: ROLE.POINTS,
+      tabId: state.pointsTabId,
+      channel: state.pointsChannel,
+      status: status.points,
     },
-  ];
+    ...(state.dropTabs ?? []).map((entry, i) => ({
+      role: ROLE.DROPS,
+      tabId: entry.tabId,
+      channel: entry.channel,
+      status: status.drops[i],
+      campaignId: entry.campaignId,
+      since: entry.since,
+    })),
+  ].filter((row) => row.status);
 
   return rows
     .filter((row) => row.tabId && row.channel && row.status.code !== STATUS.DISABLED)
@@ -292,7 +299,10 @@ async function computeWatchers(status) {
           ...state.counted[row.tabId],
           // La progression est attribuée au rôle, pas à l'onglet : c'est la
           // campagne suivie ou le solde de la chaîne favorite qui avance.
-          progressAt: row.role === ROLE.POINTS ? state.proof?.pointsAt : state.proof?.dropsAt,
+          progressAt:
+            row.role === ROLE.POINTS
+              ? state.proof?.pointsAt
+              : state.proof?.dropsAt?.[row.campaignId],
         },
         { now, since: row.since, playing: row.status.green },
       ),
@@ -335,7 +345,7 @@ async function updateBadge() {
 async function roleFor(tabId) {
   const state = await store.getState();
   if (tabId === state.pointsTabId) return ROLE.POINTS;
-  if (tabId === state.dropsTabId) return ROLE.DROPS;
+  if ((state.dropTabs ?? []).some((entry) => entry.tabId === tabId)) return ROLE.DROPS;
   if (tabId === state.inventoryTabId) return ROLE.INVENTORY;
   return ROLE.PASSIVE;
 }
@@ -462,7 +472,7 @@ async function onGetState() {
       detailsURL: c.detailsURL,
       progress: campaignProgress(c),
       claimable: claimableDrops(c).length,
-      current: c.id === state.dropsCampaignId,
+      current: (state.dropTabs ?? []).some((entry) => entry.campaignId === c.id),
       selected: !blacklist.has(c.id),
       focus: focusSet.has(c.id),
       rank: rank.has(c.id) ? rank.get(c.id) : null,
@@ -481,9 +491,7 @@ async function onGetState() {
     campaignsAt: cached.campaignsAt,
     current: {
       pointsChannel: state.pointsChannel,
-      dropsChannel: state.dropsChannel,
-      dropsCampaignId: state.dropsCampaignId,
-      dropsSince: state.dropsSince,
+      dropChannels: (state.dropTabs ?? []).map((entry) => entry.channel),
     },
   };
 }
@@ -541,7 +549,7 @@ async function onRebuildWindow() {
 }
 
 async function onSwitchNow() {
-  await farm.ensureDropsTab(await store.getSettings(), { force: true });
+  await farm.ensureDropsTabs(await store.getSettings(), { force: true });
   await updateBadge();
   return { ok: true };
 }
@@ -561,7 +569,7 @@ async function onSetCampaignPriority(payload) {
     campaignBlacklist: [...ignored],
     focusCampaigns: [...focused],
   });
-  await farm.ensureDropsTab(updated, { force: true });
+  await farm.ensureDropsTabs(updated, { force: true });
   return { ok: true, settings: updated };
 }
 

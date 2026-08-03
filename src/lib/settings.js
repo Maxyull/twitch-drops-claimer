@@ -16,6 +16,10 @@ export const DEFAULT_SETTINGS = {
   // --- Drops ---
   farmDrops: true,
   autoDiscover: true,
+  // Onglets de farm en parallèle, un par campagne. Twitch ne fait probablement
+  // progresser qu'un flux à la fois : le badge « compté en viewer » de chaque
+  // ligne dit lequel avance vraiment, plutôt que de trancher à sa place.
+  farmTabs: 2,
   claimIntervalMin: 15,
   discoverIntervalMin: 30,
   priority: "endingSoon",
@@ -52,6 +56,8 @@ export const DEFAULT_SETTINGS = {
 const MIN_INTERVAL = 1;
 const MAX_INTERVAL = 240;
 const MAX_CHANNELS = 20;
+/** Au-delà, on ouvre des onglets pour rien : Twitch n'en comptera pas autant. */
+export const MAX_FARM_TABS = 4;
 
 /**
  * "https://www.twitch.tv/Foo?bar=1" | "@Foo" | " Foo " -> "foo"
@@ -117,6 +123,7 @@ export function normalizeSettings(raw = {}) {
 
     farmDrops: bool(raw.farmDrops, d.farmDrops),
     autoDiscover: bool(raw.autoDiscover, d.autoDiscover),
+    farmTabs: clampInt(raw.farmTabs, 1, MAX_FARM_TABS, d.farmTabs),
     claimIntervalMin: clampInt(raw.claimIntervalMin, MIN_INTERVAL, MAX_INTERVAL, d.claimIntervalMin),
     discoverIntervalMin: clampInt(raw.discoverIntervalMin, MIN_INTERVAL, MAX_INTERVAL, d.discoverIntervalMin),
     priority: PRIORITIES.includes(raw.priority) ? raw.priority : d.priority,

@@ -76,7 +76,10 @@ function renderWatchers(state) {
 
   setDot($("globalDot"), status.global.green, statusText(status.global.code));
   setDot($("pointsDot"), status.points.green, statusText(status.points.code));
-  setDot($("dropsDot"), status.drops.green, statusText(status.drops.code));
+  // Plusieurs onglets de farm : le voyant reprend le pire des leurs, sinon il
+  // afficherait vert alors qu'un des deux est en panne.
+  const pireDrops = status.drops.find((s) => !s.green) ?? status.drops[0] ?? null;
+  setDot($("dropsDot"), Boolean(pireDrops?.green), pireDrops ? statusText(pireDrops.code) : "");
 
   const list = $("watchers");
   list.replaceChildren();

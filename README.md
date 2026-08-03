@@ -100,9 +100,10 @@ aller vous-même. La qualité est descendue à 160p pour la bande passante.
   extension ne peut pas le fabriquer. L'extension reprend donc au passage les en-têtes
   que la page envoie déjà. Sans onglet Twitch, le popup affiche « en attente d'un onglet
   Twitch » et en ouvre un tout seul. Détail dans [docs/PRIVACY.md](docs/PRIVACY.md).
-- **Twitch ne compte la progression que sur un flux à la fois.** L'onglet « points » et
-  l'onglet « drops » cumulent tous les deux des points de chaîne, mais un seul fait
-  avancer les drops.
+- **Plusieurs onglets de farm, mais Twitch n'en compte probablement qu'un.** Le réglage
+  ouvre deux onglets par défaut, sur deux campagnes et deux chaînes différentes. Personne
+  ne garantit que Twitch fasse avancer les deux : c'est justement pour ça que chaque ligne
+  du popup porte son propre badge de comptage. Regardez-les plutôt que de me croire.
 - **Les onglets se ferment tout seuls quand ils ne servent plus.** Aucune chaîne favorite
   en direct, plus aucune campagne à farmer, inventaire déjà passé : l'onglet disparaît.
   Le seul cas où l'inventaire est conservé est quand c'est le dernier onglet Twitch, car

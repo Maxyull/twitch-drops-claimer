@@ -511,5 +511,11 @@
   },
   "popup_btn_rebuild_window_hint": {
     "message": "Creates a fresh minimised window and moves the extension tabs into it. Turns the dedicated window on if it was off."
+  },
+  "options_farm_tabs": {
+    "message": "Parallel farming tabs"
+  },
+  "options_farm_tabs_hint": {
+    "message": "One tab per campaign, on different channels. Twitch probably only advances one stream at a time: each row badge tells you which one really progresses."
   }
 }

@@ -511,5 +511,11 @@
   },
   "popup_btn_rebuild_window_hint": {
     "message": "Crée une fenêtre réduite neuve et y rapatrie les onglets de l'extension. Active la fenêtre dédiée si elle ne l'était pas."
+  },
+  "options_farm_tabs": {
+    "message": "Onglets de farm en parallèle"
+  },
+  "options_farm_tabs_hint": {
+    "message": "Un onglet par campagne, sur des chaînes différentes. Twitch ne fait probablement progresser qu'un flux à la fois : le badge de chaque ligne dit lequel avance vraiment."
   }
 }

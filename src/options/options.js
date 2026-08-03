@@ -18,7 +18,13 @@ const CHECKS = [
   "notifyActions",
   "randomAfterFocus",
 ];
-const NUMBERS = ["claimIntervalMin", "discoverIntervalMin", "rotateIntervalMin", "volumePercent"];
+const NUMBERS = [
+  "claimIntervalMin",
+  "discoverIntervalMin",
+  "rotateIntervalMin",
+  "farmTabs",
+  "volumePercent",
+];
 const SELECTS = ["priority", "quality"];
 
 let blacklist = new Set();

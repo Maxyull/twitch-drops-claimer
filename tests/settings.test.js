@@ -50,6 +50,15 @@ test("normalizeSettings borne les intervalles et le volume", () => {
   assert.equal(s.volumePercent, 1);
 });
 
+test("le nombre d'onglets de farm reste dans des bornes utiles", () => {
+  // 0 onglet reviendrait à couper le farm, ce que fait déjà `farmDrops`.
+  // Au-delà de 4, on ouvrirait des onglets que Twitch ne comptera pas.
+  assert.equal(normalizeSettings({ farmTabs: 0 }).farmTabs, 1);
+  assert.equal(normalizeSettings({ farmTabs: 99 }).farmTabs, 4);
+  assert.equal(normalizeSettings({ farmTabs: 2 }).farmTabs, 2);
+  assert.equal(normalizeSettings({ farmTabs: "trois" }).farmTabs, DEFAULT_SETTINGS.farmTabs);
+});
+
 test("0 coupe la rotation, mais ne coupe pas les autres boucles", () => {
   // Seul `rotateIntervalMin` accepte 0 : ailleurs, 0 voudrait dire « en boucle
   // sans fin », ce qui n'est pas une intention exprimable.

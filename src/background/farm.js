@@ -101,6 +101,14 @@ async function closeTab(tabId) {
   }
 }
 
+/** Reste-t-il au moins un onglet de farm vivant ? */
+async function anyDropTabAlive(state) {
+  for (const entry of state.dropTabs ?? []) {
+    if (await tabExists(entry.tabId)) return true;
+  }
+  return false;
+}
+
 /**
  * Ouvre ou recycle un onglet d'arrière-plan pointant sur une chaîne.
  * On mémorise la chaîne demandée plutôt que de relire l'adresse de l'onglet :
@@ -251,19 +259,23 @@ export async function refreshWatchProof() {
   const marks = { ...(state.marks ?? {}) };
   const proof = { ...(state.proof ?? {}) };
 
-  if (state.dropsCampaignId) {
+  // Une seule requête pour toutes les campagnes farmées : la preuve vaut par
+  // onglet, mais l'inventaire les porte toutes.
+  if ((state.dropTabs ?? []).length) {
     try {
-      const current = (await gql.inventory())
-        .map(parseCampaign)
-        .find((c) => c?.id === state.dropsCampaignId);
-      const minutes = current ? campaignProgress(current).watched : null;
+      const inventaire = await inventoryCampaigns();
+      const minutes = { ...(marks.dropsMinutes ?? {}) };
 
-      if (typeof minutes === "number") {
-        const memeCampagne = marks.dropsCampaignId === state.dropsCampaignId;
-        if (memeCampagne && progressAdvanced(marks.dropsMinutes, minutes)) proof.dropsAt = now;
-        marks.dropsCampaignId = state.dropsCampaignId;
-        marks.dropsMinutes = minutes;
+      for (const entry of state.dropTabs) {
+        const current = inventaire.find((c) => c.id === entry.campaignId);
+        if (!current) continue;
+        const watched = campaignProgress(current).watched;
+        if (progressAdvanced(minutes[entry.campaignId], watched)) {
+          proof.dropsAt = { ...(proof.dropsAt ?? {}), [entry.campaignId]: now };
+        }
+        minutes[entry.campaignId] = watched;
       }
+      marks.dropsMinutes = minutes;
     } catch {
       /* API muette : on retentera au prochain passage */
     }
@@ -363,7 +375,10 @@ export async function syncActions(campaigns, now = Date.now()) {
  * Choisit quoi farmer : la campagne la mieux classée dont une chaîne est en direct.
  * @returns {{campaign: object, channel: string}|null}
  */
-export async function pickTarget(campaigns, settings) {
+export async function pickTarget(campaigns, settings, exclude = {}) {
+  const skipCampaigns = exclude.campaigns ?? new Set();
+  const skipChannels = exclude.channels ?? new Set();
+
   const actions = await store.getActions();
   const ranked = rankCampaigns(campaigns, {
     now: Date.now(),
@@ -376,14 +391,17 @@ export async function pickTarget(campaigns, settings) {
   });
 
   for (const campaign of ranked) {
+    if (skipCampaigns.has(campaign.id)) continue;
+
     if (isCategoryWide(campaign)) {
       const streams = await gql.gameDropStreams(campaign.gameSlug, 10);
-      if (streams.length) return { campaign, channel: streams[0] };
+      const channel = streams.find((c) => !skipChannels.has(c));
+      if (channel) return { campaign, channel };
       continue;
     }
 
     const live = await gql.liveLogins(campaign.channels.map((c) => c.login));
-    const channel = pickChannel(campaign, live);
+    const channel = pickChannel(campaign, live.filter((c) => !skipChannels.has(c)));
     if (channel) return { campaign, channel };
   }
 
@@ -435,54 +453,76 @@ export async function ensurePointsTab(settings) {
   return store.setState({ pointsTabId: tabId, pointsChannel: target });
 }
 
-/** Onglet dédié aux drops, qui suit la campagne prioritaire. */
-export async function ensureDropsTab(settings, { force = false } = {}) {
-  const state = await store.getState();
+/** Une entrée de farm est-elle encore valable ? */
+async function stillWorth(entry, campaigns) {
+  if (!(await tabExists(entry.tabId))) return false;
 
-  if (!settings.enabled || !settings.farmDrops || !settings.autoDiscover) {
-    if (state.dropsTabId) await closeTab(state.dropsTabId);
-    return store.setState({
-      dropsTabId: null,
-      dropsChannel: null,
-      dropsCampaignId: null,
-      dropsSince: null,
-    });
+  const campaign = campaigns.find((c) => c.id === entry.campaignId);
+  if (!campaign || !isActive(campaign) || campaignProgress(campaign).done) return false;
+
+  try {
+    return (await gql.liveLogins([entry.channel])).includes(entry.channel);
+  } catch {
+    return true; // API muette : on laisse tourner plutôt que de fermer à tort
+  }
+}
+
+/**
+ * Onglets de farm, un par campagne, chacun sur une chaîne différente.
+ *
+ * Twitch ne fait probablement progresser qu'un flux à la fois. On ne tranche pas
+ * à sa place : le badge « compté en viewer » de chaque ligne dit lequel avance
+ * réellement, ce qui vaut mieux qu'une affirmation.
+ */
+export async function ensureDropsTabs(settings, { force = false } = {}) {
+  const state = await store.getState();
+  const actifs = state.dropTabs ?? [];
+  const voulus =
+    settings.enabled && settings.farmDrops && settings.autoDiscover ? settings.farmTabs : 0;
+
+  if (voulus === 0) {
+    for (const entry of actifs) await closeTab(entry.tabId);
+    return store.setState({ dropTabs: [] });
   }
 
   const { campaigns } = await store.getCampaigns();
 
-  // Campagne en cours toujours valable et chaîne toujours en direct : on ne bouge pas.
-  if (!force && state.dropsCampaignId && (await tabExists(state.dropsTabId))) {
-    const current = campaigns.find((c) => c.id === state.dropsCampaignId);
-    if (current && isActive(current) && !campaignProgress(current).done) {
-      let live = [];
-      try {
-        live = await gql.liveLogins([state.dropsChannel]);
-      } catch {
-        live = [state.dropsChannel]; // API muette : on laisse tourner
-      }
-      if (live.includes(state.dropsChannel)) return state;
+  const gardes = [];
+  if (!force) {
+    for (const entry of actifs) {
+      if (gardes.length >= voulus) break;
+      if (await stillWorth(entry, campaigns)) gardes.push(entry);
     }
   }
 
-  const target = await pickTarget(campaigns, settings);
-  if (!target) {
-    if (state.dropsTabId) await closeTab(state.dropsTabId);
-    return store.setState({
-      dropsTabId: null,
-      dropsChannel: null,
-      dropsCampaignId: null,
-      dropsSince: null,
-    });
+  for (const entry of actifs) {
+    if (!gardes.some((g) => g.tabId === entry.tabId)) await closeTab(entry.tabId);
   }
 
-  const tabId = await ensureChannelTab(state.dropsTabId, target.channel);
-  return store.setState({
-    dropsTabId: tabId,
-    dropsChannel: target.channel,
-    dropsCampaignId: target.campaign.id,
-    dropsSince: Date.now(),
-  });
+  // Deux onglets sur la même campagne ou la même chaîne ne serviraient à rien.
+  const campagnesPrises = new Set(gardes.map((g) => g.campaignId));
+  const chainesPrises = new Set(gardes.map((g) => g.channel));
+  const suite = [...gardes];
+
+  while (suite.length < voulus) {
+    const target = await pickTarget(campaigns, settings, {
+      campaigns: campagnesPrises,
+      channels: chainesPrises,
+    });
+    if (!target) break;
+
+    const tabId = await ensureChannelTab(null, target.channel);
+    suite.push({
+      tabId,
+      channel: target.channel,
+      campaignId: target.campaign.id,
+      since: Date.now(),
+    });
+    campagnesPrises.add(target.campaign.id);
+    chainesPrises.add(target.channel);
+  }
+
+  return store.setState({ dropTabs: suite });
 }
 
 /**
@@ -534,7 +574,7 @@ export async function closeInventoryIfRedundant() {
   if (Date.now() - (state.inventorySince ?? 0) < INVENTORY_GRACE_MS) return state;
 
   const stillNeeded =
-    !(await tabExists(state.pointsTabId)) && !(await tabExists(state.dropsTabId));
+    !(await tabExists(state.pointsTabId)) && !(await anyDropTabAlive(state));
   if (stillNeeded) return state;
 
   await closeTab(state.inventoryTabId);
@@ -560,7 +600,7 @@ export async function ensureHarvestTab() {
   const state = await store.getState();
   if (await tabExists(state.inventoryTabId)) return state;
   if (await tabExists(state.pointsTabId)) return state;
-  if (await tabExists(state.dropsTabId)) return state;
+  if (await anyDropTabAlive(state)) return state;
 
   const tabId = await openBackgroundTab(INVENTORY_URL);
   return store.setState({ inventoryTabId: tabId });
@@ -588,7 +628,11 @@ export async function wakeTab(tabId) {
 export async function regroupTabs(settings) {
   const state = await store.getState();
   const windowId = await targetWindowId(settings);
-  const tabs = [state.pointsTabId, state.dropsTabId, state.inventoryTabId].filter(Boolean);
+  const tabs = [
+    state.pointsTabId,
+    ...(state.dropTabs ?? []).map((entry) => entry.tabId),
+    state.inventoryTabId,
+  ].filter(Boolean);
   let placed = 0;
 
   for (const tabId of tabs) {
@@ -627,16 +671,13 @@ export async function closeAllTabs() {
   const state = await store.getState();
   await Promise.all([
     closeTab(state.pointsTabId),
-    closeTab(state.dropsTabId),
+    ...(state.dropTabs ?? []).map((entry) => closeTab(entry.tabId)),
     closeTab(state.inventoryTabId),
   ]);
   return store.setState({
     pointsTabId: null,
     pointsChannel: null,
-    dropsTabId: null,
-    dropsChannel: null,
-    dropsCampaignId: null,
-    dropsSince: null,
+    dropTabs: [],
     inventoryTabId: null,
     tabChannels: {},
   });
@@ -645,7 +686,12 @@ export async function closeAllTabs() {
 /** Réapplique la sourdine à tous les onglets gérés, après un changement de réglage. */
 export async function refreshTabMute(settings) {
   const state = await store.getState();
-  for (const tabId of [state.pointsTabId, state.dropsTabId, state.inventoryTabId]) {
+  const tousLesOnglets = [
+    state.pointsTabId,
+    ...(state.dropTabs ?? []).map((entry) => entry.tabId),
+    state.inventoryTabId,
+  ];
+  for (const tabId of tousLesOnglets) {
     if (tabId && (await tabExists(tabId))) await applyTabMute(tabId, settings);
   }
 }
