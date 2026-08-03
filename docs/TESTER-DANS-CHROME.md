@@ -142,9 +142,10 @@ Décocher remet l'action en attente : c'est réversible, aucune donnée n'est pe
 Dans la console du service worker, pour voir l'état brut :
 
 ```js
-chrome.storage.local.get(null).then(console.log)      // réglages, compteurs, campagnes
-chrome.storage.session.get("farmState").then(console.log)  // onglets et battements
-chrome.alarms.getAll().then(console.log)              // les trois boucles
+chrome.storage.local.get(null).then(console.log)            // réglages, compteurs, campagnes
+chrome.storage.local.get("tabState").then(console.log)     // onglets et fenêtre, survit au rechargement
+chrome.storage.session.get("farmState").then(console.log)  // battements et preuves, volatils
+chrome.alarms.getAll().then(console.log)                   // les boucles
 ```
 
 Les trois alarmes attendues sont `tdc-tick` (1 min), `tdc-discover` et `tdc-claim`.

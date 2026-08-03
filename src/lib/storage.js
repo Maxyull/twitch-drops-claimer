@@ -212,14 +212,59 @@ export async function setCapturedHeaders(captured) {
   return captured;
 }
 
+/**
+ * Ce qui doit survivre à un rechargement de l'extension : l'identité des onglets
+ * et de la fenêtre. `storage.session` est vidé à ce moment-là, et tout ce qui
+ * était bâti pour compenser cette perte reposait sur un marqueur d'URL que
+ * Twitch efface régulièrement.
+ *
+ * Un identifiant devenu périmé après un redémarrage du navigateur ne coûte rien :
+ * chaque lecture vérifie déjà que l'onglet existe. Une fenêtre en trop, si.
+ */
+const PERSISTENT_STATE_KEYS = new Set([
+  "pointsTabId",
+  "pointsChannel",
+  "dropTabs",
+  "inventoryTabId",
+  "inventorySince",
+  "windowId",
+  "windowCreatedAt",
+  "tabChannels",
+]);
+
+const isPersistent = (key) => PERSISTENT_STATE_KEYS.has(key);
+
 export async function getState() {
-  const { farmState = {} } = await chrome.storage.session.get("farmState");
-  return { ...EMPTY_STATE, ...farmState };
+  const [{ tabState = {} }, { farmState = {} }] = await Promise.all([
+    chrome.storage.local.get("tabState"),
+    chrome.storage.session.get("farmState"),
+  ]);
+  return { ...EMPTY_STATE, ...tabState, ...farmState };
 }
 
 export async function setState(patch) {
   const next = { ...(await getState()), ...patch };
-  await write("session", { farmState: next });
+  const keys = Object.keys(patch);
+
+  // On n'écrit que la zone touchée : les battements arrivent toutes les cinq
+  // secondes, il n'y a aucune raison de les faire toucher le disque.
+  const ecritures = [];
+  if (keys.some(isPersistent)) {
+    ecritures.push(
+      write("local", {
+        tabState: Object.fromEntries(Object.entries(next).filter(([k]) => isPersistent(k))),
+      }),
+    );
+  }
+  if (keys.some((k) => !isPersistent(k))) {
+    ecritures.push(
+      write("session", {
+        farmState: Object.fromEntries(Object.entries(next).filter(([k]) => !isPersistent(k))),
+      }),
+    );
+  }
+
+  await Promise.all(ecritures);
   return next;
 }
 
