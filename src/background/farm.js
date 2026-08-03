@@ -143,14 +143,31 @@ async function getLogin() {
  * (paliers et chaînes autorisées) une par une : ce sont ces requêtes qu'on
  * parallélise, sinon la liste se remplirait sur plusieurs cycles.
  */
+/**
+ * La structure d'une campagne ne bouge pas : noms des paliers, minutes requises,
+ * chaînes autorisées. Sa progression, si. Servir `isClaimed` depuis un cache de
+ * six heures rendait invisible tout drop réclamé entre-temps, et le compteur
+ * restait à zéro. Le cache garde donc la structure, jamais l'avancement.
+ */
+function forgetProgress(drops) {
+  return (drops || []).map((d) => ({
+    ...d,
+    watchedMinutes: 0,
+    isClaimed: false,
+    dropInstanceID: null,
+  }));
+}
+
+/** Campagnes entamées, avec leur progression réelle. Une seule requête. */
+export async function inventoryCampaigns() {
+  return (await gql.inventory()).map(parseCampaign).filter(Boolean);
+}
+
 export async function refreshCampaigns() {
   const now = Date.now();
   const byId = new Map();
 
-  for (const node of await gql.inventory()) {
-    const parsed = parseCampaign(node);
-    if (parsed) byId.set(parsed.id, parsed);
-  }
+  for (const campaign of await inventoryCampaigns()) byId.set(campaign.id, campaign);
 
   const cache = await store.getDetailsCache();
   const aChercher = [];
@@ -164,7 +181,7 @@ export async function refreshCampaigns() {
     if (cached && now - cached.at < DETAILS_TTL_MS) {
       byId.set(shallow.id, {
         ...shallow,
-        drops: cached.campaign.drops,
+        drops: forgetProgress(cached.campaign.drops),
         channels: cached.campaign.channels,
       });
       continue;
@@ -184,7 +201,9 @@ export async function refreshCampaigns() {
       const detail = details[i];
       if (detail) {
         byId.set(detail.id, detail);
-        cache[detail.id] = { at: now, campaign: detail };
+        // On ne met en cache que la structure : stocker un avancement qu'on
+        // s'interdit de relire ne ferait qu'occuper du quota.
+        cache[detail.id] = { at: now, campaign: { ...detail, drops: forgetProgress(detail.drops) } };
       } else {
         // Détail indisponible : la campagne reste visible, sans ses paliers.
         byId.set(shallow.id, shallow);

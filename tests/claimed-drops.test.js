@@ -70,6 +70,22 @@ test("un palier qui repasse à non réclamé ne retire rien", () => {
   assert.deepEqual(apres.added, []);
 });
 
+test("RÉGRESSION : un état de reclamation périmé ne doit jamais compter", () => {
+  // Le cache de structure des campagnes remettait `isClaimed` à ce qu'il était
+  // six heures plus tôt. Un palier réclamé entre-temps devenait invisible, et le
+  // compteur restait à zéro. On simule les deux lectures dans le désordre.
+  const frais = [campagne("c1", [["d1", true]])];
+  const perime = [campagne("c1", [["d1", false]])];
+
+  const apresFrais = mergeClaimed([], true, frais);
+  assert.deepEqual(apresFrais.added, ["d1"]);
+
+  // Une lecture périmée ne doit ni retirer, ni permettre de recompter ensuite.
+  const apresPerime = mergeClaimed(apresFrais.ids, true, perime);
+  assert.deepEqual(apresPerime.added, []);
+  assert.deepEqual(mergeClaimed(apresPerime.ids, true, frais).added, []);
+});
+
 test("l'historique mémorisé est borné, en gardant les plus récents", () => {
   const beaucoup = Array.from({ length: MAX_REMEMBERED + 50 }, (_, i) => `d${i}`);
   const coupe = trimRemembered(beaucoup);

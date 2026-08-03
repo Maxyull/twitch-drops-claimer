@@ -167,16 +167,9 @@ async function discover() {
   const settings = await store.getSettings();
   if (!settings.enabled) return;
 
+  let campaigns = null;
   try {
-    const campaigns = await farm.refreshCampaigns();
-    await farm.syncClaimedDrops(campaigns);
-    const { added } = await farm.syncActions(campaigns);
-
-    if (settings.notifyActions) {
-      for (const action of added) await notify.notifyActionRequired(action);
-    }
-
-    await farm.ensureDropsTab(settings);
+    campaigns = await farm.refreshCampaigns();
     await store.setLastError(null);
   } catch (err) {
     await store.setLastError(err.message);
@@ -187,6 +180,28 @@ async function discover() {
     if (err.kind === "integrity") await farm.ensureHarvestTab();
     else if (err.kind === "auth" && settings.notifyActions) notify.notifyProblem(err.message);
   }
+
+  // Le comptage des drops ne dépend pas du succès de la recherche complète :
+  // l'inventaire seul porte l'information, et une seule requête suffit. Le lier
+  // au reste faisait perdre tout comptage au moindre hoquet de l'API.
+  try {
+    await farm.syncClaimedDrops(campaigns ?? (await farm.inventoryCampaigns()));
+  } catch {
+    /* inventaire indisponible : on retentera au prochain passage */
+  }
+
+  if (campaigns) {
+    const { added } = await farm.syncActions(campaigns);
+    if (settings.notifyActions) {
+      for (const action of added) await notify.notifyActionRequired(action);
+    }
+    try {
+      await farm.ensureDropsTab(settings);
+    } catch (err) {
+      await store.setLastError(err.message);
+    }
+  }
+
   await updateBadge();
 }
 
