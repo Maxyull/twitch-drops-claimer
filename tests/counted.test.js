@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 
 import {
   COUNTED,
+  PROGRESS_MAX_AGE_MS,
   SPADE_MAX_AGE_MS,
   SEGMENT_MAX_AGE_MS,
   WARMUP_MS,
   evaluateCounted,
   isCounted,
+  progressAdvanced,
   classifyRequest,
 } from "../src/lib/counted.js";
 
@@ -42,10 +44,41 @@ test("des signaux trop vieux ne comptent plus", () => {
   assert.equal(evaluateCounted(vieux, { now: NOW }).code, COUNTED.NO);
 });
 
-test("RÉGRESSION : un lecteur à l'arrêt n'est jamais compté", () => {
-  // Même avec un ping tout frais : si la vidéo ne tourne pas, le temps ne compte pas.
-  const res = evaluateCounted({ spadeAt: NOW }, { now: NOW, playing: false });
-  assert.equal(res.code, COUNTED.NO);
+test("la progression observée est la preuve la plus forte", () => {
+  const res = evaluateCounted({ progressAt: NOW - 60_000 }, { now: NOW });
+  assert.equal(res.code, COUNTED.CONFIRMED);
+  assert.equal(res.progressAge, 60_000);
+});
+
+test("RÉGRESSION : une preuve l'emporte sur l'état supposé du lecteur", () => {
+  // Le cas signalé : « c'est écrit non compté mais j'ai eu des drops ». Notre
+  // lecture du lecteur peut se tromper, la progression non. Elle gagne.
+  const progression = evaluateCounted({ progressAt: NOW }, { now: NOW, playing: false });
+  assert.equal(progression.code, COUNTED.CONFIRMED);
+
+  const ping = evaluateCounted({ spadeAt: NOW }, { now: NOW, playing: false });
+  assert.equal(ping.code, COUNTED.CONFIRMED);
+
+  const segments = evaluateCounted({ segmentAt: NOW }, { now: NOW, playing: false });
+  assert.equal(segments.code, COUNTED.STREAMING);
+});
+
+test("sans aucune preuve, un lecteur à l'arrêt n'est pas compté", () => {
+  assert.equal(evaluateCounted({}, { now: NOW, playing: false }).code, COUNTED.NO);
+});
+
+test("une progression trop ancienne ne prouve plus rien", () => {
+  const vieille = { progressAt: NOW - PROGRESS_MAX_AGE_MS - 1 };
+  assert.equal(evaluateCounted(vieille, { now: NOW }).code, COUNTED.NO);
+});
+
+test("progressAdvanced n'accepte que deux nombres et une hausse réelle", () => {
+  assert.equal(progressAdvanced(10, 11), true);
+  assert.equal(progressAdvanced(10, 10), false, "stagner n'est pas progresser");
+  assert.equal(progressAdvanced(10, 9), false);
+  assert.equal(progressAdvanced(undefined, 5), false, "premier relevé, rien à comparer");
+  assert.equal(progressAdvanced(5, null), false);
+  assert.equal(progressAdvanced("10", 11), false);
 });
 
 test("on ne se prononce pas pendant la mise en route de l'onglet", () => {

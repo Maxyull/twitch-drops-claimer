@@ -10,6 +10,7 @@ import {
 } from "../lib/campaigns.js";
 import { buildPendingActions, linkedOverrides, pruneActions } from "../lib/actions.js";
 import { mergeClaimed, trimRemembered } from "../lib/claimed-drops.js";
+import { progressAdvanced } from "../lib/counted.js";
 import { mapLimited } from "../lib/concurrency.js";
 import * as gql from "./gql.js";
 import * as store from "../lib/storage.js";
@@ -214,6 +215,50 @@ export async function syncClaimedDrops(campaigns) {
 
   if (merged.added.length) await store.bumpStat("drops", "", merged.added.length);
   return merged.added.length;
+}
+
+/**
+ * Preuve de comptage par la progression : les minutes accumulées sur la campagne
+ * suivie et le solde de points de la chaîne favorite. C'est le signal le plus
+ * lent à venir, et le seul qui ne puisse pas se tromper.
+ */
+const PROOF_TTL_MS = 5 * 60_000;
+
+export async function refreshWatchProof() {
+  const state = await store.getState();
+  const now = Date.now();
+  if (now - (state.proofCheckedAt ?? 0) < PROOF_TTL_MS) return state;
+
+  const marks = { ...(state.marks ?? {}) };
+  const proof = { ...(state.proof ?? {}) };
+
+  if (state.dropsCampaignId) {
+    try {
+      const current = (await gql.inventory())
+        .map(parseCampaign)
+        .find((c) => c?.id === state.dropsCampaignId);
+      const minutes = current ? campaignProgress(current).watched : null;
+
+      if (typeof minutes === "number") {
+        const memeCampagne = marks.dropsCampaignId === state.dropsCampaignId;
+        if (memeCampagne && progressAdvanced(marks.dropsMinutes, minutes)) proof.dropsAt = now;
+        marks.dropsCampaignId = state.dropsCampaignId;
+        marks.dropsMinutes = minutes;
+      }
+    } catch {
+      /* API muette : on retentera au prochain passage */
+    }
+  }
+
+  const balance = state.pointsBalance;
+  if (balance?.channel) {
+    const memeChaine = marks.pointsChannel === balance.channel;
+    if (memeChaine && progressAdvanced(marks.pointsBalance, balance.balance)) proof.pointsAt = now;
+    marks.pointsChannel = balance.channel;
+    marks.pointsBalance = balance.balance;
+  }
+
+  return store.setState({ proofCheckedAt: now, marks, proof });
 }
 
 /** Solde de points de la chaîne suivie, rafraîchi sans marteler l'API. */
