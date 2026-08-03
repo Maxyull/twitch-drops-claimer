@@ -261,10 +261,38 @@ export async function refreshWatchProof() {
   return store.setState({ proofCheckedAt: now, marks, proof });
 }
 
-/** Solde de points de la chaîne suivie, rafraîchi sans marteler l'API. */
-const POINTS_TTL_MS = 2 * 60_000;
+/**
+ * Solde de la chaîne suivie, et surtout réclamation du coffre en attente.
+ *
+ * Le clic dans le DOM reste en place pour les onglets que l'utilisateur ouvre
+ * lui-même, mais il dépend d'une classe CSS de Twitch : le jour où elle change,
+ * plus rien ne se réclame et rien ne le signale. L'API, elle, dit explicitement
+ * qu'un bonus attend et confirme qu'il a été pris.
+ */
+const POINTS_TTL_MS = 60_000;
 
-export async function refreshPointsBalance() {
+/**
+ * Deux chemins réclament le même coffre : l'API et le clic dans le DOM. Sans
+ * garde, le compteur compterait deux fois, ce qui est exactement le défaut qu'on
+ * cherche à corriger. Un coffre apparaît toutes les quinze minutes environ :
+ * une minute de fenêtre ne peut pas fusionner deux bonus légitimes.
+ */
+const POINTS_DEDUPE_MS = 60_000;
+
+export async function recordPointsClaim(channel) {
+  const state = await store.getState();
+  const now = Date.now();
+
+  if (state.lastPointsChannel === channel && now - (state.lastPointsAt ?? 0) < POINTS_DEDUPE_MS) {
+    return false;
+  }
+
+  await store.setState({ lastPointsChannel: channel, lastPointsAt: now });
+  await store.bumpStat("points", channel ?? "");
+  return true;
+}
+
+export async function refreshPoints(settings) {
   const state = await store.getState();
   const channel = state.pointsChannel;
   if (!channel) return null;
@@ -272,15 +300,36 @@ export async function refreshPointsBalance() {
   const cached = state.pointsBalance;
   if (cached?.channel === channel && Date.now() - cached.at < POINTS_TTL_MS) return cached;
 
+  let points;
   try {
-    const points = await gql.channelPoints(channel);
-    if (!points) return cached ?? null;
-    const fresh = { channel, balance: points.balance, hasBonus: points.hasBonus, at: Date.now() };
-    await store.setState({ pointsBalance: fresh });
-    return fresh;
+    points = await gql.channelPoints(channel);
   } catch {
     return cached ?? null; // API muette : on garde la dernière valeur connue
   }
+  if (!points) return cached ?? null;
+
+  const fresh = {
+    channel,
+    balance: points.balance,
+    hasBonus: Boolean(points.claimId),
+    at: Date.now(),
+  };
+  await store.setState({ pointsBalance: fresh });
+
+  if (!settings?.claimPoints || !points.claimId) return fresh;
+  // Le même coffre ne se réclame qu'une fois, même si on repasse dessus.
+  if (state.claimedBonusId === points.claimId) return fresh;
+
+  try {
+    const res = await gql.claimCommunityPoints(points.channelId, points.claimId);
+    if (!res.ok) return fresh;
+  } catch {
+    return fresh;
+  }
+
+  await store.setState({ claimedBonusId: points.claimId });
+  const compte = await recordPointsClaim(channel);
+  return { ...fresh, claimed: compte, channel };
 }
 
 /** Met à jour la liste « actions requises » et renvoie les nouvelles. */
