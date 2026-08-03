@@ -15,7 +15,15 @@ import { mapLimited } from "../lib/concurrency.js";
 import * as gql from "./gql.js";
 import * as store from "../lib/storage.js";
 
-const INVENTORY_URL = "https://www.twitch.tv/drops/inventory";
+const TWITCH_TABS = "https://www.twitch.tv/*";
+/**
+ * Marqueur des onglets ouverts par l'extension. Un fragment d'URL n'est jamais
+ * envoyé au serveur, Twitch l'ignore, et surtout il survit au rechargement de
+ * l'extension : c'est le seul indice qui reste quand `storage.session` est vidé.
+ */
+export const TAB_MARK = "#tdc";
+
+const INVENTORY_URL = `https://www.twitch.tv/drops/inventory${TAB_MARK}`;
 const DETAILS_TTL_MS = 6 * 60 * 60 * 1000;
 /** Requêtes de détail en vol simultanément. Assez pour être rapide, pas assez pour agacer Twitch. */
 const DETAILS_CONCURRENCY = 6;
@@ -101,6 +109,45 @@ async function closeTab(tabId) {
   }
 }
 
+/** Tous les onglets dont l'extension a la trace. */
+async function ownTabIds(state) {
+  return new Set(
+    [
+      state.pointsTabId,
+      state.inventoryTabId,
+      ...(state.dropTabs ?? []).map((entry) => entry.tabId),
+    ].filter(Boolean),
+  );
+}
+
+/**
+ * Ferme les onglets marqués par l'extension dont elle n'a plus la trace.
+ *
+ * `storage.session` est vidé à chaque rechargement de l'extension : sans ce
+ * ménage, elle rouvre des onglets pendant que les précédents tournent encore, et
+ * une fenêtre réduite de plus apparaît à chaque fois. Les scripts de contenu
+ * déjà injectés étant invalidés par le rechargement, on ne peut pas attendre
+ * qu'ils se signalent : il faut aller les chercher.
+ *
+ * Le filtre par URL de `tabs.query` ne demande pas la permission `tabs`, la
+ * permission d'hôte sur `www.twitch.tv` suffit.
+ */
+export async function closeOrphanTabs() {
+  let tabs;
+  try {
+    tabs = await chrome.tabs.query({ url: TWITCH_TABS });
+  } catch {
+    return 0;
+  }
+
+  const miens = await ownTabIds(await store.getState());
+  const orphelins = tabs.filter((tab) => (tab.url ?? "").includes(TAB_MARK) && !miens.has(tab.id));
+
+  for (const tab of orphelins) await closeTab(tab.id);
+  // La fenêtre qui les portait se ferme d'elle-même avec son dernier onglet.
+  return orphelins.length;
+}
+
 /** Reste-t-il au moins un onglet de farm vivant ? */
 async function anyDropTabAlive(state) {
   for (const entry of state.dropTabs ?? []) {
@@ -115,7 +162,7 @@ async function anyDropTabAlive(state) {
  * ça évite la permission "tabs" (cf. docs/AUDIT-SECU.md).
  */
 async function ensureChannelTab(tabId, channel) {
-  const url = `https://www.twitch.tv/${channel}`;
+  const url = `https://www.twitch.tv/${channel}${TAB_MARK}`;
   const state = await store.getState();
 
   if (await tabExists(tabId)) {

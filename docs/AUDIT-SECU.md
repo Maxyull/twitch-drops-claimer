@@ -15,7 +15,7 @@ c'est indiqué par `[test]` en fin de ligne. Ces contrôles tournent à chaque `
 | `notifications` | Prévenir d'un drop récupéré et surtout d'une action à faire hors de Twitch (compte à lier). C'est une demande explicite de la fonctionnalité. | Badge seul, rejeté : l'utilisateur ne voit pas passer une campagne bloquée. | ✅ |
 | `webRequest` | **Écoute seule**, jamais de blocage ni de modification. Deux usages : reprendre les en-têtes que la page Twitch envoie déjà à son API (dont `Client-Integrity`, sans lequel Twitch répond « failed integrity check »), et observer les requêtes qui prouvent que le visionnage est comptabilisé. | Injecter un script en monde MAIN pour détourner `fetch` dans la page, rejeté : bien plus intrusif, et cela romprait la règle « le script de contenu n'injecte rien ». | ✅ |
 | ~~`cookies`~~ | **Non demandée depuis la reprise d'en-têtes.** L'autorisation est reprise de la requête de la page, l'extension ne lit plus aucun cookie. | aucune | ✅ retirée |
-| ~~`tabs`~~ | **Non demandée.** `chrome.tabs.create/update/remove/get/reload` fonctionnent sans elle. On mémorise la chaîne demandée par onglet dans `storage.session` plutôt que de relire l'adresse de l'onglet. | aucune | ✅ retirée |
+| ~~`tabs`~~ | **Non demandée.** `chrome.tabs.create/update/remove/get/reload` fonctionnent sans elle. `chrome.tabs.query` est utilisé pour retrouver les onglets orphelins, mais **toujours filtré par URL** : c'est la permission d'hôte sur `www.twitch.tv` qui donne alors accès au résultat. Un test échoue si un jour la requête part sans filtre, ou avec un motif absent de `host_permissions`. Le titre et le favicon des onglets ne sont jamais lus. | aucune | ✅ retirée |
 
 | Host permission | Justification |
 |---|---|

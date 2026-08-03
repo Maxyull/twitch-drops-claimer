@@ -38,6 +38,7 @@ let config = {
   quality: "160p30",
   volumePercent: 1,
   muteTabs: true,
+  owned: false,
 };
 
 let lastHref = location.href;
@@ -337,6 +338,23 @@ async function refreshConfig() {
   }
 }
 
+/** Marqueur des onglets de l'extension, à garder identique côté service worker. */
+const TAB_MARK = "#tdc";
+
+/**
+ * Twitch réécrit l'URL à chaque navigation interne et efface le fragment. Sans
+ * lui, l'extension ne saurait plus reconnaître ses propres onglets après un
+ * rechargement, et en rouvrirait à côté. On le remet en place.
+ */
+function keepTabMark() {
+  if (!config.owned || location.hash === TAB_MARK) return;
+  try {
+    history.replaceState(null, "", `${location.pathname}${location.search}${TAB_MARK}`);
+  } catch {
+    /* navigation refusée, sans conséquence */
+  }
+}
+
 function watchSpaNavigation() {
   // Twitch est une SPA : l'URL change sans rechargement de page.
   setInterval(() => {
@@ -360,6 +378,7 @@ async function start() {
 
   setInterval(() => {
     enforcePlayer();
+    keepTabMark();
     beat();
   }, BEAT_MS);
   setInterval(() => void scan(), SCAN_MS);
