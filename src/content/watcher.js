@@ -152,8 +152,24 @@ function applyStoredPrefs() {
   }
 }
 
+/**
+ * Twitch laisse plusieurs `<video>` dans la page : aperçus de la barre latérale,
+ * bandeau de recommandation, publicité. `querySelector("video")` renvoyait le
+ * premier venu, souvent à l'arrêt, et tout le diagnostic partait de là : lecteur
+ * dit en pause alors que le vrai flux tourne.
+ * On prend celui qui joue, et à défaut le plus grand.
+ */
 function videoEl() {
-  return document.querySelector("video");
+  const videos = [...document.querySelectorAll("video")];
+  if (videos.length <= 1) return videos[0] ?? null;
+
+  const playing = videos.filter((v) => !v.paused && v.readyState >= 2 && v.videoWidth > 0);
+  const pool = playing.length ? playing : videos;
+
+  return pool.reduce(
+    (best, v) => (v.clientWidth * v.clientHeight > best.clientWidth * best.clientHeight ? v : best),
+    pool[0],
+  );
 }
 
 function enforcePlayer() {

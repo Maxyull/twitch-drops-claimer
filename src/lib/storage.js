@@ -187,6 +187,11 @@ const EMPTY_STATE = {
   // tabId -> { spadeAt, segmentAt } : dernières preuves réseau que Twitch
   // comptabilise le visionnage de cet onglet.
   counted: {},
+  // { dropsAt, pointsAt } : dernières fois où une progression réelle a été
+  // constatée, et { marks } les relevés qui servent à la comparer.
+  proof: {},
+  marks: {},
+  proofCheckedAt: 0,
 };
 
 /**

@@ -91,6 +91,7 @@ async function tick() {
     }
     await farm.closeInventoryIfRedundant();
     await farm.refreshPointsBalance();
+    await farm.refreshWatchProof();
     if (settings.dedicatedWindow) await farm.regroupTabs(settings);
     if (settings.wakeStuckTabs) await wakeStuckTabs(status);
     await store.setLastError(null);
@@ -270,12 +271,15 @@ async function computeWatchers(status) {
         row.role === ROLE.POINTS && state.pointsBalance?.channel === row.channel
           ? state.pointsBalance.balance
           : null,
-      counted: evaluateCounted(state.counted[row.tabId], {
-        now,
-        since: row.since,
-        // Un lecteur à l'arrêt n'est jamais compté, quels que soient les signaux réseau.
-        playing: row.status.green,
-      }),
+      counted: evaluateCounted(
+        {
+          ...state.counted[row.tabId],
+          // La progression est attribuée au rôle, pas à l'onglet : c'est la
+          // campagne suivie ou le solde de la chaîne favorite qui avance.
+          progressAt: row.role === ROLE.POINTS ? state.proof?.pointsAt : state.proof?.dropsAt,
+        },
+        { now, since: row.since, playing: row.status.green },
+      ),
     }));
 }
 

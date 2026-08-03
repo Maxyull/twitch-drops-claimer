@@ -1,43 +1,56 @@
 // « Est-ce que Twitch me compte comme spectateur ? »
 //
-// On ne le devine pas, on l'observe. Deux signaux réseau, du plus fort au plus faible :
-//   1. le ping de comptage que le lecteur envoie à Twitch (spade) : preuve directe ;
-//   2. les segments vidéo téléchargés : preuve que le flux est réellement consommé,
+// On ne le devine pas, on l'observe. Trois signaux, du plus fort au plus faible :
+//   1. la progression elle-même : minutes de drop accumulées, solde de points qui
+//      monte. C'est irréfutable, mais lent à confirmer ;
+//   2. le ping de comptage que le lecteur envoie à Twitch : preuve directe ;
+//   3. les segments vidéo téléchargés : preuve que le flux est consommé,
 //      condition nécessaire pour être compté.
-// Un bloqueur de pub peut tuer le signal 1 sans empêcher le comptage, d'où l'état
-// intermédiaire au lieu d'une réponse binaire qui mentirait.
+//
+// Règle de fond : **une preuve l'emporte toujours sur une déduction**. L'état du
+// lecteur lu dans le DOM n'est qu'une déduction, et il s'est déjà trompé. S'il
+// dit « en pause » alors que la progression avance, c'est lui qui a tort.
 //
 // Module pur.
 
 export const COUNTED = {
-  CONFIRMED: "confirmed", // ping de comptage vu récemment
-  STREAMING: "streaming", // flux téléchargé, mais aucun ping observé
-  NO: "no", // rien, ou lecteur à l'arrêt
+  CONFIRMED: "confirmed", // progression ou ping de comptage observés
+  STREAMING: "streaming", // flux téléchargé, mais aucune preuve plus forte
+  NO: "no", // aucun signal, et rien qui laisse penser que ça tourne
   UNKNOWN: "unknown", // trop tôt pour se prononcer
 };
 
+export const PROGRESS_MAX_AGE_MS = 15 * 60_000;
 export const SPADE_MAX_AGE_MS = 3 * 60_000;
 export const SEGMENT_MAX_AGE_MS = 45_000;
-/** En dessous, l'onglet vient d'ouvrir : aucun signal n'est encore attendu. */
-export const WARMUP_MS = 90_000;
+/**
+ * En dessous, aucune preuve n'est encore attendue : la progression se vérifie
+ * toutes les cinq minutes, annoncer « non compté » avant serait faux.
+ */
+export const WARMUP_MS = 6 * 60_000;
+
+function age(at, now) {
+  return typeof at === "number" && at > 0 ? now - at : null;
+}
 
 /**
- * @param {object} signals { spadeAt, segmentAt } horodatages des derniers signaux
+ * @param {object} signals { progressAt, spadeAt, segmentAt }
  * @param {object} ctx { now, since, playing }
- * @returns {{code:string, spadeAge:number|null, segmentAge:number|null}}
  */
 export function evaluateCounted(signals, ctx = {}) {
   const { now = Date.now(), since = null, playing = true } = ctx;
-  const spadeAt = signals?.spadeAt ?? null;
-  const segmentAt = signals?.segmentAt ?? null;
 
-  const spadeAge = spadeAt ? now - spadeAt : null;
-  const segmentAge = segmentAt ? now - segmentAt : null;
-  const out = (code) => ({ code, spadeAge, segmentAge });
+  const progressAge = age(signals?.progressAt, now);
+  const spadeAge = age(signals?.spadeAt, now);
+  const segmentAge = age(signals?.segmentAt, now);
+  const out = (code) => ({ code, progressAge, spadeAge, segmentAge });
 
-  if (!playing) return out(COUNTED.NO);
+  // Les preuves d'abord, avant tout jugement sur l'état du lecteur.
+  if (progressAge !== null && progressAge < PROGRESS_MAX_AGE_MS) return out(COUNTED.CONFIRMED);
   if (spadeAge !== null && spadeAge < SPADE_MAX_AGE_MS) return out(COUNTED.CONFIRMED);
   if (segmentAge !== null && segmentAge < SEGMENT_MAX_AGE_MS) return out(COUNTED.STREAMING);
+
+  if (!playing) return out(COUNTED.NO);
   if (since !== null && now - since < WARMUP_MS) return out(COUNTED.UNKNOWN);
   return out(COUNTED.NO);
 }
@@ -47,8 +60,13 @@ export function isCounted(code) {
   return code === COUNTED.CONFIRMED || code === COUNTED.STREAMING;
 }
 
+/** Une valeur de progression a-t-elle augmenté depuis le dernier relevé ? */
+export function progressAdvanced(previous, current) {
+  return typeof previous === "number" && typeof current === "number" && current > previous;
+}
+
 /**
- * Reconnaît les URL qui portent chacun des deux signaux.
+ * Reconnaît les URL qui portent les signaux réseau.
  * Séparé du service worker pour être testable sans navigateur.
  */
 export function classifyRequest(url) {
