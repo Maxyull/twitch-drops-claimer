@@ -55,11 +55,6 @@ const migrated = store.migrate().catch((err) => {
 
 async function boot() {
   await migrated;
-  // Avant tout : les onglets de la session précédente ne se sont pas fermés
-  // seuls, et l'extension n'en a plus la trace après un rechargement.
-  const fermes = await farm.closeOrphanTabs();
-  if (fermes) console.debug("[TDC]", fermes, "onglet(s) orphelin(s) fermé(s)");
-
   await installAlarms();
   await updateBadge();
 }
@@ -88,10 +83,6 @@ async function tick() {
   const status = await computeStatus();
 
   try {
-    // Un onglet marqué dont on n'a plus la trace est un doublon : on ne veut
-    // surtout pas en ouvrir un de plus à côté.
-    await farm.closeOrphanTabs();
-
     if (!status.points.green) await farm.ensurePointsTab(settings);
     if (status.drops.some((s) => !s.green)) {
       // Une chaîne passée hors ligne ne reviendra pas : on force le changement
@@ -99,6 +90,10 @@ async function tick() {
       const horsLigne = status.drops.some((s) => s.code === STATUS.OFFLINE);
       await farm.ensureDropsTabs(settings, { force: horsLigne });
     }
+    // Le ménage vient APRÈS : les ensure* reprennent d'abord les onglets déjà
+    // ouverts dont ils ont besoin, et seuls les vrais doublons sont fermés.
+    // Dans l'autre sens, on fermait ce qu'on allait rouvrir juste après.
+    await farm.closeOrphanTabs();
     await farm.closeInventoryIfRedundant();
     const points = await farm.refreshPoints(settings);
     if (points?.claimed && settings.notifyDrops) notify.notifyPointsClaimed(points.channel);
