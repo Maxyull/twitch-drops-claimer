@@ -132,11 +132,32 @@ test("les réglages survivent au rechargement de la page", async () => {
   await page.close();
 });
 
-test("les réglages survivent à la mort du service worker (redémarrage du navigateur)", async () => {
+/**
+ * Fermer le navigateur juste après une écriture peut la perdre : `storage.local`
+ * n'est pas encore sur le disque. On relit la valeur depuis une page de
+ * l'extension avant de couper, ce qui garantit qu'elle est bien posée et rend
+ * ces deux tests déterministes plutôt qu'intermittents.
+ */
+async function restartBrowser() {
+  const page = await context.newPage();
+  await page.goto(url("options/options.html"));
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        chrome.storage.local.get("favoriteChannels").then((r) => (r.favoriteChannels ?? []).join()),
+      ),
+    )
+    .toBe("zerator,gotaga");
+  await page.close();
+
   await context.close();
   const relaunched = await launch(profileDir);
   context = relaunched.ctx;
   extensionId = relaunched.id;
+}
+
+test("les réglages survivent à la mort du service worker (redémarrage du navigateur)", async () => {
+  await restartBrowser();
 
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
@@ -154,10 +175,7 @@ test("RÉGRESSION : une montée de schéma ne perd aucun réglage", async () => 
   await page.evaluate(() => chrome.storage.local.set({ storageVersion: 1 }));
   await page.close();
 
-  await context.close();
-  const relaunched = await launch(profileDir);
-  context = relaunched.ctx;
-  extensionId = relaunched.id;
+  await restartBrowser();
 
   const after = await context.newPage();
   await after.goto(url("options/options.html"));
