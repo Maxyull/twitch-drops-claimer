@@ -1,0 +1,107 @@
+import { DEFAULT_SETTINGS, normalizeChannelList } from "../lib/settings.js";
+import { MSG } from "../lib/messaging.js";
+import { t, localizeDocument } from "../lib/i18n.js";
+
+const $ = (id) => document.getElementById(id);
+
+const CHECKS = [
+  "watchFavorite",
+  "claimPoints",
+  "farmDrops",
+  "autoDiscover",
+  "onlyLinkedCampaigns",
+  "fastClaim",
+  "notifyDrops",
+  "notifyActions",
+];
+const NUMBERS = ["claimIntervalMin", "discoverIntervalMin", "volumePercent"];
+const SELECTS = ["priority", "quality"];
+
+let blacklist = new Set();
+
+function send(type, payload) {
+  return chrome.runtime.sendMessage({ type, payload });
+}
+
+function fill(settings) {
+  for (const id of CHECKS) $(id).checked = Boolean(settings[id]);
+  for (const id of NUMBERS) $(id).value = settings[id];
+  for (const id of SELECTS) $(id).value = settings[id];
+  $("favoriteChannels").value = (settings.favoriteChannels || []).join("\n");
+}
+
+function collect() {
+  const patch = {
+    favoriteChannels: normalizeChannelList($("favoriteChannels").value),
+    campaignBlacklist: [...blacklist],
+  };
+  for (const id of CHECKS) patch[id] = $(id).checked;
+  for (const id of NUMBERS) patch[id] = Number($(id).value);
+  for (const id of SELECTS) patch[id] = $(id).value;
+  return patch;
+}
+
+function renderCampaigns(campaigns) {
+  const list = $("campaigns");
+  list.replaceChildren();
+
+  // rankCampaigns écarte déjà les campagnes ignorées : on les réaffiche pour
+  // pouvoir les remettre en rotation.
+  const known = new Map(campaigns.map((c) => [c.id, c]));
+  for (const id of blacklist) {
+    if (!known.has(id)) known.set(id, { id, name: id, game: "", progress: null });
+  }
+  $("campaignsEmpty").hidden = known.size > 0;
+
+  for (const c of known.values()) {
+    const li = document.createElement("li");
+    li.className = "camp";
+
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = blacklist.has(c.id);
+    box.title = t("options_ignored_title");
+    box.addEventListener("change", () => {
+      if (box.checked) blacklist.add(c.id);
+      else blacklist.delete(c.id);
+    });
+
+    const body = document.createElement("div");
+    body.className = "body";
+    const name = document.createElement("b");
+    name.textContent = c.name || "";
+    const meta = document.createElement("small");
+    meta.textContent = [c.game, c.progress ? `${c.progress.pct} %` : null].filter(Boolean).join(" · ");
+    body.append(name, meta);
+
+    li.append(box, body);
+    list.append(li);
+  }
+}
+
+async function load() {
+  const state = await send(MSG.GET_STATE);
+  if (!state?.settings) return;
+  fill(state.settings);
+  blacklist = new Set(state.settings.campaignBlacklist || []);
+  renderCampaigns(state.campaigns || []);
+}
+
+localizeDocument();
+
+$("save").addEventListener("click", async () => {
+  const res = await send(MSG.SET_SETTINGS, collect());
+  if (res?.settings) fill(res.settings);
+  $("saved").classList.add("show");
+  setTimeout(() => $("saved").classList.remove("show"), 1_600);
+});
+
+$("reset").addEventListener("click", async () => {
+  if (!confirm(t("options_reset_confirm"))) return;
+  blacklist = new Set();
+  fill(DEFAULT_SETTINGS);
+  await send(MSG.SET_SETTINGS, { ...DEFAULT_SETTINGS });
+  void load();
+});
+
+void load();

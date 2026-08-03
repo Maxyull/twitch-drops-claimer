@@ -1,0 +1,151 @@
+:root {
+  --bg: #0e0c13;
+  --panel: #1a1625;
+  --panel-hi: #241f33;
+  --line: #2e2840;
+  --purple: #9147ff;
+  --purple-soft: #bf94ff;
+  --text: #efeff1;
+  --muted: #8d86a0;
+  --green: #00e6a0;
+  --red: #ff5b5b;
+  --orange: #ffb03a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: 340px;
+  max-height: 580px;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 "Segoe UI", system-ui, sans-serif;
+  padding: 14px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+header h1 { font-size: 14px; font-weight: 700; flex: 1; }
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+.dot.green { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.dot.red { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+.toggle {
+  position: relative;
+  width: 38px; height: 20px;
+  background: #3a3444;
+  border-radius: 999px;
+  cursor: pointer;
+  border: none;
+  flex: none;
+  transition: background 0.15s;
+}
+.toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform 0.15s;
+}
+.toggle.on { background: var(--purple); }
+.toggle.on::after { transform: translateX(18px); }
+
+h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 14px 0 6px;
+}
+
+.card {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.watch {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.watch .who { flex: 1; min-width: 0; }
+.watch .who b { display: block; font-weight: 600; }
+.watch .who small { color: var(--muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.watch .toggle { margin-left: auto; }
+
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat { background: var(--panel); border-radius: 8px; padding: 9px; text-align: center; }
+.stat b { display: block; font-size: 19px; color: var(--purple-soft); }
+.stat small { color: var(--muted); }
+.last { color: var(--muted); font-size: 11px; text-align: center; margin: 6px 0 2px; }
+
+ul { list-style: none; }
+
+.action {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  background: var(--panel);
+  border-left: 3px solid var(--orange);
+  border-radius: 6px;
+  padding: 9px 10px;
+  margin-bottom: 6px;
+}
+.action.done { border-left-color: var(--green); opacity: 0.55; }
+.action input { margin-top: 2px; accent-color: var(--purple); cursor: pointer; flex: none; }
+.action .body { min-width: 0; flex: 1; }
+.action b { display: block; font-size: 12px; }
+.action small { color: var(--muted); display: block; }
+.action a { color: var(--purple-soft); font-size: 11px; }
+
+.camp { background: var(--panel); border-radius: 8px; padding: 9px 10px; margin-bottom: 6px; }
+.camp.current { background: var(--panel-hi); outline: 1px solid var(--purple); }
+.camp .top { display: flex; gap: 6px; align-items: baseline; }
+.camp .top b { font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.camp .top span { color: var(--muted); font-size: 11px; flex: none; }
+.camp small { color: var(--muted); font-size: 11px; }
+.bar { height: 4px; background: #322b45; border-radius: 999px; margin: 6px 0 4px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--purple); }
+
+.err {
+  background: #38181f;
+  border-left: 3px solid var(--red);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.row-btn { display: flex; gap: 6px; margin-top: 12px; }
+button.act {
+  flex: 1;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 6px;
+  background: var(--panel-hi);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+button.act:hover { background: #302949; }
+button.act.primary { background: var(--purple); color: #fff; font-weight: 600; }
+button.act.primary:hover { background: #7c2ff2; }
+
+.empty { color: var(--muted); font-size: 11px; padding: 2px 2px 6px; }

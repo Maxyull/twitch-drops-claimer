@@ -1,0 +1,159 @@
+{
+  "ext_name": { "message": "Twitch Drops & Points Auto-Claimer" },
+  "ext_description": {
+    "message": "Regarde une chaîne en arrière-plan, réclame les points et les Twitch Drops, cherche tout seul les campagnes en cours."
+  },
+
+  "badge_actions": {
+    "message": "$COUNT$ action(s) à faire hors de Twitch",
+    "placeholders": { "count": { "content": "$1" } }
+  },
+  "badge_disabled": { "message": "Désactivé" },
+  "badge_watching": { "message": "Visionnage actif" },
+  "badge_problem": {
+    "message": "Problème : $REASON$",
+    "placeholders": { "reason": { "content": "$1" } }
+  },
+
+  "notif_drop_title": { "message": "Drop récupéré" },
+  "notif_drop_fallback": { "message": "Récompense" },
+  "notif_points_title": { "message": "Bonus de points réclamé" },
+  "notif_points_body": {
+    "message": "Chaîne $CHANNEL$",
+    "placeholders": { "channel": { "content": "$1" } }
+  },
+  "notif_link_title": { "message": "Compte à lier pour ce drop" },
+  "notif_link_body": {
+    "message": "Twitch ne comptera pas la progression tant que le compte n'est pas lié."
+  },
+  "notif_redeem_title": { "message": "Récompense à récupérer sur le site" },
+  "notif_redeem_body": { "message": "La récompense s'active sur le site de l'éditeur." },
+  "notif_btn_open": { "message": "Ouvrir le site" },
+  "notif_btn_done": { "message": "C'est fait" },
+  "notif_problem_title": { "message": "Twitch Drops : problème" },
+
+  "popup_title": { "message": "Twitch Drops & Points" },
+  "popup_section_watch": { "message": "Visionnage" },
+  "popup_points": { "message": "Points de chaîne" },
+  "popup_points_none": { "message": "aucune chaîne favorite (Réglages)" },
+  "popup_drops": { "message": "Farm des drops" },
+  "popup_drops_none": { "message": "aucune campagne en direct trouvée" },
+  "popup_disabled": { "message": "désactivé" },
+  "popup_stat_drops": { "message": "drops réclamés" },
+  "popup_stat_points": { "message": "bonus de points" },
+  "popup_no_claim": { "message": "aucune réclamation pour l'instant" },
+  "popup_last_claim": {
+    "message": "dernière réclamation : $WHEN$",
+    "placeholders": { "when": { "content": "$1" } }
+  },
+  "popup_section_actions": { "message": "Actions requises" },
+  "popup_actions_empty": { "message": "Rien à faire hors de Twitch." },
+  "popup_action_link": {
+    "message": "Compte à lier sur le site de l'éditeur, sinon rien ne se cumule."
+  },
+  "popup_action_redeem": { "message": "Récompense à récupérer sur le site." },
+  "popup_action_open": { "message": "ouvrir le site" },
+  "popup_action_check": { "message": "Cocher quand c'est fait" },
+  "popup_section_campaigns": { "message": "Campagnes suivies" },
+  "popup_campaigns_empty": { "message": "Aucune campagne connue. Lance une recherche." },
+  "popup_btn_refresh": { "message": "Rechercher" },
+  "popup_btn_searching": { "message": "Recherche…" },
+  "popup_btn_switch": { "message": "Changer de chaîne" },
+  "popup_btn_inventory": { "message": "Inventaire" },
+  "popup_btn_options": { "message": "Réglages" },
+  "popup_toggle_enabled": { "message": "Activer l'extension" },
+  "popup_toggle_watch": { "message": "Regarder la chaîne favorite en arrière-plan" },
+  "popup_toggle_farm": { "message": "Farmer les drops automatiquement" },
+  "popup_tiers": {
+    "message": "$DONE$/$TOTAL$ paliers",
+    "placeholders": { "done": { "content": "$1" }, "total": { "content": "$2" } }
+  },
+  "popup_claimable": {
+    "message": "$COUNT$ à réclamer",
+    "placeholders": { "count": { "content": "$1" } }
+  },
+  "popup_ready": { "message": "prêt" },
+  "popup_left_min": {
+    "message": "$MIN$ min restantes",
+    "placeholders": { "min": { "content": "$1" } }
+  },
+  "popup_left_hours": {
+    "message": "$H$ h $MIN$ min restantes",
+    "placeholders": { "h": { "content": "$1" }, "min": { "content": "$2" } }
+  },
+  "popup_end_hours": {
+    "message": "fin dans $H$ h",
+    "placeholders": { "h": { "content": "$1" } }
+  },
+  "popup_end_days": {
+    "message": "fin dans $D$ j",
+    "placeholders": { "d": { "content": "$1" } }
+  },
+  "popup_ended": { "message": "terminée" },
+
+  "options_title": { "message": "Réglages" },
+  "options_intro": { "message": "Tout se règle ici. Les bascules rapides restent dans le popup." },
+  "options_section_channels": { "message": "Chaînes favorites" },
+  "options_channels_label": { "message": "Une chaîne par ligne" },
+  "options_channels_hint": {
+    "message": "L'extension ouvre un onglet en arrière-plan sur la première de la liste qui est en direct, et y réclame les points de chaîne. Un pseudo ou une URL, les deux marchent."
+  },
+  "options_watch_favorite": { "message": "Regarder la favorite en arrière-plan" },
+  "options_watch_favorite_hint": {
+    "message": "Décoché, l'extension ne réclame que sur les onglets Twitch déjà ouverts."
+  },
+  "options_claim_points": { "message": "Réclamer les bonus de points" },
+  "options_claim_points_hint": { "message": "Le coffre violet, sur toutes les chaînes ouvertes." },
+  "options_section_drops": { "message": "Drops" },
+  "options_farm_drops": { "message": "Réclamer les drops automatiquement" },
+  "options_farm_drops_hint": {
+    "message": "Dès qu'un bouton « Réclamer » apparaît, en direct comme dans l'inventaire."
+  },
+  "options_auto_discover": { "message": "Chercher les campagnes toute seule" },
+  "options_auto_discover_hint": {
+    "message": "Ouvre un second onglet d'arrière-plan sur une chaîne qui distribue des drops, et enchaîne les campagnes."
+  },
+  "options_only_linked": { "message": "Ignorer les campagnes dont le compte n'est pas lié" },
+  "options_only_linked_hint": {
+    "message": "Sinon elles sont farmées quand même, et signalées dans « actions requises »."
+  },
+  "options_priority": { "message": "Ordre de priorité" },
+  "options_priority_ending": { "message": "Ce qui expire le plus tôt" },
+  "options_priority_closest": { "message": "Le plus proche de la fin" },
+  "options_priority_order": { "message": "Ordre donné par Twitch" },
+  "options_claim_interval": { "message": "Passage de réclamation (min)" },
+  "options_claim_interval_hint": {
+    "message": "Recharge l'inventaire et clique tout ce qui est réclamable."
+  },
+  "options_discover_interval": { "message": "Recherche de campagnes (min)" },
+  "options_fast_claim": { "message": "Mode rapide (réclamer par l'API)" },
+  "options_fast_claim_hint": {
+    "message": "Plus fiable et instantané, mais ce n'est plus un clic simulé : à activer en connaissance de cause."
+  },
+  "options_section_player": { "message": "Lecteur en arrière-plan" },
+  "options_quality": { "message": "Qualité imposée" },
+  "options_quality_hint": { "message": "Uniquement sur les onglets ouverts par l'extension." },
+  "options_quality_160": { "message": "160p (le moins de bande passante)" },
+  "options_quality_source": { "message": "Source" },
+  "options_volume": { "message": "Volume (%)" },
+  "options_volume_hint": {
+    "message": "Jamais 0 : un onglet muet et caché se fait brider par Chrome, et le temps de visionnage arrête de compter."
+  },
+  "options_section_notifs": { "message": "Notifications" },
+  "options_notify_drops": { "message": "À chaque réclamation" },
+  "options_notify_drops_hint": { "message": "Drop ou bonus de points." },
+  "options_notify_actions": { "message": "Quand une action hors de Twitch est requise" },
+  "options_notify_actions_hint": {
+    "message": "Compte à lier, récompense à récupérer chez l'éditeur. La liste à cocher est dans le popup."
+  },
+  "options_section_ignored": { "message": "Campagnes à ignorer" },
+  "options_ignored_hint": { "message": "Coche pour retirer une campagne de la rotation." },
+  "options_ignored_empty": { "message": "Aucune campagne connue pour l'instant." },
+  "options_ignored_title": { "message": "Ignorer cette campagne" },
+  "options_btn_save": { "message": "Enregistrer" },
+  "options_btn_reset": { "message": "Valeurs par défaut" },
+  "options_saved": { "message": "Enregistré" },
+  "options_reset_confirm": {
+    "message": "Remettre tous les réglages par défaut ? Les chaînes favorites seront effacées."
+  }
+}

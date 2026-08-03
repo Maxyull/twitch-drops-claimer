@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title data-i18n="options_title">Réglages</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+<main>
+  <h1 data-i18n="ext_name"></h1>
+  <p class="sub" data-i18n="options_intro"></p>
+
+  <section>
+    <h2 data-i18n="options_section_channels"></h2>
+    <div class="field">
+      <label for="favoriteChannels" data-i18n="options_channels_label"></label>
+      <p class="hint" data-i18n="options_channels_hint"></p>
+      <textarea id="favoriteChannels" spellcheck="false" placeholder="zerator&#10;https://www.twitch.tv/gotaga"></textarea>
+    </div>
+    <label class="check">
+      <input type="checkbox" id="watchFavorite" />
+      <span><b data-i18n="options_watch_favorite"></b><small data-i18n="options_watch_favorite_hint"></small></span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="claimPoints" />
+      <span><b data-i18n="options_claim_points"></b><small data-i18n="options_claim_points_hint"></small></span>
+    </label>
+  </section>
+
+  <section>
+    <h2 data-i18n="options_section_drops"></h2>
+    <label class="check">
+      <input type="checkbox" id="farmDrops" />
+      <span><b data-i18n="options_farm_drops"></b><small data-i18n="options_farm_drops_hint"></small></span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="autoDiscover" />
+      <span><b data-i18n="options_auto_discover"></b><small data-i18n="options_auto_discover_hint"></small></span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="onlyLinkedCampaigns" />
+      <span><b data-i18n="options_only_linked"></b><small data-i18n="options_only_linked_hint"></small></span>
+    </label>
+
+    <div class="grid2">
+      <div class="field">
+        <label for="priority" data-i18n="options_priority"></label>
+        <select id="priority">
+          <option value="endingSoon" data-i18n="options_priority_ending"></option>
+          <option value="closestToDone" data-i18n="options_priority_closest"></option>
+          <option value="order" data-i18n="options_priority_order"></option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="claimIntervalMin" data-i18n="options_claim_interval"></label>
+        <p class="hint" data-i18n="options_claim_interval_hint"></p>
+        <input type="number" id="claimIntervalMin" min="1" max="240" />
+      </div>
+      <div class="field">
+        <label for="discoverIntervalMin" data-i18n="options_discover_interval"></label>
+        <input type="number" id="discoverIntervalMin" min="1" max="240" />
+      </div>
+    </div>
+
+    <label class="check">
+      <input type="checkbox" id="fastClaim" />
+      <span><b data-i18n="options_fast_claim"></b><small data-i18n="options_fast_claim_hint"></small></span>
+    </label>
+  </section>
+
+  <section>
+    <h2 data-i18n="options_section_player"></h2>
+    <div class="grid2">
+      <div class="field">
+        <label for="quality" data-i18n="options_quality"></label>
+        <p class="hint" data-i18n="options_quality_hint"></p>
+        <select id="quality">
+          <option value="160p30" data-i18n="options_quality_160"></option>
+          <option value="360p30">360p</option>
+          <option value="480p30">480p</option>
+          <option value="720p60">720p60</option>
+          <option value="source" data-i18n="options_quality_source"></option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="volumePercent" data-i18n="options_volume"></label>
+        <p class="hint" data-i18n="options_volume_hint"></p>
+        <input type="number" id="volumePercent" min="1" max="100" />
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 data-i18n="options_section_notifs"></h2>
+    <label class="check">
+      <input type="checkbox" id="notifyDrops" />
+      <span><b data-i18n="options_notify_drops"></b><small data-i18n="options_notify_drops_hint"></small></span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="notifyActions" />
+      <span><b data-i18n="options_notify_actions"></b><small data-i18n="options_notify_actions_hint"></small></span>
+    </label>
+  </section>
+
+  <section>
+    <h2 data-i18n="options_section_ignored"></h2>
+    <p class="hint" data-i18n="options_ignored_hint"></p>
+    <ul id="campaigns"></ul>
+    <p class="empty" id="campaignsEmpty" data-i18n="options_ignored_empty"></p>
+  </section>
+
+  <footer>
+    <button id="save" data-i18n="options_btn_save"></button>
+    <button class="ghost" id="reset" data-i18n="options_btn_reset"></button>
+    <span class="saved" id="saved" data-i18n="options_saved"></span>
+  </footer>
+</main>
+<script src="options.js" type="module"></script>
+</body>
+</html>

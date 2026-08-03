@@ -1,0 +1,11 @@
+# Consignes locales de l'assistant : ne partent pas dans un dépôt public.
+CLAUDE.md
+.claude/
+
+node_modules/
+dist/
+release/
+test-results/
+playwright-report/
+__pycache__/
+*.pyc

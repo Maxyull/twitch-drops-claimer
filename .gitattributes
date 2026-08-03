@@ -1,0 +1,3 @@
+# Fins de ligne en LF partout : la CI tourne sous Linux, le paquet livré aussi.
+* text=auto eol=lf
+*.png binary

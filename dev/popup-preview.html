@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Aperçu du popup</title>
+  <style>body { background: #0e0c13; }</style>
+</head>
+<body>
+  <script type="module">
+    import { mountExtensionPage } from "./fake-state.js";
+    await mountExtensionPage("/src/popup/popup.html", "/src/popup/popup.js");
+  </script>
+</body>
+</html>

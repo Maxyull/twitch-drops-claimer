@@ -1,0 +1,17 @@
+{
+  "name": "twitch-drops-claimer",
+  "version": "2.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Extension Chrome : points de chaîne et Twitch Drops en automatique.",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
+    "build": "python scripts/build.py",
+    "test:e2e": "python scripts/build.py && playwright test",
+    "preview": "node dev/server.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}
