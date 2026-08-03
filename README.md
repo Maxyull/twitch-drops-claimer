@@ -59,10 +59,11 @@ pas 0. La qualité, elle, est descendue à 160p pour la bande passante.
 
 ## Ce qu'il faut savoir
 
-- **Il faut être connecté à Twitch.** L'extension réutilise la session du navigateur pour
-  interroger l'API GraphQL de Twitch (lecture seule). Elle ne demande jamais de mot de
-  passe et n'écrit jamais le jeton de session sur le disque. Détail dans
-  [docs/PRIVACY.md](docs/PRIVACY.md).
+- **Il faut être connecté à Twitch, et garder un onglet Twitch ouvert.** L'API de Twitch
+  exige un jeton d'intégrité que son propre JavaScript calcule dans la page ; une
+  extension ne peut pas le fabriquer. L'extension reprend donc au passage les en-têtes
+  que la page envoie déjà. Sans onglet Twitch, le popup affiche « en attente d'un onglet
+  Twitch » et en ouvre un tout seul. Détail dans [docs/PRIVACY.md](docs/PRIVACY.md).
 - **Twitch ne compte la progression que sur un flux à la fois.** L'onglet « points » et
   l'onglet « drops » cumulent tous les deux des points de chaîne, mais un seul fait
   avancer les drops.
@@ -109,7 +110,11 @@ Twitch change son DOM régulièrement. Les points de rupture probables, dans l'o
 1. **Les boutons ne sont plus cliqués** → `src/lib/dom-rules.js`, ajouter le nouveau
    `data-test-selector` dans `DROP_CLAIM_SELECTORS`. Les tests de `tests/dom-rules.test.js`
    disent tout de suite si la règle devient trop permissive.
-2. **La recherche de campagnes échoue** → `src/background/gql.js`, une requête a changé de
-   forme. Le popup affiche l'erreur exacte remontée par Twitch.
-3. **Le module du script de contenu ne se charge plus** → `use_dynamic_url: true` dans le
+2. **« failed integrity check »** → le jeton repris de la page a expiré ou Twitch a changé
+   le nom de ses en-têtes. Voir `FORWARDED_HEADERS` dans `src/lib/gql-headers.js` et
+   comparer avec une vraie requête (F12 sur un onglet Twitch, onglet Network, filtre `gql`,
+   section Request Headers).
+3. **La recherche de campagnes échoue autrement** → `src/background/gql.js`, une requête a
+   changé de forme. Le popup affiche l'erreur exacte remontée par Twitch.
+4. **Le module du script de contenu ne se charge plus** → `use_dynamic_url: true` dans le
    manifeste est le premier suspect ; le passer à `false` pour vérifier.

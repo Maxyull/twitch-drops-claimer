@@ -13,17 +13,33 @@ c'est indiqué par `[test]` en fin de ligne. Ces contrôles tournent à chaque `
 | `storage` | Réglages, compteurs, liste « actions requises », cache de campagnes (`local`) ; état des onglets et battements de coeur (`session`). | Aucune : sans stockage, l'extension ne survit pas au redémarrage du service worker. | ✅ |
 | `alarms` | Trois boucles périodiques : entretien des onglets (1 min), recherche de campagnes (30 min), passage de réclamation (15 min). Un service worker MV3 ne peut pas tenir un `setInterval`. | `setInterval` dans le SW, rejeté : le worker est tué au bout de 30 s d'inactivité. | ✅ |
 | `notifications` | Prévenir d'un drop récupéré et surtout d'une action à faire hors de Twitch (compte à lier). C'est une demande explicite de la fonctionnalité. | Badge seul, rejeté : l'utilisateur ne voit pas passer une campagne bloquée. | ✅ |
-| `cookies` | Lire le cookie `auth-token` de `www.twitch.tv` pour interroger l'API GQL au nom de la session déjà ouverte. Sans lui, la recherche automatique de campagnes est impossible. Portée limitée aux hôtes de `host_permissions`, donc à Twitch. | `document.cookie` depuis le script de contenu, rejeté : il faut déjà un onglet Twitch ouvert, or c'est justement l'API qui décide quel onglet ouvrir (problème de l'oeuf et de la poule au démarrage). | ✅ |
+| `webRequest` | **Écoute seule**, jamais de blocage ni de modification. Deux usages : reprendre les en-têtes que la page Twitch envoie déjà à son API (dont `Client-Integrity`, sans lequel Twitch répond « failed integrity check »), et observer les requêtes qui prouvent que le visionnage est comptabilisé. | Injecter un script en monde MAIN pour détourner `fetch` dans la page, rejeté : bien plus intrusif, et cela romprait la règle « le script de contenu n'injecte rien ». | ✅ |
+| ~~`cookies`~~ | **Non demandée depuis la reprise d'en-têtes.** L'autorisation est reprise de la requête de la page, l'extension ne lit plus aucun cookie. | aucune | ✅ retirée |
 | ~~`tabs`~~ | **Non demandée.** `chrome.tabs.create/update/remove/get/reload` fonctionnent sans elle. On mémorise la chaîne demandée par onglet dans `storage.session` plutôt que de relire l'adresse de l'onglet. | aucune | ✅ retirée |
 
 | Host permission | Justification |
 |---|---|
 | `https://www.twitch.tv/*` | Script de contenu (lecteur + clics de réclamation) et onglets d'arrière-plan. |
-| `https://gql.twitch.tv/*` | API GraphQL de Twitch : liste des campagnes, progression, chaînes en direct. Lecture seule sauf si le « mode rapide » est activé par l'utilisateur. |
+| `https://gql.twitch.tv/*` | API GraphQL de Twitch : liste des campagnes, progression, chaînes en direct. Lecture seule sauf si le « mode rapide » est activé par l'utilisateur. Sert aussi à la reprise d'en-têtes. |
 
 Aucune permission optionnelle : les quatre permissions ci-dessus sont toutes utilisées
 dès le premier cycle de fonctionnement. `[test]` vérifie qu'aucune permission déclarée
 n'est inutilisée, et qu'aucune API utilisée n'est sans permission.
+
+### Reprise des en-têtes de la page
+
+Twitch calcule `Client-Integrity` dans son propre JavaScript ; une extension ne peut
+pas le fabriquer. L'extension observe donc les requêtes que la page envoie déjà et
+réutilise sept en-têtes, listés explicitement dans `src/lib/gql-headers.js` :
+`authorization`, `client-id`, `client-integrity`, `client-session-id`,
+`client-version`, `device-id`, `x-device-id`, `accept-language`.
+
+Ce qui n'est **jamais** repris, et qu'un test de régression protège : l'en-tête
+`Cookie`. Il porte la session complète, notre requête n'en a pas besoin, et le stocker
+serait une fuite gratuite.
+
+Conséquence fonctionnelle assumée : sans onglet Twitch ouvert, l'extension ne peut
+pas interroger l'API. Elle en ouvre un d'elle-même quand c'est le cas.
 
 ---
 
@@ -77,12 +93,15 @@ n'est inutilisée, et qu'aucune API utilisée n'est sans permission.
       dans le DOM de Twitch, il ne fait que lire et cliquer
 
 ### Storage
-- [x] `chrome.storage.local` : aucun secret. **Le jeton Twitch n'y est jamais écrit**, il est
-      lu à la demande via `chrome.cookies` et vit uniquement dans une variable locale, le
-      temps d'une requête. Contenu : réglages, compteurs, liste d'actions, cache de campagnes,
-      login Twitch, dernière erreur.
-- [x] Rien à mettre en `session` côté secret. `session` ne contient que des identifiants
-      d'onglets et des battements de coeur.
+- [x] `chrome.storage.local` : aucun secret. **Le jeton Twitch n'y est jamais écrit.**
+      Contenu : réglages, compteurs, liste d'actions, cache de campagnes, login Twitch,
+      dernière erreur.
+- [x] Les en-têtes repris de la page, qui contiennent le jeton de session et le jeton
+      d'intégrité, vivent en **`chrome.storage.session`** : mémoire seulement, effacé à la
+      fermeture de Chrome, jamais écrit sur le disque. C'est exactement la recommandation
+      « tokens de session en `session` si possible ». Ils sont jetés dès que Twitch les
+      refuse, ce qui force une nouvelle capture.
+- [x] `session` contient par ailleurs les identifiants d'onglets et les battements de coeur.
 - [x] Schéma versionné : `STORAGE_VERSION = 2` + `migrate()` appelée à l'installation et au
       démarrage. Migration écrite depuis la v1 (l'extension d'origine). `[test]`
 - [x] Quota : toutes les écritures passent par `write()` qui attrape l'erreur, la journalise

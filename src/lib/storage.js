@@ -152,6 +152,21 @@ const EMPTY_STATE = {
   prevBeats: {},
 };
 
+/**
+ * En-têtes capturés sur les requêtes de la page Twitch, dont son jeton de session.
+ * En `session` volontairement : mémoire seulement, effacé à la fermeture de Chrome,
+ * jamais écrit sur le disque (docs/AUDIT-SECU.md, passe 2).
+ */
+export async function getCapturedHeaders() {
+  const { gqlHeaders = null } = await chrome.storage.session.get("gqlHeaders");
+  return gqlHeaders;
+}
+
+export async function setCapturedHeaders(captured) {
+  await write("session", { gqlHeaders: captured });
+  return captured;
+}
+
 export async function getState() {
   const { farmState = {} } = await chrome.storage.session.get("farmState");
   return { ...EMPTY_STATE, ...farmState };
