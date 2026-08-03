@@ -64,13 +64,37 @@ header h1 { font-size: 14px; font-weight: 700; flex: 1; }
 .toggle.on { background: var(--purple); }
 .toggle.on::after { transform: translateX(18px); }
 
-h2 {
+h2, summary {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--muted);
   margin: 14px 0 6px;
 }
+
+/* Section repliable : le marqueur natif est remplacé par un chevron discret. */
+details > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before {
+  content: "";
+  width: 0; height: 0;
+  border-left: 4px solid var(--muted);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s;
+  flex: none;
+}
+details[open] > summary::before { transform: rotate(90deg); }
+details > summary:hover { color: var(--text); }
+
+.hint { color: var(--muted); font-size: 11px; margin-bottom: 6px; }
 
 .card {
   background: var(--panel);
@@ -150,8 +174,19 @@ ul { list-style: none; }
 .action small { color: var(--muted); display: block; }
 .action a { color: var(--purple-soft); font-size: 11px; }
 
-.camp { background: var(--panel); border-radius: 8px; padding: 9px 10px; margin-bottom: 6px; }
+.camp {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 9px 10px;
+  margin-bottom: 6px;
+}
 .camp.current { background: var(--panel-hi); outline: 1px solid var(--purple); }
+.camp.excluded { opacity: 0.45; }
+.camp > input { margin-top: 3px; accent-color: var(--purple); cursor: pointer; flex: none; }
+.camp .body { flex: 1; min-width: 0; }
 .camp .top { display: flex; gap: 6px; align-items: baseline; }
 .camp .top b { font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .camp .top span { color: var(--muted); font-size: 11px; flex: none; }

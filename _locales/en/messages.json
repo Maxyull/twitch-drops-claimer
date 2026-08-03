@@ -116,7 +116,7 @@
     "message": "Tick once done"
   },
   "popup_section_campaigns": {
-    "message": "Tracked campaigns"
+    "message": "Campaigns"
   },
   "popup_campaigns_empty": {
     "message": "No campaign known yet. Run a search."
@@ -444,5 +444,28 @@
   },
   "options_wake_tabs_hint": {
     "message": "Briefly activates the tab when the browser refused to start the video. At most once every three minutes per tab."
+  },
+  "popup_section_quick": {
+    "message": "Quick settings"
+  },
+  "popup_campaigns_hint": {
+    "message": "Untick the ones you do not want to farm."
+  },
+  "popup_campaign_include": {
+    "message": "Farm this campaign"
+  },
+  "popup_campaign_done": {
+    "message": "completed"
+  },
+  "popup_campaigns_count": {
+    "message": "$KEPT$ / $TOTAL$ tracked",
+    "placeholders": {
+      "kept": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
   }
 }

@@ -171,37 +171,80 @@ function renderActions(actions) {
   }
 }
 
+/**
+ * Toutes les campagnes actives, cochables. Décocher une campagne la sort de la
+ * rotation : on ne peut pas choisir ce qu'on ne voit pas, donc on montre tout,
+ * y compris ce qui est déjà écarté.
+ */
 function renderCampaigns(campaigns) {
   const list = $("campaigns");
   list.replaceChildren();
   $("campaignsEmpty").hidden = campaigns.length > 0;
 
-  for (const c of campaigns.slice(0, 6)) {
-    const li = el("li", `camp${c.current ? " current" : ""}`);
+  const kept = campaigns.filter((c) => c.selected).length;
+  $("campaignsCount").textContent = campaigns.length
+    ? t("popup_campaigns_count", [String(kept), String(campaigns.length)])
+    : "";
 
+  for (const c of campaigns) {
+    const li = el(
+      "li",
+      ["camp", c.current ? "current" : "", c.selected ? "" : "excluded"].filter(Boolean).join(" "),
+    );
+
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = c.selected;
+    box.title = t("popup_campaign_include");
+    box.addEventListener("change", async () => {
+      const res = await send(MSG.BLACKLIST_CAMPAIGN, { id: c.id, remove: box.checked });
+      if (!res.ok) {
+        box.checked = c.selected;
+        renderError({ message: res.error ?? "", at: Date.now() });
+        return;
+      }
+      void load();
+    });
+
+    const body = el("div", "body");
     const top = el("div", "top");
     top.append(el("b", null, c.name || c.game || ""));
     top.append(el("span", null, `${c.progress.pct} %`));
-    li.append(top);
+    body.append(top);
 
     const bar = el("div", "bar");
     const fill = el("i");
     fill.style.width = `${c.progress.pct}%`;
     bar.append(fill);
-    li.append(bar);
+    body.append(bar);
 
     const bits = [
       c.game,
       t("popup_tiers", [String(c.progress.claimed), String(c.progress.total)]),
       c.claimable
         ? t("popup_claimable", [String(c.claimable)])
-        : fmtMinutes(c.progress.remainingMinutes),
+        : c.progress.done
+          ? t("popup_campaign_done")
+          : fmtMinutes(c.progress.remainingMinutes),
       fmtRemaining(c.endAt),
     ].filter(Boolean);
-    li.append(el("small", null, bits.join(" · ")));
+    body.append(el("small", null, bits.join(" · ")));
 
+    li.append(box, body);
     list.append(li);
   }
+}
+
+// L'état replié est une préférence d'affichage, pas un réglage de
+// fonctionnement : il reste local à la page du popup.
+const COLLAPSE_KEY = "tdc.campaignsOpen";
+
+function setupCollapse() {
+  const box = $("campaignsBox");
+  box.open = localStorage.getItem(COLLAPSE_KEY) !== "0";
+  box.addEventListener("toggle", () => {
+    localStorage.setItem(COLLAPSE_KEY, box.open ? "1" : "0");
+  });
 }
 
 function renderError(lastError) {
@@ -227,6 +270,7 @@ async function load() {
 }
 
 localizeDocument();
+setupCollapse();
 
 for (const key of TOGGLES) {
   $(key).addEventListener("click", async () => {

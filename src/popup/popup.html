@@ -13,10 +13,17 @@
 
   <div id="error" class="err" hidden></div>
 
+  <div class="stats">
+    <div class="stat"><b id="statDrops">0</b><small data-i18n="popup_stat_drops"></small></div>
+    <div class="stat"><b id="statPoints">0</b><small data-i18n="popup_stat_points"></small></div>
+  </div>
+  <div class="last" id="lastClaim"></div>
+
   <h2 data-i18n="popup_section_watch">Regardé en arrière-plan</h2>
   <ul id="watchers"></ul>
   <p class="empty" id="watchersEmpty" data-i18n="popup_watchers_empty"></p>
 
+  <h2 data-i18n="popup_section_quick">Réglages rapides</h2>
   <div class="card watch">
     <span class="dot" id="pointsDot"></span>
     <span class="who"><b data-i18n="popup_points">Points de chaîne</b></span>
@@ -28,19 +35,19 @@
     <button id="farmDrops" class="toggle" data-i18n-label="popup_toggle_farm"></button>
   </div>
 
-  <div class="stats">
-    <div class="stat"><b id="statDrops">0</b><small data-i18n="popup_stat_drops"></small></div>
-    <div class="stat"><b id="statPoints">0</b><small data-i18n="popup_stat_points"></small></div>
-  </div>
-  <div class="last" id="lastClaim"></div>
-
   <h2><span data-i18n="popup_section_actions">Actions requises</span> <span id="actionsCount"></span></h2>
   <ul id="actions"></ul>
   <p class="empty" id="actionsEmpty" data-i18n="popup_actions_empty"></p>
 
-  <h2 data-i18n="popup_section_campaigns">Campagnes suivies</h2>
-  <ul id="campaigns"></ul>
-  <p class="empty" id="campaignsEmpty" data-i18n="popup_campaigns_empty"></p>
+  <details id="campaignsBox" open>
+    <summary>
+      <span data-i18n="popup_section_campaigns">Campagnes</span>
+      <span id="campaignsCount"></span>
+    </summary>
+    <p class="hint" data-i18n="popup_campaigns_hint"></p>
+    <ul id="campaigns"></ul>
+    <p class="empty" id="campaignsEmpty" data-i18n="popup_campaigns_empty"></p>
+  </details>
 
   <div class="row-btn">
     <button class="act primary" id="refresh" data-i18n="popup_btn_refresh"></button>
