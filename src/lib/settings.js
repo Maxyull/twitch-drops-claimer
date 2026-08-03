@@ -23,6 +23,15 @@ export const DEFAULT_SETTINGS = {
   onlyLinkedCampaigns: false,
   fastClaim: false,
 
+  // --- Onglets d'arrière-plan ---
+  // Sourdine par défaut : Chrome interdit la lecture automatique avec du son
+  // sans geste de l'utilisateur, le lecteur ne démarrerait donc jamais.
+  muteTabs: true,
+  // Fenêtre séparée pour les onglets de l'extension : elle permet de les
+  // réveiller sans jamais voler le focus de la fenêtre où l'on travaille.
+  dedicatedWindow: true,
+  wakeStuckTabs: true,
+
   // --- Lecteur en arrière-plan ---
   volumePercent: 1,
   quality: "160p30",
@@ -101,6 +110,10 @@ export function normalizeSettings(raw = {}) {
       : [],
     onlyLinkedCampaigns: bool(raw.onlyLinkedCampaigns, d.onlyLinkedCampaigns),
     fastClaim: bool(raw.fastClaim, d.fastClaim),
+
+    muteTabs: bool(raw.muteTabs, d.muteTabs),
+    dedicatedWindow: bool(raw.dedicatedWindow, d.dedicatedWindow),
+    wakeStuckTabs: bool(raw.wakeStuckTabs, d.wakeStuckTabs),
 
     // 0 % couperait le son : Chrome bride alors les timers de l'onglet caché.
     // On garde donc un plancher à 1 %.

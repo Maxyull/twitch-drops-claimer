@@ -39,6 +39,19 @@ test("rouge : lecteur en pause", () => {
   assert.equal(s.green, false);
 });
 
+test("RÉGRESSION : lecture refusée par le navigateur, distinguée d'une pause", () => {
+  // Même symptôme visible qu'une pause, mais ni la cause ni le remède : dire
+  // « en pause » envoyait chercher un problème là où il n'est pas.
+  const s = evaluateBeat(beat({ paused: true, blocked: true }), null, { now: NOW });
+  assert.equal(s.code, STATUS.BLOCKED);
+  assert.equal(s.green, false);
+});
+
+test("un blocage ne masque pas une chaîne hors ligne", () => {
+  const s = evaluateBeat(beat({ blocked: true, offline: true }), null, { now: NOW });
+  assert.equal(s.code, STATUS.OFFLINE);
+});
+
 test("rouge : flux figé (l'horloge de la vidéo n'avance plus)", () => {
   const s = evaluateBeat(beat({ currentTime: 120 }), beat({ at: NOW - 5000, currentTime: 120 }), {
     now: NOW,

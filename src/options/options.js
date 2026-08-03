@@ -11,6 +11,9 @@ const CHECKS = [
   "autoDiscover",
   "onlyLinkedCampaigns",
   "fastClaim",
+  "muteTabs",
+  "dedicatedWindow",
+  "wakeStuckTabs",
   "notifyDrops",
   "notifyActions",
 ];

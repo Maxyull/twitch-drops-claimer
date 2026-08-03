@@ -18,16 +18,36 @@ const DETAILS_TTL_MS = 6 * 60 * 60 * 1000;
 
 // --- onglets --------------------------------------------------------------
 
-async function anyWindowId() {
+async function normalWindows() {
   // On filtre en JS plutôt que par `windowTypes`, déprécié dans getAll().
-  const windows = (await chrome.windows.getAll()).filter((w) => w.type === "normal");
+  return (await chrome.windows.getAll()).filter((w) => w.type === "normal");
+}
+
+/**
+ * Fenêtre où l'extension pose ses onglets.
+ * En mode dédié, elle en garde une à elle, réduite : c'est ce qui permet
+ * d'activer un onglet pour débloquer son lecteur sans jamais voler le focus de
+ * la fenêtre dans laquelle l'utilisateur travaille.
+ */
+async function targetWindowId(settings) {
+  const windows = await normalWindows();
+
+  if (settings?.dedicatedWindow) {
+    const state = await store.getState();
+    if (state.windowId && windows.some((w) => w.id === state.windowId)) return state.windowId;
+
+    const created = await chrome.windows.create({ state: "minimized", focused: false });
+    await store.setState({ windowId: created.id });
+    return created.id;
+  }
+
   if (windows.length) return windows[0].id;
   const created = await chrome.windows.create({ state: "minimized", focused: false });
   return created.id;
 }
 
 async function openBackgroundTab(url, { pinned = true } = {}) {
-  const windowId = await anyWindowId();
+  const windowId = await targetWindowId(await store.getSettings());
   const tab = await chrome.tabs.create({ url, active: false, pinned, windowId });
   try {
     // Empêche Chrome de mettre l'onglet en veille : un onglet déchargé ne regarde plus rien.
@@ -317,6 +337,39 @@ export async function ensureHarvestTab() {
 
   const tabId = await openBackgroundTab(INVENTORY_URL);
   return store.setState({ inventoryTabId: tabId });
+}
+
+/**
+ * Réveille un onglet dont le lecteur reste bloqué : on l'active dans SA fenêtre.
+ * Si la fenêtre dédiée est utilisée, l'utilisateur ne voit rien passer, seule la
+ * fenêtre réduite de l'extension change d'onglet actif.
+ */
+export async function wakeTab(tabId) {
+  if (!(await tabExists(tabId))) return false;
+  try {
+    await chrome.tabs.update(tabId, { active: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Rassemble les onglets de l'extension dans la fenêtre cible. */
+export async function regroupTabs(settings) {
+  const state = await store.getState();
+  const windowId = await targetWindowId(settings);
+  const tabs = [state.pointsTabId, state.dropsTabId, state.inventoryTabId].filter(Boolean);
+
+  for (const tabId of tabs) {
+    if (!(await tabExists(tabId))) continue;
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      if (tab.windowId !== windowId) await chrome.tabs.move(tabId, { windowId, index: -1 });
+    } catch {
+      /* onglet disparu entre-temps */
+    }
+  }
+  return windowId;
 }
 
 export async function closeAllTabs() {

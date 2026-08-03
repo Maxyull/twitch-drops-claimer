@@ -420,5 +420,29 @@
         "content": "$2"
       }
     }
+  },
+  "status_blocked": {
+    "message": "playback refused by the browser"
+  },
+  "options_section_tabs": {
+    "message": "Background tabs"
+  },
+  "options_mute_tabs": {
+    "message": "Mute background tabs"
+  },
+  "options_mute_tabs_hint": {
+    "message": "Required: Chrome refuses to start a video with sound in a background tab. Unchecked, the player may never start."
+  },
+  "options_dedicated_window": {
+    "message": "Separate window for those tabs"
+  },
+  "options_dedicated_window_hint": {
+    "message": "The extension keeps a minimised window of its own, so it can wake a tab without ever stealing focus from the one you work in."
+  },
+  "options_wake_tabs": {
+    "message": "Wake a stuck player"
+  },
+  "options_wake_tabs_hint": {
+    "message": "Briefly activates the tab when the browser refused to start the video. At most once every three minutes per tab."
   }
 }

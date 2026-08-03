@@ -40,6 +40,7 @@ const SANITIZERS = {
       url: text(p.url, 500),
       role: text(p.role, 20),
       paused: bool(p.paused),
+      blocked: bool(p.blocked),
       ads: bool(p.ads),
       offline: bool(p.offline),
       currentTime: number(p.currentTime, { min: 0, max: 1e9 }),

@@ -77,11 +77,43 @@ async function tick() {
   try {
     if (!status.points.green) await farm.ensurePointsTab(settings);
     if (!status.drops.green) await farm.ensureDropsTab(settings);
+    if (settings.dedicatedWindow) await farm.regroupTabs(settings);
+    if (settings.wakeStuckTabs) await wakeStuckTabs(status);
     await store.setLastError(null);
   } catch (err) {
     await store.setLastError(err.message);
   }
   await updateBadge();
+}
+
+const WAKE_COOLDOWN_MS = 3 * 60_000;
+
+/**
+ * Un lecteur que le navigateur a refusé de démarrer ne repartira pas tout seul :
+ * activer son onglet lui donne le contexte qui manque. On espace les tentatives,
+ * il ne s'agit pas de faire clignoter le navigateur.
+ */
+async function wakeStuckTabs(status) {
+  const state = await store.getState();
+  const now = Date.now();
+  const wokeAt = { ...state.wokeAt };
+  let changed = false;
+
+  const stuck = [
+    [state.pointsTabId, status.points],
+    [state.dropsTabId, status.drops],
+  ];
+
+  for (const [tabId, s] of stuck) {
+    if (!tabId || s.code !== STATUS.BLOCKED) continue;
+    if (now - (wokeAt[tabId] ?? 0) < WAKE_COOLDOWN_MS) continue;
+    if (await farm.wakeTab(tabId)) {
+      wokeAt[tabId] = now;
+      changed = true;
+    }
+  }
+
+  if (changed) await store.setState({ wokeAt });
 }
 
 async function discover() {
@@ -254,6 +286,7 @@ async function onHello(payload, tabId) {
     forcePlayer: role === ROLE.POINTS || role === ROLE.DROPS,
     quality: settings.quality,
     volumePercent: settings.volumePercent,
+    muteTabs: settings.muteTabs,
   };
 }
 
