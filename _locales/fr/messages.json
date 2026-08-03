@@ -496,5 +496,14 @@
   },
   "popup_campaign_focused": {
     "message": "Campagne prioritaire"
+  },
+  "reason_player_stopped": {
+    "message": "le lecteur ne tourne pas"
+  },
+  "reason_no_signal": {
+    "message": "aucun signal reçu de cet onglet"
+  },
+  "reason_stale": {
+    "message": "plus rien reçu depuis trop longtemps"
   }
 }

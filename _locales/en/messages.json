@@ -496,5 +496,14 @@
   },
   "popup_campaign_focused": {
     "message": "Priority campaign"
+  },
+  "reason_player_stopped": {
+    "message": "the player is not running"
+  },
+  "reason_no_signal": {
+    "message": "no signal received from this tab"
+  },
+  "reason_stale": {
+    "message": "nothing received for too long"
   }
 }
