@@ -19,8 +19,28 @@ const SELECTS = ["priority", "quality"];
 
 let blacklist = new Set();
 
-function send(type, payload) {
-  return chrome.runtime.sendMessage({ type, payload });
+/**
+ * Un envoi qui échoue ne doit jamais passer pour un succès : on renvoie toujours
+ * un objet, avec `ok: false` et la raison si le service worker n'a pas voulu.
+ */
+async function send(type, payload) {
+  try {
+    const res = await chrome.runtime.sendMessage({ type, payload });
+    return res ?? { ok: false, error: "aucune réponse du service worker" };
+  } catch (err) {
+    return { ok: false, error: err?.message ?? String(err) };
+  }
+}
+
+function showError(reason) {
+  const box = $("error");
+  box.hidden = !reason;
+  if (reason) {
+    box.textContent = t("options_save_failed", [String(reason)]);
+    // Un « Enregistré » d'un essai précédent qui traîne à côté d'une erreur
+    // envoie exactement le mauvais message.
+    $("saved").classList.remove("show");
+  }
 }
 
 function fill(settings) {
@@ -91,7 +111,16 @@ localizeDocument();
 
 $("save").addEventListener("click", async () => {
   const res = await send(MSG.SET_SETTINGS, collect());
-  if (res?.settings) fill(res.settings);
+
+  // « Enregistré » ne s'affiche que si ça l'est vraiment. Un refus silencieux
+  // est ce qui rend ce genre de panne impossible à diagnostiquer.
+  if (!res.ok || !res.settings) {
+    showError(res.error ?? "refusé");
+    return;
+  }
+
+  showError(null);
+  fill(res.settings);
   $("saved").classList.add("show");
   setTimeout(() => $("saved").classList.remove("show"), 1_600);
 });

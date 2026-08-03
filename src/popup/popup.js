@@ -9,8 +9,13 @@ import { t, localizeDocument } from "../lib/i18n.js";
 const $ = (id) => document.getElementById(id);
 const TOGGLES = ["enabled", "watchFavorite", "farmDrops"];
 
-function send(type, payload) {
-  return chrome.runtime.sendMessage({ type, payload });
+async function send(type, payload) {
+  try {
+    const res = await chrome.runtime.sendMessage({ type, payload });
+    return res ?? { ok: false, error: "aucune réponse du service worker" };
+  } catch (err) {
+    return { ok: false, error: err?.message ?? String(err) };
+  }
 }
 
 function setDot(el, green, title) {
@@ -163,7 +168,10 @@ function renderError(lastError) {
 
 async function load() {
   const state = await send(MSG.GET_STATE);
-  if (!state?.settings) return;
+  if (!state?.settings) {
+    renderError({ message: state?.error ?? "état indisponible", at: Date.now() });
+    return;
+  }
   for (const key of TOGGLES) $(key).classList.toggle("on", Boolean(state.settings[key]));
   renderWatchers(state);
   renderStats(state.stats);
@@ -176,9 +184,18 @@ localizeDocument();
 
 for (const key of TOGGLES) {
   $(key).addEventListener("click", async () => {
-    const on = !$(key).classList.contains("on");
+    const before = $(key).classList.contains("on");
+    const on = !before;
     $(key).classList.toggle("on", on);
-    await send(MSG.SET_SETTINGS, { [key]: on });
+
+    const res = await send(MSG.SET_SETTINGS, { [key]: on });
+    if (!res.ok) {
+      // Une bascule qui reste allumée alors que rien n'a été enregistré ment
+      // à l'utilisateur : on la remet où elle était et on affiche la raison.
+      $(key).classList.toggle("on", before);
+      renderError({ message: res.error ?? "réglage refusé", at: Date.now() });
+      return;
+    }
     void load();
   });
 }

@@ -106,6 +106,21 @@ test("aller-retour de messages : la page d'options écrit, le worker répond", a
   await page.close();
 });
 
+test("RÉGRESSION : « Enregistré » ne s'affiche pas si rien n'est enregistré", async () => {
+  const page = await context.newPage();
+  await page.goto(url("options/options.html"));
+
+  // On coupe la ligne avec le service worker : l'envoi échouera forcément.
+  await page.evaluate(() => {
+    chrome.runtime.sendMessage = () => Promise.reject(new Error("lien coupé"));
+  });
+  await page.click("#save");
+
+  await expect(page.locator("#error")).toBeVisible();
+  await expect(page.locator("#saved")).not.toHaveClass(/show/);
+  await page.close();
+});
+
 test("les réglages survivent au rechargement de la page", async () => {
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
@@ -125,6 +140,34 @@ test("les réglages survivent à la mort du service worker (redémarrage du navi
   await expect(page.locator("#favoriteChannels")).toHaveValue("zerator\ngotaga");
   await expect(page.locator("#volumePercent")).toHaveValue("1");
   await page.close();
+});
+
+test("RÉGRESSION : une montée de schéma ne perd aucun réglage", async () => {
+  // On rejoue une vraie migration : `storageVersion` remis à 1, puis redémarrage
+  // du navigateur. C'est le moment où `migrate()` tourne, et le seul endroit du
+  // code capable d'effacer des réglages sans bruit (issue #3).
+  const page = await context.newPage();
+  await page.goto(url("options/options.html"));
+  await page.evaluate(() => chrome.storage.local.set({ storageVersion: 1 }));
+  await page.close();
+
+  await context.close();
+  const relaunched = await launch(profileDir);
+  context = relaunched.ctx;
+  extensionId = relaunched.id;
+
+  const after = await context.newPage();
+  await after.goto(url("options/options.html"));
+  await expect(after.locator("#favoriteChannels")).toHaveValue("zerator\ngotaga");
+  await expect(after.locator("#priority")).toHaveValue("closestToDone");
+  await expect(after.locator("#volumePercent")).toHaveValue("1");
+
+  // La migration a bien tourné, sinon le test ne prouverait rien.
+  const version = await after.evaluate(() =>
+    chrome.storage.local.get("storageVersion").then((r) => r.storageVersion),
+  );
+  expect(version).toBe(2);
+  await after.close();
 });
 
 test("le popup reflète les bascules et les repropage", async () => {

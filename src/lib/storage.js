@@ -41,13 +41,12 @@ export async function migrate() {
   const { storageVersion = 1, ...rest } = await chrome.storage.local.get(null);
   if (storageVersion === STORAGE_VERSION) return storageVersion;
 
-  const migrated = normalizeSettings({
-    ...DEFAULT_SETTINGS,
-    enabled: typeof rest.enabled === "boolean" ? rest.enabled : DEFAULT_SETTINGS.enabled,
-    claimPoints:
-      typeof rest.claimPoints === "boolean" ? rest.claimPoints : DEFAULT_SETTINGS.claimPoints,
-    favoriteChannels: rest.favoriteChannels ?? [],
-  });
+  // Fusion, jamais remise à zéro : tout réglage déjà présent et valide survit,
+  // `normalizeSettings` se charge d'écarter ce qui ne l'est pas et de combler
+  // les manques. Énumérer les clés à conserver ferait perdre en silence celles
+  // qu'on oublie, et cette perte se rejouerait à chaque rechargement tant que
+  // `storageVersion` n'est pas écrit.
+  const migrated = normalizeSettings({ ...DEFAULT_SETTINGS, ...rest });
 
   await write("local", {
     ...migrated,

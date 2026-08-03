@@ -36,8 +36,16 @@ async function installAlarms() {
   });
 }
 
+// La migration tourne au démarrage du service worker, pas seulement sur
+// `onInstalled` / `onStartup` : ces évènements peuvent être manqués, et rien ne
+// doit lire les réglages avant qu'elle soit passée. Elle est idempotente, un
+// simple test de version dans la plupart des cas.
+const migrated = store.migrate().catch((err) => {
+  console.error("[TDC] migration impossible :", err);
+});
+
 async function boot() {
-  await store.migrate();
+  await migrated;
   await installAlarms();
   await updateBadge();
 }
@@ -371,7 +379,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
 
-  HANDLERS[check.type](check.payload, sender.tab?.id ?? null)
+  // On attend la migration : aucun réglage ne doit être lu ni écrit avant elle.
+  migrated
+    .then(() => HANDLERS[check.type](check.payload, sender.tab?.id ?? null))
     .then(sendResponse)
     .catch((err) => sendResponse({ ok: false, error: err.message }));
   return true; // réponse asynchrone
