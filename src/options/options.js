@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, normalizeChannelList } from "../lib/settings.js";
-import { MSG, CAMPAIGN_PRIORITY } from "../lib/messaging.js";
+import { MSG } from "../lib/messaging.js";
 import { t, localizeDocument } from "../lib/i18n.js";
 
 const $ = (id) => document.getElementById(id);
@@ -67,9 +67,16 @@ function collect() {
   return patch;
 }
 
+/** Prioritaires d'abord, puis les normales, puis les écartées. */
+function campaignOrder(id) {
+  if (focus.has(id)) return 0;
+  return blacklist.has(id) ? 2 : 1;
+}
+
 /**
- * Une place par campagne : prioritaire, normale, ou écartée. Les trois s'excluent,
- * un menu déroulant le dit mieux que deux cases à cocher qui se contredisent.
+ * La liste de base, avec une étoile pour mettre une campagne en avant et une
+ * case pour l'écarter. Les prioritaires remontent en tête : le choix se fait au
+ * début, comme l'ordre réel de la rotation.
  */
 function renderCampaigns(campaigns) {
   const list = $("campaigns");
@@ -83,32 +90,45 @@ function renderCampaigns(campaigns) {
   }
   $("campaignsEmpty").hidden = known.size > 0;
 
-  for (const c of known.values()) {
+  const ordered = [...known.values()].sort((a, b) => campaignOrder(a.id) - campaignOrder(b.id));
+
+  for (const c of ordered) {
     const li = document.createElement("li");
-    li.className = "camp";
 
-    const choix = document.createElement("select");
-    for (const [value, key] of [
-      [CAMPAIGN_PRIORITY.FOCUS, "options_priority_focus"],
-      [CAMPAIGN_PRIORITY.NORMAL, "options_priority_normal"],
-      [CAMPAIGN_PRIORITY.IGNORE, "options_priority_ignore"],
-    ]) {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = t(key);
-      choix.append(option);
-    }
-    choix.value = blacklist.has(c.id)
-      ? CAMPAIGN_PRIORITY.IGNORE
-      : focus.has(c.id)
-        ? CAMPAIGN_PRIORITY.FOCUS
-        : CAMPAIGN_PRIORITY.NORMAL;
+    const star = document.createElement("button");
+    star.type = "button";
+    star.className = "star";
 
-    choix.addEventListener("change", () => {
-      blacklist.delete(c.id);
-      focus.delete(c.id);
-      if (choix.value === CAMPAIGN_PRIORITY.IGNORE) blacklist.add(c.id);
-      if (choix.value === CAMPAIGN_PRIORITY.FOCUS) focus.add(c.id);
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.title = t("options_ignored_title");
+
+    const paint = () => {
+      const prioritaire = focus.has(c.id);
+      const ecartee = blacklist.has(c.id);
+      li.className = `camp${prioritaire ? " focused" : ""}${ecartee ? " ignored" : ""}`;
+      star.textContent = prioritaire ? "★" : "☆";
+      star.setAttribute("aria-pressed", String(prioritaire));
+      star.title = t(prioritaire ? "options_focus_on" : "options_focus_off");
+      box.checked = ecartee;
+      // Une campagne écartée ne peut pas être prioritaire : les deux se contrediraient.
+      star.disabled = ecartee;
+    };
+
+    star.addEventListener("click", () => {
+      if (focus.has(c.id)) focus.delete(c.id);
+      else focus.add(c.id);
+      paint();
+    });
+
+    box.addEventListener("change", () => {
+      if (box.checked) {
+        blacklist.add(c.id);
+        focus.delete(c.id);
+      } else {
+        blacklist.delete(c.id);
+      }
+      paint();
     });
 
     const body = document.createElement("div");
@@ -121,7 +141,8 @@ function renderCampaigns(campaigns) {
       .join(" · ");
     body.append(name, meta);
 
-    li.append(body, choix);
+    paint();
+    li.append(star, body, box);
     list.append(li);
   }
 }
@@ -149,6 +170,9 @@ $("save").addEventListener("click", async () => {
 
   showError(null);
   fill(res.settings);
+  // On relit ce qui a été réellement enregistré : les prioritaires remontent
+  // alors en tête, ce qui rend le classement visible plutôt que théorique.
+  void load();
   $("saved").classList.add("show");
   setTimeout(() => $("saved").classList.remove("show"), 1_600);
 });
