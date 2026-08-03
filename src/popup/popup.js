@@ -105,11 +105,15 @@ function renderWatchers(state) {
       el("span", "tag", w.role === ROLE.POINTS ? t("popup_tag_points") : t("popup_tag_drops")),
     );
     const tone = countedTone(w.counted.code);
-    line1.append(el("span", `tag ${tone}`.trim(), t(`counted_${w.counted.code}`)));
+    const badge = el("span", `tag ${tone}`.trim(), t(`counted_${w.counted.code}`));
+    // « Non compté » sans explication renvoie chercher au hasard.
+    if (w.counted.reason) badge.title = t(`reason_${w.counted.reason}`);
+    line1.append(badge);
     body.append(line1);
 
     const bits = [
       statusText(w.status.code),
+      w.counted.reason ? t(`reason_${w.counted.reason}`) : null,
       w.campaignName,
       // Le solde de points dit ce que le visionnage rapporte vraiment, là où un
       // compteur de coffres cliqués ne dit rien.

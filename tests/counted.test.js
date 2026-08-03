@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   COUNTED,
+  REASON,
   PROGRESS_MAX_AGE_MS,
   SPADE_MAX_AGE_MS,
   SEGMENT_MAX_AGE_MS,
@@ -65,6 +66,34 @@ test("RÉGRESSION : une preuve l'emporte sur l'état supposé du lecteur", () =>
 
 test("sans aucune preuve, un lecteur à l'arrêt n'est pas compté", () => {
   assert.equal(evaluateCounted({}, { now: NOW, playing: false }).code, COUNTED.NO);
+});
+
+test("un « non compté » dit toujours pourquoi", () => {
+  // Trois causes, trois gestes différents : sans la raison, on cherche au hasard.
+  // Le lecteur à l'arrêt n'est retenu que si aucune preuve ne le contredit.
+  const arret = evaluateCounted(
+    { segmentAt: NOW - SEGMENT_MAX_AGE_MS - 1 },
+    { now: NOW, playing: false },
+  );
+  assert.equal(arret.code, COUNTED.NO);
+  assert.equal(arret.reason, REASON.PLAYER_STOPPED);
+
+  const rien = evaluateCounted({}, { now: NOW, since: NOW - WARMUP_MS - 1 });
+  assert.equal(rien.code, COUNTED.NO);
+  assert.equal(rien.reason, REASON.NO_SIGNAL, "aucun signal n'a jamais été vu");
+
+  const perime = evaluateCounted(
+    { segmentAt: NOW - SEGMENT_MAX_AGE_MS - 1 },
+    { now: NOW, since: NOW - WARMUP_MS - 1 },
+  );
+  assert.equal(perime.code, COUNTED.NO);
+  assert.equal(perime.reason, REASON.STALE, "on a déjà vu passer quelque chose");
+});
+
+test("un état positif ou indécis ne porte pas de raison", () => {
+  assert.equal(evaluateCounted({ progressAt: NOW }, { now: NOW }).reason, null);
+  assert.equal(evaluateCounted({ segmentAt: NOW }, { now: NOW }).reason, null);
+  assert.equal(evaluateCounted({}, { now: NOW, since: NOW }).reason, null);
 });
 
 test("une progression trop ancienne ne prouve plus rien", () => {

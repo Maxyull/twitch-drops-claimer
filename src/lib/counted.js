@@ -20,6 +20,16 @@ export const COUNTED = {
   UNKNOWN: "unknown", // trop tôt pour se prononcer
 };
 
+/**
+ * Pourquoi ce n'est pas compté. « Non compté » sans explication renvoie chercher
+ * au hasard, alors que les trois causes possibles n'appellent pas les mêmes gestes.
+ */
+export const REASON = {
+  PLAYER_STOPPED: "player_stopped", // le lecteur ne tourne pas
+  NO_SIGNAL: "no_signal", // rien n'a jamais été observé
+  STALE: "stale", // des signaux, mais trop vieux
+};
+
 export const PROGRESS_MAX_AGE_MS = 15 * 60_000;
 export const SPADE_MAX_AGE_MS = 3 * 60_000;
 export const SEGMENT_MAX_AGE_MS = 45_000;
@@ -43,16 +53,18 @@ export function evaluateCounted(signals, ctx = {}) {
   const progressAge = age(signals?.progressAt, now);
   const spadeAge = age(signals?.spadeAt, now);
   const segmentAge = age(signals?.segmentAt, now);
-  const out = (code) => ({ code, progressAge, spadeAge, segmentAge });
+  const out = (code, reason = null) => ({ code, reason, progressAge, spadeAge, segmentAge });
 
   // Les preuves d'abord, avant tout jugement sur l'état du lecteur.
   if (progressAge !== null && progressAge < PROGRESS_MAX_AGE_MS) return out(COUNTED.CONFIRMED);
   if (spadeAge !== null && spadeAge < SPADE_MAX_AGE_MS) return out(COUNTED.CONFIRMED);
   if (segmentAge !== null && segmentAge < SEGMENT_MAX_AGE_MS) return out(COUNTED.STREAMING);
 
-  if (!playing) return out(COUNTED.NO);
+  const jamaisRienVu = progressAge === null && spadeAge === null && segmentAge === null;
+
+  if (!playing) return out(COUNTED.NO, REASON.PLAYER_STOPPED);
   if (since !== null && now - since < WARMUP_MS) return out(COUNTED.UNKNOWN);
-  return out(COUNTED.NO);
+  return out(COUNTED.NO, jamaisRienVu ? REASON.NO_SIGNAL : REASON.STALE);
 }
 
 /** Le visionnage est-il en train d'être comptabilisé, au mieux de ce qu'on sait ? */
