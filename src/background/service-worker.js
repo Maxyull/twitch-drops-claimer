@@ -55,6 +55,11 @@ const migrated = store.migrate().catch((err) => {
 
 async function boot() {
   await migrated;
+  // Avant tout : les onglets de la session précédente ne se sont pas fermés
+  // seuls, et l'extension n'en a plus la trace après un rechargement.
+  const fermes = await farm.closeOrphanTabs();
+  if (fermes) console.debug("[TDC]", fermes, "onglet(s) orphelin(s) fermé(s)");
+
   await installAlarms();
   await updateBadge();
 }
@@ -83,6 +88,10 @@ async function tick() {
   const status = await computeStatus();
 
   try {
+    // Un onglet marqué dont on n'a plus la trace est un doublon : on ne veut
+    // surtout pas en ouvrir un de plus à côté.
+    await farm.closeOrphanTabs();
+
     if (!status.points.green) await farm.ensurePointsTab(settings);
     if (status.drops.some((s) => !s.green)) {
       // Une chaîne passée hors ligne ne reviendra pas : on force le changement
@@ -364,6 +373,9 @@ async function onHello(payload, tabId) {
     // On ne force qualité et volume que sur NOS onglets : celui que
     // l'utilisateur regarde vraiment ne doit pas tomber en 160p.
     forcePlayer: role === ROLE.POINTS || role === ROLE.DROPS,
+    // L'onglet doit garder son marqueur : c'est ce qui permettra de le retrouver
+    // après un rechargement de l'extension.
+    owned: role !== ROLE.PASSIVE,
     quality: settings.quality,
     volumePercent: settings.volumePercent,
     muteTabs: settings.muteTabs,

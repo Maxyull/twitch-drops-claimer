@@ -158,12 +158,30 @@ test("les API chrome utilisées sont couvertes par les permissions", () => {
 });
 
 test("RÉGRESSION : rien qui exigerait la permission « tabs »", () => {
-  // chrome.tabs.query et la lecture de tab.url la rendraient obligatoire.
   assert.equal(manifest.permissions.includes("tabs"), false);
+  const hotes = manifest.host_permissions;
+
   for (const file of SRC_JS) {
     const code = read(file);
-    assert.equal(/chrome\.tabs\.query/.test(code), false, `${file} appelle tabs.query`);
-    assert.equal(/\btab\.(url|title|favIconUrl)\b/.test(code), false, `${file} lit l'URL d'un onglet`);
+
+    // `tabs.query` est permis, mais uniquement filtré par URL : c'est la
+    // permission d'hôte qui donne alors accès au résultat. Sans filtre, il
+    // faudrait la permission « tabs ».
+    for (const m of code.matchAll(/chrome\.tabs\.query\(\s*\{([^}]*)\}/g)) {
+      assert.match(m[1], /url:/, `${file} interroge les onglets sans filtre d'URL`);
+      // On résout la constante quand le filtre en est une, sinon le test ne
+      // vérifierait plus rien dès qu'on sort le motif dans une variable.
+      const motif = m[1].match(/url:\s*([A-Za-z_$][\w$]*|"[^"]+")/)?.[1] ?? "";
+      const litteral = motif.startsWith('"')
+        ? motif.slice(1, -1)
+        : (code.match(new RegExp(`${motif}\\s*=\\s*"([^"]+)"`))?.[1] ?? null);
+
+      assert.ok(litteral, `${file} filtre les onglets sur un motif introuvable`);
+      assert.ok(hotes.includes(litteral), `${file} filtre sur ${litteral}, hors host_permissions`);
+    }
+
+    // Le titre et le favicon, eux, resteraient hors de portée sans la permission.
+    assert.equal(/\btab\.(title|favIconUrl)\b/.test(code), false, `${file} lit le titre d'un onglet`);
   }
 });
 
