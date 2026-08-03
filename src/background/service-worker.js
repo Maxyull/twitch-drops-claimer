@@ -100,9 +100,12 @@ async function tick() {
 }
 
 /**
- * Passage périodique sur chaque onglet : on l'active pour lui redonner du
- * contexte, et on ne recharge que ceux qui ne sont pas au vert. Recharger un
- * onglet qui marche coupe le visionnage pour rien.
+ * Passage périodique dans la fenêtre de l'extension : on avance d'un onglet à
+ * chaque tour et on l'y laisse actif, plutôt que de tous les parcourir pour
+ * n'en laisser qu'un devant. Chacun a ainsi son temps au premier plan, ce qui
+ * suffit à relancer un lecteur que le navigateur avait mis de côté.
+ * Seul un onglet qui n'est pas au vert est rechargé : recharger un onglet qui
+ * marche couperait le visionnage pour rien.
  */
 async function rotate() {
   const settings = await store.getSettings();
@@ -111,14 +114,19 @@ async function rotate() {
   const status = await computeStatus();
   const state = await store.getState();
 
-  for (const [tabId, s] of [
+  const tabs = [
     [state.pointsTabId, status.points],
     [state.dropsTabId, status.drops],
-  ]) {
-    if (!tabId) continue;
-    await farm.wakeTab(tabId);
-    if (!s.green) await farm.reloadTab(tabId);
-  }
+  ].filter(([tabId]) => tabId);
+  if (!tabs.length) return;
+
+  const index = ((state.rotationIndex ?? -1) + 1) % tabs.length;
+  const [tabId, tabStatus] = tabs[index];
+
+  await farm.wakeTab(tabId);
+  if (!tabStatus.green) await farm.reloadTab(tabId);
+
+  await store.setState({ rotationIndex: index });
   await updateBadge();
 }
 
@@ -454,6 +462,8 @@ async function onSetSettings(payload) {
   ) {
     await installAlarms();
   }
+  if (before.muteTabs !== settings.muteTabs) await farm.refreshTabMute(settings);
+
   if (!settings.enabled) {
     await farm.closeAllTabs();
   } else {
