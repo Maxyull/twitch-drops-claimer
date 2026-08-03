@@ -320,7 +320,7 @@
     "message": "Campaigns to skip"
   },
   "options_ignored_hint": {
-    "message": "Priority comes before everything else. Skipped leaves the rotation."
+    "message": "The star marks a campaign as priority: it comes before all the others. The checkbox keeps it out of the rotation."
   },
   "options_ignored_empty": {
     "message": "No campaign known yet."
@@ -479,15 +479,6 @@
       }
     }
   },
-  "options_priority_focus": {
-    "message": "Priority"
-  },
-  "options_priority_normal": {
-    "message": "Normal"
-  },
-  "options_priority_ignore": {
-    "message": "Skipped"
-  },
   "options_random_after_focus": {
     "message": "Random order once priorities are done"
   },
@@ -505,5 +496,14 @@
   },
   "reason_stale": {
     "message": "nothing received for too long"
+  },
+  "options_focus_off": {
+    "message": "Mark as priority"
+  },
+  "options_focus_on": {
+    "message": "Remove from priorities"
+  },
+  "options_ignored_title": {
+    "message": "Keep this campaign out of the rotation"
   }
 }

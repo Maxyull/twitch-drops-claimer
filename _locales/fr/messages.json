@@ -320,7 +320,7 @@
     "message": "Campagnes à ignorer"
   },
   "options_ignored_hint": {
-    "message": "Prioritaire passe avant tout le reste. Ignorée sort de la rotation."
+    "message": "L'etoile met une campagne en avant : elle passe avant toutes les autres. La case l'ecarte de la rotation."
   },
   "options_ignored_empty": {
     "message": "Aucune campagne connue pour l'instant."
@@ -479,15 +479,6 @@
       }
     }
   },
-  "options_priority_focus": {
-    "message": "Prioritaire"
-  },
-  "options_priority_normal": {
-    "message": "Normale"
-  },
-  "options_priority_ignore": {
-    "message": "Ignorée"
-  },
   "options_random_after_focus": {
     "message": "Ordre aléatoire une fois les prioritaires faites"
   },
@@ -505,5 +496,14 @@
   },
   "reason_stale": {
     "message": "plus rien reçu depuis trop longtemps"
+  },
+  "options_focus_off": {
+    "message": "Mettre en prioritaire"
+  },
+  "options_focus_on": {
+    "message": "Retirer des prioritaires"
+  },
+  "options_ignored_title": {
+    "message": "Ecarter cette campagne de la rotation"
   }
 }

@@ -42,7 +42,13 @@ section h2 {
 .field > label { display: block; font-weight: 600; margin-bottom: 3px; }
 .field .hint { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
 
-input[type="text"], input[type="number"], textarea, select {
+/* Portée volontairement limitée à `.field` : appliquée globalement, elle donnait
+   toute la largeur à n'importe quel contrôle posé dans une liste, et le texte
+   voisin se repliait caractère par caractère. */
+.field input[type="text"],
+.field input[type="number"],
+.field textarea,
+.field select {
   width: 100%;
   background: #120f1a;
   border: 1px solid var(--line);
@@ -76,15 +82,33 @@ ul { list-style: none; }
 .camp {
   display: flex;
   gap: 10px;
-  align-items: flex-start;
+  align-items: center;
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
 }
 .camp:last-child { border-bottom: none; }
-.camp input { margin-top: 3px; accent-color: var(--purple); flex: none; }
+.camp input[type="checkbox"] { accent-color: var(--purple); flex: none; }
 .camp .body { flex: 1; min-width: 0; }
 .camp b { display: block; font-size: 13px; }
 .camp small { color: var(--muted); font-size: 12px; }
+.camp.focused b { color: var(--purple-soft); }
+.camp.ignored { opacity: 0.5; }
+
+/* Étoile de mise en avant : largeur fixe, elle ne mange jamais le texte. */
+.camp .star {
+  flex: none;
+  width: 28px;
+  padding: 2px 0;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #4b4360;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.camp .star:hover { background: #241f33; color: var(--purple-soft); }
+.camp .star[aria-pressed="true"] { color: #ffb03a; }
 
 footer {
   position: sticky;
