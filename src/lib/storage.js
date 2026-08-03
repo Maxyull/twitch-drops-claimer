@@ -144,6 +144,10 @@ const EMPTY_STATE = {
   dropsCampaignId: null,
   dropsSince: null,
   inventoryTabId: null,
+  // Fenêtre dédiée aux onglets de l'extension, quand l'option est active.
+  windowId: null,
+  // tabId -> date du dernier réveil, pour ne pas s'acharner.
+  wokeAt: {},
   // tabId -> chaîne demandée. Évite de relire l'adresse de l'onglet, donc évite
   // la permission "tabs".
   tabChannels: {},

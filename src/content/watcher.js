@@ -37,10 +37,12 @@ let config = {
   forcePlayer: false,
   quality: "160p30",
   volumePercent: 1,
+  muteTabs: true,
 };
 
 let lastHref = location.href;
 let qualityMenuTries = 0;
+let autoplayBlocked = false;
 const clicked = new WeakSet();
 
 function send(type, payload) {
@@ -125,9 +127,7 @@ function applyStoredPrefs() {
   try {
     localStorage.setItem("video-quality", JSON.stringify({ default: config.quality }));
     localStorage.setItem("volume", String(config.volumePercent / 100));
-    // Volontairement PAS coupé : Chrome bride les timers d'un onglet caché et
-    // silencieux, ce qui casse le comptage du temps de visionnage.
-    localStorage.setItem("video-muted", JSON.stringify({ default: false }));
+    localStorage.setItem("video-muted", JSON.stringify({ default: Boolean(config.muteTabs) }));
     localStorage.setItem("mature", "true");
   } catch {
     /* stockage refusé, sans conséquence */
@@ -143,10 +143,34 @@ function enforcePlayer() {
   const video = videoEl();
   if (!video) return;
 
-  const target = config.volumePercent / 100;
-  if (video.muted) video.muted = false;
-  if (Math.abs(video.volume - target) > 0.001) video.volume = target;
-  if (video.paused) video.play().catch(() => {});
+  // Chrome refuse la lecture automatique avec du son sans geste de
+  // l'utilisateur : dans un onglet d'arrière-plan, un lecteur non coupé ne
+  // démarre jamais. La sourdine est donc ce qui fait fonctionner le farm, pas
+  // seulement un confort.
+  if (config.muteTabs) {
+    if (!video.muted) video.muted = true;
+  } else {
+    const target = config.volumePercent / 100;
+    if (video.muted) video.muted = false;
+    if (Math.abs(video.volume - target) > 0.001) video.volume = target;
+  }
+
+  if (!video.paused) {
+    autoplayBlocked = false;
+    return;
+  }
+
+  video.play().then(
+    () => {
+      autoplayBlocked = false;
+    },
+    (err) => {
+      // On ne l'avale plus : sans ça, le popup dit « en pause » sans expliquer
+      // que c'est le navigateur qui refuse, et personne ne sait quoi corriger.
+      autoplayBlocked = err?.name === "NotAllowedError";
+      if (autoplayBlocked) log("lecture automatique refusée par le navigateur");
+    },
+  );
 }
 
 /**
@@ -197,6 +221,7 @@ function playerFlags() {
     ) || (!video && Boolean(currentChannel()) && document.readyState === "complete");
 
   return {
+    blocked: autoplayBlocked,
     paused: video ? video.paused : true,
     currentTime: video ? video.currentTime : 0,
     videoHeight: video ? video.videoHeight : 0,

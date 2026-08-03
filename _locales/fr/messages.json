@@ -420,5 +420,29 @@
         "content": "$2"
       }
     }
+  },
+  "status_blocked": {
+    "message": "lecture refusée par le navigateur"
+  },
+  "options_section_tabs": {
+    "message": "Onglets d'arrière-plan"
+  },
+  "options_mute_tabs": {
+    "message": "Couper le son des onglets"
+  },
+  "options_mute_tabs_hint": {
+    "message": "Indispensable : Chrome refuse de lancer une vidéo avec du son dans un onglet d'arrière-plan. Décoché, le lecteur risque de ne jamais démarrer."
+  },
+  "options_dedicated_window": {
+    "message": "Fenêtre séparée pour ces onglets"
+  },
+  "options_dedicated_window_hint": {
+    "message": "L'extension garde une fenêtre réduite à elle. Elle peut alors réveiller un onglet sans jamais voler le focus de celle où vous travaillez."
+  },
+  "options_wake_tabs": {
+    "message": "Réveiller un lecteur bloqué"
+  },
+  "options_wake_tabs_hint": {
+    "message": "Active l'onglet quelques instants quand le navigateur a refusé de lancer la vidéo. Au plus une fois toutes les trois minutes par onglet."
   }
 }

@@ -61,6 +61,7 @@ du lecteur. Le voyant est **vert** seulement si l'horloge de la vidéo avance vr
 |---|---|
 | 🟢 en train de regarder | le temps de visionnage se cumule |
 | 🟢 publicité en cours | normal, le temps continue de compter |
+| 🔴 lecture refusée par le navigateur | lecteur non coupé dans un onglet d arrière-plan |
 | 🔴 lecteur en pause / flux figé | le temps ne compte pas |
 | 🔴 chaîne hors ligne | la chaîne a coupé, l'extension va en chercher une autre |
 | 🔴 aucune réponse de l'onglet | onglet mis en veille par Chrome, ou script bloqué |
@@ -69,12 +70,20 @@ du lecteur. Le voyant est **vert** seulement si l'horloge de la vidéo avance vr
 La pastille sur l'icône reprend le pire des deux voyants. Elle passe **orange avec un
 chiffre** quand des actions vous attendent hors de Twitch.
 
-## Pourquoi le son à 1 % et pas coupé
+## Pourquoi les onglets sont en sourdine
 
-Chrome brime les minuteurs des onglets cachés **et silencieux** au bout de quelques
-minutes : le lecteur continue, mais le comptage du temps se dérègle. Un onglet qui émet
-du son, même à 1 %, échappe à ce bridage. C'est pour ça que le volume minimum est 1 et
-pas 0. La qualité, elle, est descendue à 160p pour la bande passante.
+Ce n'est pas qu'un confort : **Chrome refuse de lancer une vidéo avec du son dans un
+onglet d'arrière-plan** sans geste préalable de l'utilisateur. Un lecteur non coupé ne
+démarre donc jamais, et rien n'est comptabilisé. La lecture en sourdine, elle, est
+toujours autorisée.
+
+Le réglage se désactive si vous y tenez, mais attendez-vous alors à voir le voyant
+« lecture refusée par le navigateur ». Dans ce cas l'extension active brièvement
+l'onglet pour débloquer le lecteur, au plus une fois toutes les trois minutes.
+
+L'extension garde par défaut **une fenêtre réduite à elle** pour ses onglets. C'est ce
+qui lui permet de faire ce réveil sans jamais voler le focus de la fenêtre où vous
+travaillez. La qualité est descendue à 160p pour la bande passante.
 
 ## Ce qu'il faut savoir
 

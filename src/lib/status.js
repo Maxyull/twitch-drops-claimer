@@ -9,6 +9,7 @@ export const STATUS = {
   OK: "ok",
   ADS: "ads",
   STALLED: "stalled",
+  BLOCKED: "blocked", // lecture automatique refusée par le navigateur
   PAUSED: "paused",
   OFFLINE: "offline",
   NO_BEAT: "no_beat",
@@ -50,6 +51,9 @@ export function evaluateBeat(beat, prevBeat, ctx = {}) {
   }
 
   if (beat.offline) return build(STATUS.OFFLINE, beat.channel, age);
+  // Le blocage prime sur la pause : c'est la même chose vue par l'utilisateur,
+  // mais la cause et le remède ne sont pas les mêmes.
+  if (beat.blocked) return build(STATUS.BLOCKED, beat.channel, age);
   if (beat.ads) return build(STATUS.ADS, beat.channel, age);
   if (beat.paused) return build(STATUS.PAUSED, beat.channel, age);
 
