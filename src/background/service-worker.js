@@ -90,6 +90,7 @@ async function tick() {
       await farm.ensureDropsTab(settings, { force: status.drops.code === STATUS.OFFLINE });
     }
     await farm.closeInventoryIfRedundant();
+    await farm.refreshPointsBalance();
     if (settings.dedicatedWindow) await farm.regroupTabs(settings);
     if (settings.wakeStuckTabs) await wakeStuckTabs(status);
     await store.setLastError(null);
@@ -166,6 +167,7 @@ async function discover() {
 
   try {
     const campaigns = await farm.refreshCampaigns();
+    await farm.syncClaimedDrops(campaigns);
     const { added } = await farm.syncActions(campaigns);
 
     if (settings.notifyActions) {
@@ -264,6 +266,10 @@ async function computeWatchers(status) {
       since: row.since ?? null,
       campaignName: campaigns.find((c) => c.id === row.campaignId)?.name ?? null,
       status: { code: row.status.code, green: row.status.green },
+      points:
+        row.role === ROLE.POINTS && state.pointsBalance?.channel === row.channel
+          ? state.pointsBalance.balance
+          : null,
       counted: evaluateCounted(state.counted[row.tabId], {
         now,
         since: row.since,
@@ -345,13 +351,18 @@ async function onClaimed(payload) {
   const { kind, label, channel, dropName, campaignId } = payload;
   const name = dropName || label;
 
-  await store.bumpStat(kind === CLAIM_KIND.POINTS ? "points" : "drops", name);
-
   if (kind === CLAIM_KIND.POINTS) {
+    await store.bumpStat("points", name);
     if (settings.notifyDrops) notify.notifyPointsClaimed(channel);
     await updateBadge();
     return { ok: true };
   }
+
+  // Le compteur de drops ne suit PAS nos clics : un clic peut échouer, et Twitch
+  // peut créditer un palier sans nous. Il est recalculé depuis l'inventaire, que
+  // cette recherche va justement rafraîchir.
+  await store.touchLastClaim(name);
+  void discover();
 
   const { campaigns } = await store.getCampaigns();
   const campaign =
