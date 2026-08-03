@@ -135,8 +135,23 @@ export function isActive(campaign, now = Date.now()) {
   return true;
 }
 
+/** Mélange sans biais. Le tirage est injectable pour rendre le résultat testable. */
+export function shuffle(items, random = Math.random) {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 /**
  * Classe les campagnes à farmer, de la plus prioritaire à la moins prioritaire.
+ *
+ * Deux groupes : les campagnes mises en avant par l'utilisateur passent d'abord,
+ * entre elles dans l'ordre d'expiration. Le reste suit, dans l'ordre choisi ou
+ * au hasard si demandé.
+ *
  * Écarte : inactives, terminées, sur liste noire, et (si demandé) celles dont le
  * compte n'est pas lié, sauf si l'utilisateur a coché « c'est fait » (linkedOverrides).
  */
@@ -145,6 +160,9 @@ export function rankCampaigns(campaigns, options = {}) {
     now = Date.now(),
     strategy = "endingSoon",
     blacklist = [],
+    focus = [],
+    randomAfterFocus = false,
+    random = Math.random,
     linkedOverrides = [],
     onlyLinkedCampaigns = false,
   } = options;
@@ -162,8 +180,21 @@ export function rankCampaigns(campaigns, options = {}) {
   });
 
   const order = new Map(eligible.map((c, i) => [c.id, i]));
+  const focusSet = new Set(focus);
 
-  return eligible.slice().sort((a, b) => {
+  const byEndAt = (a, b) => {
+    const ea = a.endAt ?? Number.MAX_SAFE_INTEGER;
+    const eb = b.endAt ?? Number.MAX_SAFE_INTEGER;
+    return ea !== eb ? ea - eb : order.get(a.id) - order.get(b.id);
+  };
+
+  // Les campagnes mises en avant, entre elles par date d'expiration.
+  const prioritaires = eligible.filter((c) => focusSet.has(c.id)).sort(byEndAt);
+  const autres = eligible.filter((c) => !focusSet.has(c.id));
+
+  if (randomAfterFocus) return [...prioritaires, ...shuffle(autres, random)];
+
+  return [...prioritaires, ...autres.sort((a, b) => {
     if (strategy === "order") return order.get(a.id) - order.get(b.id);
 
     if (strategy === "closestToDone") {
@@ -181,7 +212,7 @@ export function rankCampaigns(campaigns, options = {}) {
     if (ra !== rb) return ra - rb;
 
     return order.get(a.id) - order.get(b.id);
-  });
+  })];
 }
 
 /**

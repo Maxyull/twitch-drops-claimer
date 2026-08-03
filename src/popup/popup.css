@@ -188,6 +188,7 @@ ul { list-style: none; }
 .camp > input { margin-top: 3px; accent-color: var(--purple); cursor: pointer; flex: none; }
 .camp .body { flex: 1; min-width: 0; }
 .camp .top { display: flex; gap: 6px; align-items: baseline; }
+.camp .star { color: var(--orange); flex: none; font-size: 11px; }
 .camp .top b { font-size: 12px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .camp .top span { color: var(--muted); font-size: 11px; flex: none; }
 .camp small { color: var(--muted); font-size: 11px; }

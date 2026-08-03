@@ -320,13 +320,10 @@
     "message": "Campagnes à ignorer"
   },
   "options_ignored_hint": {
-    "message": "Coche pour retirer une campagne de la rotation."
+    "message": "Prioritaire passe avant tout le reste. Ignorée sort de la rotation."
   },
   "options_ignored_empty": {
     "message": "Aucune campagne connue pour l'instant."
-  },
-  "options_ignored_title": {
-    "message": "Ignorer cette campagne"
   },
   "options_btn_save": {
     "message": "Enregistrer"
@@ -481,5 +478,23 @@
         "content": "$1"
       }
     }
+  },
+  "options_priority_focus": {
+    "message": "Prioritaire"
+  },
+  "options_priority_normal": {
+    "message": "Normale"
+  },
+  "options_priority_ignore": {
+    "message": "Ignorée"
+  },
+  "options_random_after_focus": {
+    "message": "Ordre aléatoire une fois les prioritaires faites"
+  },
+  "options_random_after_focus_hint": {
+    "message": "Les prioritaires passent toujours en premier, entre elles dans l'ordre d'expiration. Décoché, le reste suit aussi l'ordre d'expiration."
+  },
+  "popup_campaign_focused": {
+    "message": "Campagne prioritaire"
   }
 }

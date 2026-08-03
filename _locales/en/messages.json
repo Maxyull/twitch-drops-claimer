@@ -320,13 +320,10 @@
     "message": "Campaigns to skip"
   },
   "options_ignored_hint": {
-    "message": "Tick to remove a campaign from the rotation."
+    "message": "Priority comes before everything else. Skipped leaves the rotation."
   },
   "options_ignored_empty": {
     "message": "No campaign known yet."
-  },
-  "options_ignored_title": {
-    "message": "Skip this campaign"
   },
   "options_btn_save": {
     "message": "Save"
@@ -481,5 +478,23 @@
         "content": "$1"
       }
     }
+  },
+  "options_priority_focus": {
+    "message": "Priority"
+  },
+  "options_priority_normal": {
+    "message": "Normal"
+  },
+  "options_priority_ignore": {
+    "message": "Skipped"
+  },
+  "options_random_after_focus": {
+    "message": "Random order once priorities are done"
+  },
+  "options_random_after_focus_hint": {
+    "message": "Priority campaigns always come first, ordered by expiry among themselves. Unchecked, the rest follows expiry order too."
+  },
+  "popup_campaign_focused": {
+    "message": "Priority campaign"
   }
 }
