@@ -15,7 +15,14 @@ export const MSG = {
   SET_ACTION_DONE: "set-action-done",
   REFRESH_NOW: "refresh-now",
   SWITCH_NOW: "switch-now",
-  BLACKLIST_CAMPAIGN: "blacklist-campaign",
+  SET_CAMPAIGN_PRIORITY: "set-campaign-priority",
+};
+
+/** Place d'une campagne dans la rotation, choisie par l'utilisateur. */
+export const CAMPAIGN_PRIORITY = {
+  FOCUS: "focus", // traitée avant les autres
+  NORMAL: "normal",
+  IGNORE: "ignore", // hors rotation
 };
 
 /** Qui a le droit d'envoyer quoi. */
@@ -35,7 +42,7 @@ export const MESSAGE_ORIGIN = {
   [MSG.SET_ACTION_DONE]: SENDER.PRIVILEGED,
   [MSG.REFRESH_NOW]: SENDER.PRIVILEGED,
   [MSG.SWITCH_NOW]: SENDER.PRIVILEGED,
-  [MSG.BLACKLIST_CAMPAIGN]: SENDER.PRIVILEGED,
+  [MSG.SET_CAMPAIGN_PRIORITY]: SENDER.PRIVILEGED,
 };
 
 export const CLAIM_KIND = { POINTS: "points", DROP: "drop" };

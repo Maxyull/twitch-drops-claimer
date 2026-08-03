@@ -6,7 +6,7 @@
 //     chacun n'est accepté que depuis l'origine qui a le droit de l'envoyer.
 // Module pur : le contrôle d'identité de l'expéditeur est passé en paramètre.
 
-import { MSG, MESSAGE_ORIGIN, SENDER, CLAIM_KIND } from "./messaging.js";
+import { MSG, MESSAGE_ORIGIN, SENDER, CLAIM_KIND, CAMPAIGN_PRIORITY } from "./messaging.js";
 import { normalizeChannel, DEFAULT_SETTINGS } from "./settings.js";
 
 const MAX_TEXT = 200;
@@ -82,10 +82,11 @@ const SANITIZERS = {
     return { id, done: p.done !== false };
   },
 
-  [MSG.BLACKLIST_CAMPAIGN]: (p) => {
+  [MSG.SET_CAMPAIGN_PRIORITY]: (p) => {
     const id = text(p?.id, 80);
-    if (!id) return null;
-    return { id, remove: bool(p.remove) };
+    const priority = Object.values(CAMPAIGN_PRIORITY).includes(p?.priority) ? p.priority : null;
+    if (!id || !priority) return null;
+    return { id, priority };
   },
 };
 

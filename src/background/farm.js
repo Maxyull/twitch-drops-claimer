@@ -301,6 +301,8 @@ export async function pickTarget(campaigns, settings) {
     now: Date.now(),
     strategy: settings.priority,
     blacklist: settings.campaignBlacklist,
+    focus: settings.focusCampaigns,
+    randomAfterFocus: settings.randomAfterFocus,
     linkedOverrides: linkedOverrides(actions),
     onlyLinkedCampaigns: settings.onlyLinkedCampaigns,
   });

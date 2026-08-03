@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, normalizeChannelList } from "../lib/settings.js";
-import { MSG } from "../lib/messaging.js";
+import { MSG, CAMPAIGN_PRIORITY } from "../lib/messaging.js";
 import { t, localizeDocument } from "../lib/i18n.js";
 
 const $ = (id) => document.getElementById(id);
@@ -16,11 +16,13 @@ const CHECKS = [
   "wakeStuckTabs",
   "notifyDrops",
   "notifyActions",
+  "randomAfterFocus",
 ];
 const NUMBERS = ["claimIntervalMin", "discoverIntervalMin", "rotateIntervalMin", "volumePercent"];
 const SELECTS = ["priority", "quality"];
 
 let blacklist = new Set();
+let focus = new Set();
 
 /**
  * Un envoi qui échoue ne doit jamais passer pour un succès : on renvoie toujours
@@ -57,6 +59,7 @@ function collect() {
   const patch = {
     favoriteChannels: normalizeChannelList($("favoriteChannels").value),
     campaignBlacklist: [...blacklist],
+    focusCampaigns: [...focus],
   };
   for (const id of CHECKS) patch[id] = $(id).checked;
   for (const id of NUMBERS) patch[id] = Number($(id).value);
@@ -64,14 +67,18 @@ function collect() {
   return patch;
 }
 
+/**
+ * Une place par campagne : prioritaire, normale, ou écartée. Les trois s'excluent,
+ * un menu déroulant le dit mieux que deux cases à cocher qui se contredisent.
+ */
 function renderCampaigns(campaigns) {
   const list = $("campaigns");
   list.replaceChildren();
 
-  // rankCampaigns écarte déjà les campagnes ignorées : on les réaffiche pour
-  // pouvoir les remettre en rotation.
+  // On réaffiche aussi les campagnes écartées : on ne peut pas remettre en
+  // rotation ce qui a disparu de l'écran.
   const known = new Map(campaigns.map((c) => [c.id, c]));
-  for (const id of blacklist) {
+  for (const id of [...blacklist, ...focus]) {
     if (!known.has(id)) known.set(id, { id, name: id, game: "", progress: null });
   }
   $("campaignsEmpty").hidden = known.size > 0;
@@ -80,13 +87,28 @@ function renderCampaigns(campaigns) {
     const li = document.createElement("li");
     li.className = "camp";
 
-    const box = document.createElement("input");
-    box.type = "checkbox";
-    box.checked = blacklist.has(c.id);
-    box.title = t("options_ignored_title");
-    box.addEventListener("change", () => {
-      if (box.checked) blacklist.add(c.id);
-      else blacklist.delete(c.id);
+    const choix = document.createElement("select");
+    for (const [value, key] of [
+      [CAMPAIGN_PRIORITY.FOCUS, "options_priority_focus"],
+      [CAMPAIGN_PRIORITY.NORMAL, "options_priority_normal"],
+      [CAMPAIGN_PRIORITY.IGNORE, "options_priority_ignore"],
+    ]) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = t(key);
+      choix.append(option);
+    }
+    choix.value = blacklist.has(c.id)
+      ? CAMPAIGN_PRIORITY.IGNORE
+      : focus.has(c.id)
+        ? CAMPAIGN_PRIORITY.FOCUS
+        : CAMPAIGN_PRIORITY.NORMAL;
+
+    choix.addEventListener("change", () => {
+      blacklist.delete(c.id);
+      focus.delete(c.id);
+      if (choix.value === CAMPAIGN_PRIORITY.IGNORE) blacklist.add(c.id);
+      if (choix.value === CAMPAIGN_PRIORITY.FOCUS) focus.add(c.id);
     });
 
     const body = document.createElement("div");
@@ -94,10 +116,12 @@ function renderCampaigns(campaigns) {
     const name = document.createElement("b");
     name.textContent = c.name || "";
     const meta = document.createElement("small");
-    meta.textContent = [c.game, c.progress ? `${c.progress.pct} %` : null].filter(Boolean).join(" · ");
+    meta.textContent = [c.game, c.progress ? `${c.progress.pct} %` : null]
+      .filter(Boolean)
+      .join(" · ");
     body.append(name, meta);
 
-    li.append(box, body);
+    li.append(body, choix);
     list.append(li);
   }
 }
@@ -107,6 +131,7 @@ async function load() {
   if (!state?.settings) return;
   fill(state.settings);
   blacklist = new Set(state.settings.campaignBlacklist || []);
+  focus = new Set(state.settings.focusCampaigns || []);
   renderCampaigns(state.campaigns || []);
 }
 
@@ -131,6 +156,7 @@ $("save").addEventListener("click", async () => {
 $("reset").addEventListener("click", async () => {
   if (!confirm(t("options_reset_confirm"))) return;
   blacklist = new Set();
+  focus = new Set();
   fill(DEFAULT_SETTINGS);
   await send(MSG.SET_SETTINGS, { ...DEFAULT_SETTINGS });
   void load();

@@ -6,7 +6,7 @@ import { evaluateBeat, summarize, STATUS } from "../lib/status.js";
 import { evaluateCounted } from "../lib/counted.js";
 import { campaignProgress, rankCampaigns, claimableDrops, isActive } from "../lib/campaigns.js";
 import { countOpen, linkedOverrides, redeemAction, addAction, setDone } from "../lib/actions.js";
-import { MSG, CLAIM_KIND, ROLE } from "../lib/messaging.js";
+import { MSG, CLAIM_KIND, ROLE, CAMPAIGN_PRIORITY } from "../lib/messaging.js";
 import { validateMessage } from "../lib/message-guard.js";
 import * as store from "../lib/storage.js";
 import * as farm from "./farm.js";
@@ -421,10 +421,13 @@ async function onGetState() {
   // farme : on ne peut pas choisir ce qu'on ne voit pas. `rank` dit la place
   // dans la rotation, `selected` si l'utilisateur la veut.
   const blacklist = new Set(settings.campaignBlacklist);
+  const focusSet = new Set(settings.focusCampaigns);
   const rank = new Map(
     rankCampaigns(cached.campaigns, {
       strategy: settings.priority,
       blacklist: settings.campaignBlacklist,
+      focus: settings.focusCampaigns,
+      randomAfterFocus: settings.randomAfterFocus,
       linkedOverrides: linkedOverrides(actions),
       onlyLinkedCampaigns: settings.onlyLinkedCampaigns,
     }).map((c, i) => [c.id, i]),
@@ -443,6 +446,7 @@ async function onGetState() {
       claimable: claimableDrops(c).length,
       current: c.id === state.dropsCampaignId,
       selected: !blacklist.has(c.id),
+      focus: focusSet.has(c.id),
       rank: rank.has(c.id) ? rank.get(c.id) : null,
     }))
     // Dans l'ordre de la rotation, puis les terminées, puis les écartées.
@@ -510,15 +514,23 @@ async function onSwitchNow() {
   return { ok: true };
 }
 
-async function onBlacklistCampaign(payload) {
+async function onSetCampaignPriority(payload) {
   const settings = await store.getSettings();
-  const list = new Set(settings.campaignBlacklist);
-  if (payload.remove) list.delete(payload.id);
-  else list.add(payload.id);
+  const ignored = new Set(settings.campaignBlacklist);
+  const focused = new Set(settings.focusCampaigns);
 
-  const updated = await store.setSettings({ campaignBlacklist: [...list] });
+  // Les trois places s'excluent : on retire partout avant de reposer.
+  ignored.delete(payload.id);
+  focused.delete(payload.id);
+  if (payload.priority === CAMPAIGN_PRIORITY.IGNORE) ignored.add(payload.id);
+  if (payload.priority === CAMPAIGN_PRIORITY.FOCUS) focused.add(payload.id);
+
+  const updated = await store.setSettings({
+    campaignBlacklist: [...ignored],
+    focusCampaigns: [...focused],
+  });
   await farm.ensureDropsTab(updated, { force: true });
-  return { ok: true };
+  return { ok: true, settings: updated };
 }
 
 const HANDLERS = {
@@ -531,7 +543,7 @@ const HANDLERS = {
   [MSG.SET_ACTION_DONE]: onSetActionDone,
   [MSG.REFRESH_NOW]: onRefreshNow,
   [MSG.SWITCH_NOW]: onSwitchNow,
-  [MSG.BLACKLIST_CAMPAIGN]: onBlacklistCampaign,
+  [MSG.SET_CAMPAIGN_PRIORITY]: onSetCampaignPriority,
 };
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

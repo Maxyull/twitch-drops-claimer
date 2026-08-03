@@ -20,6 +20,11 @@ export const DEFAULT_SETTINGS = {
   discoverIntervalMin: 30,
   priority: "endingSoon",
   campaignBlacklist: [],
+  // Campagnes traitées avant toutes les autres, entre elles dans l'ordre
+  // d'expiration. Une fois qu'elles sont finies, on passe au reste.
+  focusCampaigns: [],
+  // Le reste dans un ordre aléatoire plutôt que par date d'expiration.
+  randomAfterFocus: false,
   onlyLinkedCampaigns: false,
   fastClaim: false,
 
@@ -93,6 +98,13 @@ function bool(value, fallback) {
   return typeof value === "boolean" ? value : fallback;
 }
 
+/** Liste d'identifiants de campagne : chaînes non vides, sans doublon. */
+function idList(value) {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((x) => typeof x === "string" && x))]
+    : [];
+}
+
 /** Complète et assainit un objet de réglages partiel. */
 export function normalizeSettings(raw = {}) {
   const d = DEFAULT_SETTINGS;
@@ -108,9 +120,9 @@ export function normalizeSettings(raw = {}) {
     claimIntervalMin: clampInt(raw.claimIntervalMin, MIN_INTERVAL, MAX_INTERVAL, d.claimIntervalMin),
     discoverIntervalMin: clampInt(raw.discoverIntervalMin, MIN_INTERVAL, MAX_INTERVAL, d.discoverIntervalMin),
     priority: PRIORITIES.includes(raw.priority) ? raw.priority : d.priority,
-    campaignBlacklist: Array.isArray(raw.campaignBlacklist)
-      ? [...new Set(raw.campaignBlacklist.filter((x) => typeof x === "string" && x))]
-      : [],
+    campaignBlacklist: idList(raw.campaignBlacklist),
+    focusCampaigns: idList(raw.focusCampaigns),
+    randomAfterFocus: bool(raw.randomAfterFocus, d.randomAfterFocus),
     onlyLinkedCampaigns: bool(raw.onlyLinkedCampaigns, d.onlyLinkedCampaigns),
     fastClaim: bool(raw.fastClaim, d.fastClaim),
 

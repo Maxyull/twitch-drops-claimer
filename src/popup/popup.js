@@ -2,7 +2,7 @@
 // Tout est posé en textContent, jamais d'injection HTML : les noms de campagnes
 // viennent de Twitch et ne sont pas de confiance (docs/AUDIT-SECU.md, passe 1).
 
-import { MSG, ROLE } from "../lib/messaging.js";
+import { MSG, ROLE, CAMPAIGN_PRIORITY } from "../lib/messaging.js";
 import { ACTION_KIND } from "../lib/actions.js";
 import { COUNTED } from "../lib/counted.js";
 import { t, localizeDocument } from "../lib/i18n.js";
@@ -206,7 +206,15 @@ function renderCampaigns(campaigns) {
     box.checked = c.selected;
     box.title = t("popup_campaign_include");
     box.addEventListener("change", async () => {
-      const res = await send(MSG.BLACKLIST_CAMPAIGN, { id: c.id, remove: box.checked });
+      // Décocher écarte la campagne ; recocher la remet là où elle était,
+      // prioritaire comprise.
+      const priority = box.checked
+        ? c.focus
+          ? CAMPAIGN_PRIORITY.FOCUS
+          : CAMPAIGN_PRIORITY.NORMAL
+        : CAMPAIGN_PRIORITY.IGNORE;
+
+      const res = await send(MSG.SET_CAMPAIGN_PRIORITY, { id: c.id, priority });
       if (!res.ok) {
         box.checked = c.selected;
         renderError({ message: res.error ?? "", at: Date.now() });
@@ -217,6 +225,11 @@ function renderCampaigns(campaigns) {
 
     const body = el("div", "body");
     const top = el("div", "top");
+    if (c.focus) {
+      const star = el("span", "star", "★");
+      star.title = t("popup_campaign_focused");
+      top.append(star);
+    }
     top.append(el("b", null, c.name || c.game || ""));
     top.append(el("span", null, `${c.progress.pct} %`));
     body.append(top);

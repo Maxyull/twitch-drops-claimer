@@ -30,7 +30,7 @@ test("un type de message inconnu est rejeté (pas de dispatch dynamique)", () =>
 test("RÉGRESSION : une page web ne peut pas piloter l'extension", () => {
   // Le point critique : si Twitch était compromis, son script de contenu ne doit
   // pas pouvoir changer les réglages ni lire l'état complet.
-  for (const type of [MSG.SET_SETTINGS, MSG.GET_STATE, MSG.REFRESH_NOW, MSG.BLACKLIST_CAMPAIGN]) {
+  for (const type of [MSG.SET_SETTINGS, MSG.GET_STATE, MSG.REFRESH_NOW, MSG.SET_CAMPAIGN_PRIORITY]) {
     const res = validateMessage({ type, payload: { enabled: false } }, fromTab, EXT_ID);
     assert.equal(res.ok, false, `${type} accepté depuis un onglet`);
   }
@@ -159,6 +159,35 @@ test("setActionDone exige un identifiant", () => {
   );
   assert.equal(res.ok, true);
   assert.equal(res.payload.done, true, "par défaut on coche");
+});
+
+test("la priorité d'une campagne n'accepte que trois valeurs", () => {
+  const ok = validateMessage(
+    { type: MSG.SET_CAMPAIGN_PRIORITY, payload: { id: "camp-1", priority: "focus" } },
+    fromOptions,
+    EXT_ID,
+  );
+  assert.equal(ok.ok, true);
+  assert.equal(ok.payload.priority, "focus");
+
+  for (const priority of ["FOCUS", "toutes", "", null, 1]) {
+    const res = validateMessage(
+      { type: MSG.SET_CAMPAIGN_PRIORITY, payload: { id: "camp-1", priority } },
+      fromOptions,
+      EXT_ID,
+    );
+    assert.equal(res.ok, false, `valeur acceptée à tort : ${priority}`);
+  }
+
+  assert.equal(
+    validateMessage(
+      { type: MSG.SET_CAMPAIGN_PRIORITY, payload: { priority: "focus" } },
+      fromOptions,
+      EXT_ID,
+    ).ok,
+    false,
+    "identifiant obligatoire",
+  );
 });
 
 test("les messages sans charge utile passent", () => {

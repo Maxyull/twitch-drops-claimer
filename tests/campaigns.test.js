@@ -12,6 +12,7 @@ import {
   needsAccountLink,
   isActive,
   rankCampaigns,
+  shuffle,
   pickChannel,
   isCategoryWide,
 } from "../src/lib/campaigns.js";
@@ -185,6 +186,73 @@ test("rankCampaigns : compte non lié, écarté seulement si l'option est active
     rankCampaigns([nonLiee], { onlyLinkedCampaigns: true, linkedOverrides: ["camp-non-liee"] }).length,
     1,
   );
+});
+
+// --- campagnes prioritaires -----------------------------------------------
+
+test("les campagnes prioritaires passent avant tout le reste", () => {
+  const ranked = rankCampaigns(
+    [make("normale-urgente", { endInDays: 1 }), make("prioritaire", { endInDays: 30 })],
+    { focus: ["prioritaire"] },
+  );
+  assert.deepEqual(ranked.map((c) => c.id), ["prioritaire", "normale-urgente"]);
+});
+
+test("entre prioritaires, c'est celle qui expire le plus tôt", () => {
+  const ranked = rankCampaigns(
+    [
+      make("p-tard", { endInDays: 20 }),
+      make("p-tot", { endInDays: 2 }),
+      make("normale", { endInDays: 1 }),
+    ],
+    { focus: ["p-tard", "p-tot"] },
+  );
+  assert.deepEqual(ranked.map((c) => c.id), ["p-tot", "p-tard", "normale"]);
+});
+
+test("une campagne prioritaire ET ignorée reste écartée", () => {
+  // Les deux réglages ne peuvent pas se contredire dans l'interface, mais le
+  // stockage peut porter les deux : l'exclusion l'emporte.
+  const ranked = rankCampaigns([make("a"), make("b")], {
+    focus: ["a"],
+    blacklist: ["a"],
+  });
+  assert.deepEqual(ranked.map((c) => c.id), ["b"]);
+});
+
+test("le reste part au hasard quand c'est demandé, les prioritaires jamais", () => {
+  // Tirage figé : la permutation est donc reproductible, le test aussi.
+  const suite = [0.9, 0.1, 0.5, 0.3];
+  let i = 0;
+  const random = () => suite[i++ % suite.length];
+
+  const campaigns = [
+    make("p1", { endInDays: 9 }),
+    make("p2", { endInDays: 3 }),
+    make("a"),
+    make("b"),
+    make("c"),
+  ];
+  const ranked = rankCampaigns(campaigns, {
+    focus: ["p1", "p2"],
+    randomAfterFocus: true,
+    random,
+  });
+
+  assert.deepEqual(ranked.slice(0, 2).map((c) => c.id), ["p2", "p1"], "prioritaires dans l'ordre");
+  assert.deepEqual(
+    ranked.slice(2).map((c) => c.id).sort(),
+    ["a", "b", "c"],
+    "le reste est présent, dans un autre ordre",
+  );
+});
+
+test("shuffle garde tous les éléments et ne touche pas l'entrée", () => {
+  const entree = ["a", "b", "c", "d"];
+  const copie = [...entree];
+  const melange = shuffle(entree, () => 0.42);
+  assert.deepEqual(entree, copie, "entrée intacte");
+  assert.deepEqual(melange.slice().sort(), copie.slice().sort());
 });
 
 test("rankCampaigns ne renvoie jamais la liste d'entrée mutée", () => {
