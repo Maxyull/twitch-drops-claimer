@@ -54,8 +54,11 @@ export const FAKE_STATE = {
   ],
   status: {
     points: { code: "ok", green: true, channel: "zerator" },
-    drops: { code: "ok", green: true, channel: "steelmage" },
-    global: { code: "ok", green: true },
+    drops: [
+      { code: "ok", green: true, channel: "steelmage" },
+      { code: "offline", green: false, channel: "quin69" },
+    ],
+    global: { code: "offline", green: false },
   },
   watchers: [
     {
@@ -75,6 +78,15 @@ export const FAKE_STATE = {
       campaignName: "Sea of Thieves, Saison 14",
       status: { code: "ads", green: true },
       counted: { code: "streaming", spadeAge: null, segmentAge: 3_000 },
+    },
+    {
+      role: "drops",
+      tabId: 103,
+      channel: "quin69",
+      since: Date.now() - 12 * 60_000,
+      campaignName: "Rust, Twitch Rivals",
+      status: { code: "offline", green: false },
+      counted: { code: "no", reason: "player_stopped", spadeAge: null, segmentAge: null },
     },
   ],
   lastError: null,

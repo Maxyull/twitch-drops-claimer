@@ -165,10 +165,8 @@ export async function setLastError(message) {
 const EMPTY_STATE = {
   pointsTabId: null,
   pointsChannel: null,
-  dropsTabId: null,
-  dropsChannel: null,
-  dropsCampaignId: null,
-  dropsSince: null,
+  // Un onglet de farm par campagne : { tabId, channel, campaignId, since }.
+  dropTabs: [],
   inventoryTabId: null,
   inventorySince: null,
   // Fenêtre dédiée aux onglets de l'extension, quand l'option est active.
@@ -243,14 +241,8 @@ export async function forgetTab(tabId) {
 
   const patch = { beats, prevBeats, tabChannels, counted };
   if (state.pointsTabId === tabId) Object.assign(patch, { pointsTabId: null, pointsChannel: null });
-  if (state.dropsTabId === tabId) {
-    Object.assign(patch, {
-      dropsTabId: null,
-      dropsChannel: null,
-      dropsCampaignId: null,
-      dropsSince: null,
-    });
-  }
+  const dropTabs = (state.dropTabs ?? []).filter((entry) => entry.tabId !== tabId);
+  if (dropTabs.length !== (state.dropTabs ?? []).length) patch.dropTabs = dropTabs;
   if (state.inventoryTabId === tabId) patch.inventoryTabId = null;
 
   return setState(patch);
