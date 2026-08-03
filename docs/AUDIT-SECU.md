@@ -21,6 +21,12 @@ c'est indiqué par `[test]` en fin de ligne. Ces contrôles tournent à chaque `
 |---|---|
 | `https://www.twitch.tv/*` | Script de contenu (lecteur + clics de réclamation) et onglets d'arrière-plan. |
 | `https://gql.twitch.tv/*` | API GraphQL de Twitch : liste des campagnes, progression, chaînes en direct. Lecture seule sauf si le « mode rapide » est activé par l'utilisateur. Sert aussi à la reprise d'en-têtes. |
+| `https://spade.twitch.tv/*` | **Observation seule.** C'est là que le lecteur Twitch envoie ses pings de comptage du temps de visionnage. Les voir est la seule preuve directe que le visionnage est comptabilisé. |
+| `https://*.ttvnw.net/*` | **Observation seule.** CDN vidéo de Twitch. Sous-domaines dynamiques (`video-edge-XXXX.abs.hls.ttvnw.net`), d'où le joker, inévitable. Voir passer les segments prouve que le flux est réellement consommé, ce qui rattrape le cas d'un bloqueur qui tuerait les pings ci-dessus. |
+
+⚠️ Ces deux derniers hôtes ne sont **jamais contactés**, seulement écoutés. Un test de
+régression vérifie que le seul `fetch` du code vise `GQL_URL`. Seuls la date et le type
+de la requête sont retenus, jamais son contenu ni ses en-têtes.
 
 Aucune permission optionnelle : les quatre permissions ci-dessus sont toutes utilisées
 dès le premier cycle de fonctionnement. `[test]` vérifie qu'aucune permission déclarée
@@ -48,7 +54,9 @@ pas interroger l'API. Elle en ouvre un d'elle-même quand c'est le cas.
 ### Manifest
 - [x] `manifest_version: 3`, aucun résidu MV2 `[test]`
 - [x] `permissions` : chaque entrée présente dans la table ci-dessus `[test]`
-- [x] `host_permissions` : deux hôtes exacts, pas de wildcard de domaine `[test]`
+- [x] `host_permissions` : quatre hôtes, dont un seul joker de sous-domaine
+      (`*.ttvnw.net`), justifié plus haut par les sous-domaines dynamiques du CDN vidéo.
+      Aucun joker de TLD. `[test]`
 - [x] Pas de `<all_urls>` `[test]`
 - [x] `optional_permissions` : vide. N/A, toutes les permissions sont utilisées au démarrage
 - [x] `content_scripts.matches` : `https://www.twitch.tv/*` uniquement, pas de wildcard TLD `[test]`

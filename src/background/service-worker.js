@@ -3,6 +3,7 @@
 // tout ce qui compte est dans chrome.storage (cf. docs/AUDIT-SECU.md).
 
 import { evaluateBeat, summarize, STATUS } from "../lib/status.js";
+import { evaluateCounted } from "../lib/counted.js";
 import { campaignProgress, rankCampaigns, claimableDrops } from "../lib/campaigns.js";
 import { countOpen, linkedOverrides, redeemAction, addAction, setDone } from "../lib/actions.js";
 import { MSG, CLAIM_KIND, ROLE } from "../lib/messaging.js";
@@ -11,6 +12,7 @@ import * as store from "../lib/storage.js";
 import * as farm from "./farm.js";
 import * as notify from "./notify.js";
 import { registerHeaderCapture } from "./header-capture.js";
+import { registerWatchCounter, forgetCountedTab, flushWatchCounter } from "./watch-counter.js";
 
 const ALARM_TICK = "tdc-tick";
 const ALARM_DISCOVER = "tdc-discover";
@@ -127,7 +129,7 @@ async function computeStatus() {
   const now = Date.now();
 
   async function one(tabId, expectedChannel, active) {
-    if (!active) return { code: STATUS.DISABLED, green: false, label: "désactivé", channel: null };
+    if (!active) return { code: STATUS.DISABLED, green: false, channel: null };
     return evaluateBeat(state.beats[tabId] ?? null, state.prevBeats[tabId] ?? null, {
       now,
       expectedChannel,
@@ -152,6 +154,47 @@ async function computeStatus() {
     drops: { ...drops, channel: drops.channel ?? state.dropsChannel },
     global: summarize([points, drops]),
   };
+}
+
+/**
+ * Une ligne par onglet que l'extension fait tourner en arrière-plan : quelle
+ * chaîne, pour quoi faire, et surtout si Twitch la comptabilise réellement.
+ */
+async function computeWatchers(status) {
+  await flushWatchCounter();
+
+  const state = await store.getState();
+  const { campaigns } = await store.getCampaigns();
+  const now = Date.now();
+
+  const rows = [
+    { role: ROLE.POINTS, tabId: state.pointsTabId, channel: state.pointsChannel, status: status.points },
+    {
+      role: ROLE.DROPS,
+      tabId: state.dropsTabId,
+      channel: state.dropsChannel,
+      status: status.drops,
+      campaignId: state.dropsCampaignId,
+      since: state.dropsSince,
+    },
+  ];
+
+  return rows
+    .filter((row) => row.tabId && row.channel && row.status.code !== STATUS.DISABLED)
+    .map((row) => ({
+      role: row.role,
+      tabId: row.tabId,
+      channel: row.channel,
+      since: row.since ?? null,
+      campaignName: campaigns.find((c) => c.id === row.campaignId)?.name ?? null,
+      status: { code: row.status.code, green: row.status.green },
+      counted: evaluateCounted(state.counted[row.tabId], {
+        now,
+        since: row.since,
+        // Un lecteur à l'arrêt n'est jamais compté, quels que soient les signaux réseau.
+        playing: row.status.green,
+      }),
+    }));
 }
 
 async function updateBadge() {
@@ -179,7 +222,9 @@ async function updateBadge() {
   await chrome.action.setTitle({
     title: status.global.green
       ? chrome.i18n.getMessage("badge_watching")
-      : chrome.i18n.getMessage("badge_problem", [status.global.label]),
+      : chrome.i18n.getMessage("badge_problem", [
+          chrome.i18n.getMessage(`status_${status.global.code}`),
+        ]),
   });
 }
 
@@ -294,6 +339,7 @@ async function onGetState() {
     stats,
     actions,
     status,
+    watchers: await computeWatchers(status),
     lastError,
     campaigns,
     campaignsAt: cached.campaignsAt,
@@ -388,6 +434,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
+  forgetCountedTab(tabId);
   void store.forgetTab(tabId).then(updateBadge);
 });
 
@@ -399,6 +446,7 @@ notify.registerNotificationHandlers(async (actionId) => {
 // À enregistrer au chargement du module, de façon synchrone : le service worker
 // est réveillé et tué en permanence, un écouteur posé plus tard raterait des requêtes.
 registerHeaderCapture();
+registerWatchCounter();
 
 // Pas de `tick()` au chargement du module : le service worker est réveillé à
 // chaque message, ça relancerait la mécanique en boucle. C'est l'alarme qui pilote.

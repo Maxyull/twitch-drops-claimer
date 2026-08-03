@@ -63,9 +63,13 @@ test("les quatre tailles d'icône sont fournies", () => {
 });
 
 test("périmètre réseau et injection les plus étroits possibles", () => {
+  // `spade` et `ttvnw` ne sont là que pour OBSERVER (webRequest), jamais pour
+  // émettre : le test suivant vérifie qu'aucun fetch ne les vise.
   assert.deepEqual(manifest.host_permissions, [
     "https://www.twitch.tv/*",
     "https://gql.twitch.tv/*",
+    "https://spade.twitch.tv/*",
+    "https://*.ttvnw.net/*",
   ]);
   assert.equal(JSON.stringify(manifest).includes("<all_urls>"), false);
   assert.equal(JSON.stringify(manifest).includes("*://*"), false);
@@ -164,11 +168,29 @@ test("RÉGRESSION : rien qui exigerait la permission « tabs »", () => {
 });
 
 test("tout le réseau sortant reste sur Twitch, en HTTPS", () => {
+  // `*.ttvnw.net` est le CDN vidéo de Twitch : on l'observe, on ne le contacte jamais.
+  const OBSERVED_ONLY = /ttvnw\.net$/;
   for (const file of SRC_JS) {
     const code = read(file);
     assert.equal(/http:\/\/(?!localhost)/.test(code), false, `${file} contient une URL en clair`);
-    for (const m of code.matchAll(/https:\/\/([a-z0-9.-]+)/gi)) {
-      assert.ok(m[1].toLowerCase().endsWith("twitch.tv"), `${file} contacte ${m[1]}`);
+    for (const m of code.matchAll(/https:\/\/\*?\.?([a-z0-9.-]+)/gi)) {
+      const host = m[1].toLowerCase();
+      assert.ok(
+        host.endsWith("twitch.tv") || OBSERVED_ONLY.test(host),
+        `${file} contacte ${host}`,
+      );
+    }
+  }
+});
+
+test("RÉGRESSION : un seul point de sortie réseau, l'API GraphQL de Twitch", () => {
+  // Les domaines observés ne doivent jamais devenir des destinations.
+  for (const file of SRC_JS) {
+    for (const m of read(file).matchAll(/fetch\(\s*([A-Za-z_$][\w$]*|"[^"]+")/g)) {
+      assert.ok(
+        m[1] === "GQL_URL",
+        `${file} appelle fetch sur ${m[1]}, seul GQL_URL est autorisé`,
+      );
     }
   }
 });
@@ -225,12 +247,15 @@ test("chaque clé i18n utilisée existe dans les deux langues", () => {
 });
 
 test("aucune clé i18n morte", () => {
-  const haystack = [
-    ...HTML_FILES.map(read),
-    ...SRC_JS.map(read),
-    JSON.stringify(manifest),
-  ].join("\n");
+  const sources = [...HTML_FILES.map(read), ...SRC_JS.map(read)];
+  const haystack = [...sources, JSON.stringify(manifest)].join("\n");
+
+  // Les familles construites dynamiquement, du type t(`status_${code}`).
+  const dynamic = new Set();
+  for (const m of haystack.matchAll(/`([a-z0-9_]+_)\$\{/g)) dynamic.add(m[1]);
+
   for (const key of Object.keys(messages.fr)) {
+    if ([...dynamic].some((prefix) => key.startsWith(prefix))) continue;
     assert.ok(haystack.includes(key), `clé ${key} définie mais jamais utilisée`);
   }
 });

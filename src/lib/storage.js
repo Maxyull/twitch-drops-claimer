@@ -149,6 +149,9 @@ const EMPTY_STATE = {
   tabChannels: {},
   beats: {},
   prevBeats: {},
+  // tabId -> { spadeAt, segmentAt } : dernières preuves réseau que Twitch
+  // comptabilise le visionnage de cet onglet.
+  counted: {},
 };
 
 /**
@@ -190,11 +193,13 @@ export async function forgetTab(tabId) {
   const beats = { ...state.beats };
   const prevBeats = { ...state.prevBeats };
   const tabChannels = { ...state.tabChannels };
+  const counted = { ...state.counted };
   delete beats[tabId];
   delete prevBeats[tabId];
   delete tabChannels[tabId];
+  delete counted[tabId];
 
-  const patch = { beats, prevBeats, tabChannels };
+  const patch = { beats, prevBeats, tabChannels, counted };
   if (state.pointsTabId === tabId) Object.assign(patch, { pointsTabId: null, pointsChannel: null });
   if (state.dropsTabId === tabId) {
     Object.assign(patch, {

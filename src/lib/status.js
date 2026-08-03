@@ -1,5 +1,7 @@
 // Voyant vert / rouge : est-ce que l'onglet en arrière-plan regarde VRAIMENT ?
 // Module pur : on ne juge que sur les battements de coeur envoyés par le lecteur.
+// Aucun libellé ici, uniquement des codes : les vues traduisent via les clés
+// `status_*` de _locales.
 
 export const BEAT_TIMEOUT_MS = 25_000;
 
@@ -15,22 +17,6 @@ export const STATUS = {
   DISABLED: "disabled",
 };
 
-const LABELS = {
-  [STATUS.OK]: "en train de regarder",
-  [STATUS.ADS]: "publicité en cours",
-  [STATUS.STALLED]: "flux figé",
-  [STATUS.PAUSED]: "lecteur en pause",
-  [STATUS.OFFLINE]: "chaîne hors ligne",
-  [STATUS.NO_BEAT]: "aucune réponse de l'onglet",
-  [STATUS.NO_TAB]: "onglet fermé",
-  [STATUS.WRONG_CHANNEL]: "mauvaise chaîne chargée",
-  [STATUS.DISABLED]: "désactivé",
-};
-
-export function statusLabel(code) {
-  return LABELS[code] || code;
-}
-
 /** Un statut vert compte le temps de visionnage, un rouge non. */
 export function isGreen(code) {
   return code === STATUS.OK || code === STATUS.ADS;
@@ -40,7 +26,7 @@ export function isGreen(code) {
  * @param {object|null} beat        dernier battement reçu
  * @param {object|null} prevBeat    battement précédent (pour détecter un flux figé)
  * @param {object} ctx  { now, expectedChannel, tabExists, enabled }
- * @returns {{code:string, green:boolean, label:string, channel:string|null, age:number|null}}
+ * @returns {{code:string, green:boolean, channel:string|null, age:number|null}}
  */
 export function evaluateBeat(beat, prevBeat, ctx = {}) {
   const { now = Date.now(), expectedChannel = null, tabExists = true, enabled = true } = ctx;
@@ -48,7 +34,6 @@ export function evaluateBeat(beat, prevBeat, ctx = {}) {
   const build = (code, channel = beat?.channel ?? null, age = null) => ({
     code,
     green: isGreen(code),
-    label: statusLabel(code),
     channel,
     age,
   });
@@ -80,7 +65,7 @@ export function evaluateBeat(beat, prevBeat, ctx = {}) {
 /** Synthèse pour la pastille de la barre d'outils. */
 export function summarize(states = []) {
   const active = states.filter((s) => s && s.code !== STATUS.DISABLED);
-  if (!active.length) return { green: false, code: STATUS.DISABLED, label: statusLabel(STATUS.DISABLED) };
+  if (!active.length) return { green: false, code: STATUS.DISABLED };
   const bad = active.find((s) => !s.green);
-  return bad ? { ...bad } : { ...active[0], code: STATUS.OK, label: statusLabel(STATUS.OK), green: true };
+  return bad ? { ...bad } : { ...active[0], code: STATUS.OK, green: true };
 }

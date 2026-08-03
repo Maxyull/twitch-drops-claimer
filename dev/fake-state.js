@@ -53,10 +53,30 @@ export const FAKE_STATE = {
     },
   ],
   status: {
-    points: { code: "ok", green: true, label: "en train de regarder", channel: "zerator" },
-    drops: { code: "offline", green: false, label: "chaîne hors ligne", channel: "steelmage" },
-    global: { code: "offline", green: false, label: "chaîne hors ligne" },
+    points: { code: "ok", green: true, channel: "zerator" },
+    drops: { code: "ok", green: true, channel: "steelmage" },
+    global: { code: "ok", green: true },
   },
+  watchers: [
+    {
+      role: "points",
+      tabId: 101,
+      channel: "zerator",
+      since: Date.now() - 26 * 60_000,
+      campaignName: null,
+      status: { code: "ok", green: true },
+      counted: { code: "confirmed", spadeAge: 12_000, segmentAge: 2_000 },
+    },
+    {
+      role: "drops",
+      tabId: 102,
+      channel: "steelmage",
+      since: Date.now() - 4 * 60_000,
+      campaignName: "Sea of Thieves, Saison 14",
+      status: { code: "ads", green: true },
+      counted: { code: "streaming", spadeAge: null, segmentAge: 3_000 },
+    },
+  ],
   lastError: null,
   campaignsAt: Date.now() - 120_000,
   campaigns: [

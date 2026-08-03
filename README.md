@@ -33,6 +33,25 @@ Le dossier racine se charge aussi directement, mais `dist/` est ce qui sera publ
 Pour vérifier fonction par fonction, lire les consoles et diagnostiquer un voyant rouge :
 [docs/TESTER-DANS-CHROME.md](docs/TESTER-DANS-CHROME.md).
 
+## Les chaînes regardées, et si elles comptent
+
+Le popup liste chaque onglet que l'extension fait tourner en arrière-plan : la chaîne,
+ce qu'elle sert à farmer, depuis combien de temps, et surtout **si Twitch la
+comptabilise**. Un clic sur une ligne affiche l'onglet correspondant.
+
+Le comptage n'est pas déduit, il est observé. L'extension écoute deux signaux réseau,
+sans jamais les bloquer ni les modifier :
+
+| Badge | Ce qui a été observé |
+|---|---|
+| 🟢 compté en viewer | le ping de comptage du lecteur Twitch, preuve directe |
+| 🟠 flux téléchargé | les segments vidéo arrivent, mais aucun ping vu (bloqueur de pub ?) |
+| 🔴 non compté | plus rien depuis trop longtemps, ou lecteur à l'arrêt |
+| ⚪ en cours de vérification | l'onglet vient d'ouvrir, trop tôt pour se prononcer |
+
+L'état orange existe parce qu'un bloqueur de publicité peut tuer le ping sans empêcher
+le comptage : répondre « non » dans ce cas serait un mensonge.
+
 ## Le voyant vert / rouge
 
 Le script de contenu envoie un battement de coeur toutes les 5 secondes avec l'état réel

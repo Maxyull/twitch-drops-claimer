@@ -22,7 +22,7 @@ function translations(key) {
 }
 
 async function expectTranslated(locator, key) {
-  const actual = await locator.textContent();
+  const actual = (await locator.textContent()) ?? "";
   const expected = translations(key);
   expect(expected.length).toBeGreaterThan(0);
   expect(expected, `texte "${actual}" absent des traductions de ${key}`).toContain(actual.trim());
@@ -84,9 +84,12 @@ test("le popup s'affiche, traduit, sans erreur console", async () => {
 test("les voyants et le badge existent dès le premier lancement", async () => {
   const page = await context.newPage();
   await page.goto(url("popup/popup.html"));
-  // Sans chaîne favorite, le voyant des points doit être rouge et le dire.
+  // Sans chaîne favorite : aucun onglet regardé, voyant rouge, et la liste vide
+  // dit pourquoi plutôt que de rester muette.
   await expect(page.locator("#pointsDot")).toHaveClass(/red/);
-  await expectTranslated(page.locator("#pointsInfo"), "popup_points_none");
+  await expect(page.locator(".watcher")).toHaveCount(0);
+  await expect(page.locator("#watchersEmpty")).toBeVisible();
+  await expectTranslated(page.locator("#watchersEmpty"), "popup_points_none");
   await page.close();
 });
 
