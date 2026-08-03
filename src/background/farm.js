@@ -38,12 +38,6 @@ async function normalWindows() {
 }
 
 /**
- * Fenêtre où l'extension pose ses onglets.
- * En mode dédié, elle en garde une à elle, réduite : c'est ce qui permet
- * d'activer un onglet pour débloquer son lecteur sans jamais voler le focus de
- * la fenêtre dans laquelle l'utilisateur travaille.
- */
-/**
  * Fenêtre qui porte déjà des onglets marqués par l'extension.
  * C'est le seul moyen de la retrouver après un rechargement, `state.windowId`
  * étant perdu avec `storage.session`.
@@ -55,6 +49,36 @@ async function findOwnWindow() {
   } catch {
     return null;
   }
+}
+
+/**
+ * Garde-fou contre l'emballement : une condition mal évaluée ne doit pas
+ * pouvoir produire une fenêtre par cycle. Passé ce délai sans succès, on
+ * préfère réutiliser une fenêtre existante et le dire.
+ */
+const WINDOW_COOLDOWN_MS = 5 * 60_000;
+
+async function createDedicatedWindow(windows) {
+  const state = await store.getState();
+
+  if (Date.now() - (state.windowCreatedAt ?? 0) < WINDOW_COOLDOWN_MS) {
+    // On vient d'en créer une et on n'arrive pas à la retrouver : quelque chose
+    // ne tourne pas rond, en ouvrir une de plus ne réglerait rien.
+    await store.setLastError("Fenêtre dédiée introuvable, réutilisation d'une fenêtre existante.");
+    return windows.at(-1)?.id ?? null;
+  }
+
+  // Créer puis réduire, en deux temps : `state` et `focused` se recouvrent dans
+  // le même appel et Chrome ne garantit pas le résultat.
+  const created = await chrome.windows.create({ focused: false });
+  try {
+    await chrome.windows.update(created.id, { state: "minimized" });
+  } catch {
+    /* pas réduite, tant pis, elle reste en arrière-plan */
+  }
+
+  await store.setState({ windowId: created.id, windowCreatedAt: Date.now() });
+  return created.id;
 }
 
 async function targetWindowId(settings) {
@@ -73,9 +97,7 @@ async function targetWindowId(settings) {
       return retrouvee;
     }
 
-    const created = await chrome.windows.create({ state: "minimized", focused: false });
-    await store.setState({ windowId: created.id });
-    return created.id;
+    return createDedicatedWindow(windows);
   }
 
   // Hors mode dédié, `windows[0]` est la première de la liste de Chrome, pas
@@ -88,9 +110,8 @@ async function targetWindowId(settings) {
     /* aucune fenêtre active, on retombe plus bas */
   }
 
-  if (windows.length) return windows[0].id;
-  const created = await chrome.windows.create({ state: "minimized", focused: false });
-  return created.id;
+  if (windows.length) return windows.at(-1).id;
+  return createDedicatedWindow(windows);
 }
 
 /**
@@ -201,6 +222,26 @@ async function anyDropTabAlive(state) {
  * On mémorise la chaîne demandée plutôt que de relire l'adresse de l'onglet :
  * ça évite la permission "tabs" (cf. docs/AUDIT-SECU.md).
  */
+/**
+ * Onglet marqué déjà ouvert sur cette chaîne. Après un rechargement de
+ * l'extension, `storage.session` est vide et elle rouvrirait ce qui existe
+ * déjà, chaque ouverture pouvant entraîner une fenêtre avec elle.
+ */
+async function findMarkedTab(channel) {
+  const prefixe = `https://www.twitch.tv/${channel}`;
+  try {
+    const tabs = await chrome.tabs.query({ url: TWITCH_TABS });
+    return (
+      tabs.find((tab) => {
+        const url = tab.url ?? "";
+        return url.includes(TAB_MARK) && url.startsWith(prefixe);
+      }) ?? null
+    );
+  } catch {
+    return null;
+  }
+}
+
 async function ensureChannelTab(tabId, channel) {
   const url = `https://www.twitch.tv/${channel}${TAB_MARK}`;
   const state = await store.getState();
@@ -214,9 +255,13 @@ async function ensureChannelTab(tabId, channel) {
     return tabId;
   }
 
-  const created = await openBackgroundTab(url);
-  await store.setState({ tabChannels: { ...state.tabChannels, [created]: channel } });
-  return created;
+  // On reprend un onglet déjà en place plutôt que d'en ouvrir un doublon.
+  const dejaLa = await findMarkedTab(channel);
+  const id = dejaLa?.id ?? (await openBackgroundTab(url));
+  if (dejaLa) await applyTabMute(id, await store.getSettings());
+
+  await store.setState({ tabChannels: { ...state.tabChannels, [id]: channel } });
+  return id;
 }
 
 // --- campagnes ------------------------------------------------------------
@@ -714,16 +759,25 @@ export async function wakeTab(tabId) {
  */
 export async function regroupTabs(settings) {
   const state = await store.getState();
-  const windowId = await targetWindowId(settings);
-  const tabs = [
+
+  const vivants = [];
+  for (const tabId of [
     state.pointsTabId,
     ...(state.dropTabs ?? []).map((entry) => entry.tabId),
     state.inventoryTabId,
-  ].filter(Boolean);
-  let placed = 0;
+  ].filter(Boolean)) {
+    if (await tabExists(tabId)) vivants.push(tabId);
+  }
 
-  for (const tabId of tabs) {
-    if (!(await tabExists(tabId))) continue;
+  // Rien à déplacer : surtout ne pas créer une fenêtre pour l'y mettre. C'est
+  // ce qui en ouvrait une à chaque cycle quand l'extension n'avait aucun onglet.
+  if (!vivants.length) return { windowId: state.windowId ?? null, placed: 0 };
+
+  const windowId = await targetWindowId(settings);
+  if (windowId == null) return { windowId: null, placed: 0 };
+
+  let placed = 0;
+  for (const tabId of vivants) {
     try {
       const tab = await chrome.tabs.get(tabId);
       if (tab.windowId !== windowId) await chrome.tabs.move(tabId, { windowId, index: -1 });
@@ -741,9 +795,14 @@ export async function regroupTabs(settings) {
  * éparpillés dans les fenêtres de l'utilisateur.
  */
 export async function rebuildWindow(settings) {
-  const created = await chrome.windows.create({ state: "minimized", focused: false });
+  const created = await chrome.windows.create({ focused: false });
+  try {
+    await chrome.windows.update(created.id, { state: "minimized" });
+  } catch {
+    /* pas réduite, elle reste en arrière-plan */
+  }
   const blank = created.tabs?.[0]?.id ?? null;
-  await store.setState({ windowId: created.id });
+  await store.setState({ windowId: created.id, windowCreatedAt: Date.now() });
 
   const { placed } = await regroupTabs({ ...settings, dedicatedWindow: true });
 

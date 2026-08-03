@@ -171,6 +171,9 @@ const EMPTY_STATE = {
   inventorySince: null,
   // Fenêtre dédiée aux onglets de l'extension, quand l'option est active.
   windowId: null,
+  // Date de la dernière création, pour ne pas en enchaîner si on n'arrive pas
+  // à la retrouver ensuite.
+  windowCreatedAt: 0,
   // tabId -> date du dernier réveil, pour ne pas s'acharner.
   wokeAt: {},
   // Position dans le tour de rôle des onglets de la fenêtre dédiée.
