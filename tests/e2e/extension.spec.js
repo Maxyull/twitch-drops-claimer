@@ -106,6 +106,12 @@ test("aller-retour de messages : la page d'options écrit, le worker répond", a
   // La réponse du service worker est déjà normalisée.
   await expect(page.locator("#favoriteChannels")).toHaveValue("zerator\ngotaga");
   await expect(page.locator("#volumePercent")).toHaveValue("1");
+
+  // Et c'est bien écrit dans le stockage, pas seulement affiché.
+  await expect
+    .poll(() => page.evaluate(() => chrome.storage.local.get("favoriteChannels")))
+    .toEqual({ favoriteChannels: ["zerator", "gotaga"] });
+
   await page.close();
 });
 
