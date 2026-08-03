@@ -143,6 +143,10 @@
   "options_btn_save": { "message": "Save" },
   "options_btn_reset": { "message": "Reset to defaults" },
   "options_saved": { "message": "Saved" },
+  "options_save_failed": {
+    "message": "Nothing was saved: $REASON$",
+    "placeholders": { "reason": { "content": "$1" } }
+  },
   "options_reset_confirm": {
     "message": "Reset every setting to its default? Favourite channels will be cleared."
   }

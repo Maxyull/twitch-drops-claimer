@@ -109,4 +109,14 @@ button:hover { background: #7c2ff2; }
 button.ghost { background: #241f33; color: var(--text); font-weight: 400; }
 .saved { color: #00e6a0; font-size: 13px; opacity: 0; transition: opacity 0.2s; }
 .saved.show { opacity: 1; }
+
+.save-error {
+  border-left: 3px solid #ff5b5b;
+  background: #2a1416;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #ffd6d6;
+  margin-top: 14px;
+}
 .empty { color: var(--muted); font-size: 13px; }

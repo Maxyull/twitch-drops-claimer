@@ -153,6 +153,10 @@
   "options_btn_save": { "message": "Enregistrer" },
   "options_btn_reset": { "message": "Valeurs par défaut" },
   "options_saved": { "message": "Enregistré" },
+  "options_save_failed": {
+    "message": "Rien n'a été enregistré : $REASON$",
+    "placeholders": { "reason": { "content": "$1" } }
+  },
   "options_reset_confirm": {
     "message": "Remettre tous les réglages par défaut ? Les chaînes favorites seront effacées."
   }

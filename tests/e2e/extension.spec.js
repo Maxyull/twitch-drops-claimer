@@ -106,12 +106,47 @@ test("aller-retour de messages : la page d'options écrit, le worker répond", a
   await page.close();
 });
 
+test("RÉGRESSION : « Enregistré » ne s'affiche pas si rien n'est enregistré", async () => {
+  const page = await context.newPage();
+  await page.goto(url("options/options.html"));
+
+  // On coupe la ligne avec le service worker : l'envoi échouera forcément.
+  await page.evaluate(() => {
+    chrome.runtime.sendMessage = () => Promise.reject(new Error("lien coupé"));
+  });
+  await page.click("#save");
+
+  await expect(page.locator("#error")).toBeVisible();
+  await expect(page.locator("#saved")).not.toHaveClass(/show/);
+  await page.close();
+});
+
 test("les réglages survivent au rechargement de la page", async () => {
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
   await expect(page.locator("#favoriteChannels")).toHaveValue("zerator\ngotaga");
   await expect(page.locator("#priority")).toHaveValue("closestToDone");
   await page.close();
+});
+
+test("RÉGRESSION : les réglages survivent au rechargement de l'extension", async () => {
+  // C'est le moment où `migrate()` se déclenche : si elle n'énumère que quelques
+  // clés au lieu de fusionner, les réglages repartent aux valeurs par défaut à
+  // chaque rechargement. Scénario jamais couvert avant l'issue #3.
+  const page = await context.newPage();
+  await page.goto(url("options/options.html"));
+
+  const reloaded = context.waitForEvent("serviceworker");
+  await page.evaluate(() => chrome.runtime.reload());
+  await reloaded;
+  await page.close();
+
+  const after = await context.newPage();
+  await after.goto(url("options/options.html"));
+  await expect(after.locator("#favoriteChannels")).toHaveValue("zerator\ngotaga");
+  await expect(after.locator("#priority")).toHaveValue("closestToDone");
+  await expect(after.locator("#volumePercent")).toHaveValue("1");
+  await after.close();
 });
 
 test("les réglages survivent à la mort du service worker (redémarrage du navigateur)", async () => {
