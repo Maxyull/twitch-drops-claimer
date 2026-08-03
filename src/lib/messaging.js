@@ -16,6 +16,7 @@ export const MSG = {
   REFRESH_NOW: "refresh-now",
   SWITCH_NOW: "switch-now",
   SET_CAMPAIGN_PRIORITY: "set-campaign-priority",
+  REBUILD_WINDOW: "rebuild-window",
 };
 
 /** Place d'une campagne dans la rotation, choisie par l'utilisateur. */
@@ -43,6 +44,7 @@ export const MESSAGE_ORIGIN = {
   [MSG.REFRESH_NOW]: SENDER.PRIVILEGED,
   [MSG.SWITCH_NOW]: SENDER.PRIVILEGED,
   [MSG.SET_CAMPAIGN_PRIORITY]: SENDER.PRIVILEGED,
+  [MSG.REBUILD_WINDOW]: SENDER.PRIVILEGED,
 };
 
 export const CLAIM_KIND = { POINTS: "points", DROP: "drop" };

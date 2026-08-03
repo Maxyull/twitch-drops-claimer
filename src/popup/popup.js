@@ -328,6 +328,16 @@ $("switch").addEventListener("click", async () => {
   void load();
 });
 
+$("rebuildWindow").addEventListener("click", async () => {
+  const bouton = $("rebuildWindow");
+  bouton.disabled = true;
+  const res = await send(MSG.REBUILD_WINDOW);
+  bouton.disabled = false;
+
+  if (!res.ok) renderError({ message: res.error ?? "", at: Date.now() });
+  void load();
+});
+
 $("inventory").addEventListener("click", () => {
   chrome.tabs.create({ url: "https://www.twitch.tv/drops/inventory" });
 });

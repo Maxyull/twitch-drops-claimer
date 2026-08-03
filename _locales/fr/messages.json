@@ -505,5 +505,11 @@
   },
   "options_ignored_title": {
     "message": "Ecarter cette campagne de la rotation"
+  },
+  "popup_btn_rebuild_window": {
+    "message": "Refaire la fenêtre de l’extension"
+  },
+  "popup_btn_rebuild_window_hint": {
+    "message": "Crée une fenêtre réduite neuve et y rapatrie les onglets de l'extension. Active la fenêtre dédiée si elle ne l'était pas."
   }
 }
