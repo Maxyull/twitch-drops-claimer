@@ -9,12 +9,16 @@ import {
   isActive,
 } from "../lib/campaigns.js";
 import { buildPendingActions, linkedOverrides, pruneActions } from "../lib/actions.js";
+import { mapLimited } from "../lib/concurrency.js";
 import * as gql from "./gql.js";
 import * as store from "../lib/storage.js";
 
 const INVENTORY_URL = "https://www.twitch.tv/drops/inventory";
-const DETAILS_PER_REFRESH = 20;
 const DETAILS_TTL_MS = 6 * 60 * 60 * 1000;
+/** Requêtes de détail en vol simultanément. Assez pour être rapide, pas assez pour agacer Twitch. */
+const DETAILS_CONCURRENCY = 6;
+/** Garde-fou : un compte ne voit jamais autant de campagnes, mais on ne boucle pas à l'infini. */
+const MAX_DETAILS = 200;
 
 // --- onglets --------------------------------------------------------------
 
@@ -111,10 +115,12 @@ async function getLogin() {
 }
 
 /**
- * Recharge la liste des campagnes.
- * L'inventaire donne la progression exacte des campagnes entamées ; la liste
- * générale donne les campagnes pas encore commencées, dont on va chercher le
- * détail au compte-gouttes (et qu'on met en cache).
+ * Recharge la liste des campagnes, en entier et en un seul passage.
+ *
+ * L'inventaire donne la progression exacte des campagnes entamées. La liste
+ * générale donne toutes les autres, dont il faut aller chercher le détail
+ * (paliers et chaînes autorisées) une par une : ce sont ces requêtes qu'on
+ * parallélise, sinon la liste se remplirait sur plusieurs cycles.
  */
 export async function refreshCampaigns() {
   const now = Date.now();
@@ -126,8 +132,7 @@ export async function refreshCampaigns() {
   }
 
   const cache = await store.getDetailsCache();
-  let login = null;
-  let fetched = 0;
+  const aChercher = [];
 
   for (const node of await gql.campaignList()) {
     const shallow = parseCampaign(node);
@@ -143,25 +148,29 @@ export async function refreshCampaigns() {
       });
       continue;
     }
+    aChercher.push(shallow);
+  }
 
-    if (fetched >= DETAILS_PER_REFRESH) {
-      byId.set(shallow.id, shallow); // sans paliers : classée en dernier, mais visible
-      continue;
-    }
+  if (aChercher.length) {
+    const restants = aChercher.slice(0, MAX_DETAILS);
+    const login = await getLogin();
 
-    try {
-      login = login || (await getLogin());
-      const detail = parseCampaign(await gql.campaignDetails(login, shallow.id));
-      fetched += 1;
+    const details = await mapLimited(restants, DETAILS_CONCURRENCY, async (shallow) =>
+      parseCampaign(await gql.campaignDetails(login, shallow.id)),
+    );
+
+    restants.forEach((shallow, i) => {
+      const detail = details[i];
       if (detail) {
         byId.set(detail.id, detail);
         cache[detail.id] = { at: now, campaign: detail };
       } else {
+        // Détail indisponible : la campagne reste visible, sans ses paliers.
         byId.set(shallow.id, shallow);
       }
-    } catch {
-      byId.set(shallow.id, shallow);
-    }
+    });
+
+    for (const shallow of aChercher.slice(MAX_DETAILS)) byId.set(shallow.id, shallow);
   }
 
   for (const [id, entry] of Object.entries(cache)) {
