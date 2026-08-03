@@ -1,12 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { validateMessage, isTwitchUrl } from "../src/lib/message-guard.js";
+import { validateMessage, isTwitchUrl, isExtensionUrl } from "../src/lib/message-guard.js";
 import { MSG, CLAIM_KIND } from "../src/lib/messaging.js";
 
 const EXT_ID = "abcdefghijklmnopabcdefghijklmnop";
 const fromTab = { id: EXT_ID, tab: { id: 7 }, url: "https://www.twitch.tv/zerator" };
-const fromPopup = { id: EXT_ID };
+const fromPopup = { id: EXT_ID, url: `chrome-extension://${EXT_ID}/src/popup/popup.html` };
+// La page d'options s'ouvre dans un onglet : elle a donc un `sender.tab`.
+const fromOptions = {
+  id: EXT_ID,
+  tab: { id: 12 },
+  url: `chrome-extension://${EXT_ID}/src/options/options.html`,
+};
 
 test("un expéditeur d'une autre extension est rejeté", () => {
   const res = validateMessage({ type: MSG.BEAT }, { id: "autre-extension", tab: { id: 1 } }, EXT_ID);
@@ -41,6 +47,37 @@ test("un message d'onglet venu d'ailleurs que Twitch est rejeté", () => {
 
 test("un message de contenu envoyé depuis le popup est rejeté", () => {
   assert.equal(validateMessage({ type: MSG.BEAT, payload: {} }, fromPopup, EXT_ID).ok, false);
+});
+
+test("RÉGRESSION : la page d'options est un onglet et doit être acceptée", () => {
+  // Le premier jet tranchait sur la présence de `sender.tab`, ce qui rejetait la
+  // page d'options : ses enregistrements partaient à la poubelle en silence.
+  for (const type of [MSG.GET_STATE, MSG.REFRESH_NOW]) {
+    assert.equal(validateMessage({ type }, fromOptions, EXT_ID).ok, true, `${type} rejeté`);
+  }
+  const res = validateMessage(
+    { type: MSG.SET_SETTINGS, payload: { enabled: false } },
+    fromOptions,
+    EXT_ID,
+  );
+  assert.equal(res.ok, true);
+});
+
+test("une page d'extension d'un autre identifiant est rejetée", () => {
+  const usurpateur = {
+    id: EXT_ID,
+    tab: { id: 3 },
+    url: "chrome-extension://zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz/src/options/options.html",
+  };
+  assert.equal(validateMessage({ type: MSG.GET_STATE }, usurpateur, EXT_ID).ok, false);
+});
+
+test("isExtensionUrl ne reconnaît que nos propres pages", () => {
+  assert.equal(isExtensionUrl(`chrome-extension://${EXT_ID}/src/popup/popup.html`, EXT_ID), true);
+  assert.equal(isExtensionUrl("chrome-extension://autre/src/popup/popup.html", EXT_ID), false);
+  assert.equal(isExtensionUrl("https://www.twitch.tv/", EXT_ID), false);
+  assert.equal(isExtensionUrl(undefined, EXT_ID), false);
+  assert.equal(isExtensionUrl(`chrome-extension://${EXT_ID}/x`, ""), false);
 });
 
 test("le battement est borné et nettoyé", () => {
