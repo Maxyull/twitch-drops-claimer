@@ -50,8 +50,25 @@ async function targetWindowId(settings) {
   return created.id;
 }
 
+/**
+ * Sourdine au niveau de l'onglet, en plus de celle posée sur le lecteur par le
+ * script de contenu. Ceinture et bretelles volontaires : si le script de contenu
+ * ne se charge pas, Twitch démarre au volume enregistré par l'utilisateur et
+ * l'onglet se met à parler tout seul.
+ * Muter un onglet ne demande pas la permission "tabs", seule la lecture de son
+ * URL la demanderait.
+ */
+async function applyTabMute(tabId, settings) {
+  try {
+    await chrome.tabs.update(tabId, { muted: Boolean(settings?.muteTabs) });
+  } catch {
+    /* pas de sourdine possible : le script de contenu coupe déjà le lecteur */
+  }
+}
+
 async function openBackgroundTab(url, { pinned = true } = {}) {
-  const windowId = await targetWindowId(await store.getSettings());
+  const settings = await store.getSettings();
+  const windowId = await targetWindowId(settings);
   const tab = await chrome.tabs.create({ url, active: false, pinned, windowId });
   try {
     // Empêche Chrome de mettre l'onglet en veille : un onglet déchargé ne regarde plus rien.
@@ -59,6 +76,7 @@ async function openBackgroundTab(url, { pinned = true } = {}) {
   } catch {
     /* option indisponible selon la version, sans conséquence */
   }
+  await applyTabMute(tab.id, settings);
   return tab.id;
 }
 
@@ -93,6 +111,7 @@ async function ensureChannelTab(tabId, channel) {
   if (await tabExists(tabId)) {
     if (state.tabChannels[tabId] !== channel) {
       await chrome.tabs.update(tabId, { url });
+      await applyTabMute(tabId, await store.getSettings());
       await store.setState({ tabChannels: { ...state.tabChannels, [tabId]: channel } });
     }
     return tabId;
@@ -446,6 +465,14 @@ export async function closeAllTabs() {
     inventoryTabId: null,
     tabChannels: {},
   });
+}
+
+/** Réapplique la sourdine à tous les onglets gérés, après un changement de réglage. */
+export async function refreshTabMute(settings) {
+  const state = await store.getState();
+  for (const tabId of [state.pointsTabId, state.dropsTabId, state.inventoryTabId]) {
+    if (tabId && (await tabExists(tabId))) await applyTabMute(tabId, settings);
+  }
 }
 
 export { tabExists, closeTab, openBackgroundTab };

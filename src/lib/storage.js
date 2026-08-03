@@ -149,6 +149,8 @@ const EMPTY_STATE = {
   windowId: null,
   // tabId -> date du dernier réveil, pour ne pas s'acharner.
   wokeAt: {},
+  // Position dans le tour de rôle des onglets de la fenêtre dédiée.
+  rotationIndex: -1,
   // tabId -> chaîne demandée. Évite de relire l'adresse de l'onglet, donc évite
   // la permission "tabs".
   tabChannels: {},

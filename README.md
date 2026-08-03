@@ -81,9 +81,17 @@ Le réglage se désactive si vous y tenez, mais attendez-vous alors à voir le v
 « lecture refusée par le navigateur ». Dans ce cas l'extension active brièvement
 l'onglet pour débloquer le lecteur, au plus une fois toutes les trois minutes.
 
+La sourdine est posée deux fois : sur le lecteur par le script de contenu, et sur
+l'onglet lui-même. Si le script de contenu ne se charge pas, Twitch démarre au volume
+que vous aviez enregistré et l'onglet se met à parler tout seul ; la sourdine d'onglet
+couvre ce cas.
+
 L'extension garde par défaut **une fenêtre réduite à elle** pour ses onglets. C'est ce
 qui lui permet de faire ce réveil sans jamais voler le focus de la fenêtre où vous
-travaillez. La qualité est descendue à 160p pour la bande passante.
+travaillez. Elle y **avance d'un onglet à chaque passage**, pour que chacun ait son tour
+au premier plan, ce qui suffit à relancer un lecteur que le navigateur avait mis de
+côté. Un clic sur une ligne de la liste affiche l'onglet correspondant si vous voulez y
+aller vous-même. La qualité est descendue à 160p pour la bande passante.
 
 ## Ce qu'il faut savoir
 
