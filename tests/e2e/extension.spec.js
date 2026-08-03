@@ -141,13 +141,20 @@ test("les réglages survivent au rechargement de la page", async () => {
 async function restartBrowser() {
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
+
+  // On dump tout le stockage : si la valeur manque, le message d'échec doit
+  // dire ce qu'il y a à la place, pas seulement ce qui manque.
   await expect
-    .poll(() =>
-      page.evaluate(() =>
-        chrome.storage.local.get("favoriteChannels").then((r) => (r.favoriteChannels ?? []).join()),
-      ),
-    )
-    .toBe("zerator,gotaga");
+    .poll(async () => {
+      const brut = await page.evaluate(() => chrome.storage.local.get(null));
+      return JSON.stringify({
+        favoriteChannels: brut.favoriteChannels,
+        storageVersion: brut.storageVersion,
+        cles: Object.keys(brut).sort(),
+      });
+    })
+    .toContain('"favoriteChannels":["zerator","gotaga"]');
+
   await page.close();
 
   await context.close();
