@@ -65,6 +65,7 @@ const SANITIZERS = {
   [MSG.GET_STATE]: () => ({}),
   [MSG.REFRESH_NOW]: () => ({}),
   [MSG.SWITCH_NOW]: () => ({}),
+  [MSG.REBUILD_WINDOW]: () => ({}),
 
   [MSG.SET_SETTINGS]: (p) => {
     if (!isPlainObject(p)) return null;

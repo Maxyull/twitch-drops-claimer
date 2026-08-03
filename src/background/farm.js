@@ -513,22 +513,46 @@ export async function wakeTab(tabId) {
   }
 }
 
-/** Rassemble les onglets de l'extension dans la fenêtre cible. */
+/**
+ * Rassemble les onglets de l'extension dans la fenêtre cible.
+ * @returns {{windowId: number, placed: number}}
+ */
 export async function regroupTabs(settings) {
   const state = await store.getState();
   const windowId = await targetWindowId(settings);
   const tabs = [state.pointsTabId, state.dropsTabId, state.inventoryTabId].filter(Boolean);
+  let placed = 0;
 
   for (const tabId of tabs) {
     if (!(await tabExists(tabId))) continue;
     try {
       const tab = await chrome.tabs.get(tabId);
       if (tab.windowId !== windowId) await chrome.tabs.move(tabId, { windowId, index: -1 });
+      placed += 1;
     } catch {
       /* onglet disparu entre-temps */
     }
   }
-  return windowId;
+  return { windowId, placed };
+}
+
+/**
+ * Repart d'une fenêtre neuve pour l'extension et y rapatrie ses onglets.
+ * Utile quand la fenêtre dédiée a été fermée, ou que les onglets ont fini
+ * éparpillés dans les fenêtres de l'utilisateur.
+ */
+export async function rebuildWindow(settings) {
+  const created = await chrome.windows.create({ state: "minimized", focused: false });
+  const blank = created.tabs?.[0]?.id ?? null;
+  await store.setState({ windowId: created.id });
+
+  const { placed } = await regroupTabs({ ...settings, dedicatedWindow: true });
+
+  // L'onglet vide créé avec la fenêtre n'est fermé que si un autre l'a remplacé :
+  // fermer le dernier onglet fermerait la fenêtre qu'on vient de faire.
+  if (blank && placed > 0) await closeTab(blank);
+
+  return { windowId: created.id, placed };
 }
 
 export async function closeAllTabs() {

@@ -505,5 +505,11 @@
   },
   "options_ignored_title": {
     "message": "Keep this campaign out of the rotation"
+  },
+  "popup_btn_rebuild_window": {
+    "message": "Rebuild the extension window"
+  },
+  "popup_btn_rebuild_window_hint": {
+    "message": "Creates a fresh minimised window and moves the extension tabs into it. Turns the dedicated window on if it was off."
   }
 }

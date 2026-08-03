@@ -508,6 +508,20 @@ async function onRefreshNow() {
   return { ok: true };
 }
 
+/**
+ * Repart d'une fenêtre neuve pour l'extension. Le geste implique de vouloir la
+ * fenêtre dédiée, donc l'option s'active si elle ne l'était pas : sans ça, le
+ * bouton ferait quelque chose que le cycle suivant déferait.
+ */
+async function onRebuildWindow() {
+  const settings = await store.setSettings({ dedicatedWindow: true });
+  const { placed } = await farm.rebuildWindow(settings);
+
+  // Ce qui manquait est rouvert par le cycle, sans faire attendre le popup.
+  void tick();
+  return { ok: true, placed };
+}
+
 async function onSwitchNow() {
   await farm.ensureDropsTab(await store.getSettings(), { force: true });
   await updateBadge();
@@ -544,6 +558,7 @@ const HANDLERS = {
   [MSG.REFRESH_NOW]: onRefreshNow,
   [MSG.SWITCH_NOW]: onSwitchNow,
   [MSG.SET_CAMPAIGN_PRIORITY]: onSetCampaignPriority,
+  [MSG.REBUILD_WINDOW]: onRebuildWindow,
 };
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
