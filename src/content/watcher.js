@@ -96,14 +96,32 @@ function contextOf(el) {
   return parts.filter(Boolean).join(" ");
 }
 
+/**
+ * Marqueurs portés par les enfants du bouton. Twitch met souvent la classe qui
+ * identifie vraiment un contrôle sur une icône interne, pas sur le bouton ni sur
+ * ses ancêtres : sans ça, le coffre de points est indiscernable du solde.
+ */
+function innerMarkersOf(btn) {
+  const parts = [];
+  for (const node of btn.querySelectorAll("*")) {
+    const cls = typeof node.className === "string" ? node.className : "";
+    if (cls) parts.push(cls);
+    const sel = node.getAttribute?.("data-test-selector");
+    if (sel) parts.push(sel);
+    if (parts.length >= 20) break; // un bouton n'a pas besoin de plus pour être reconnu
+  }
+  return parts.join(" ");
+}
+
 function descriptorOf(btn) {
-  const inner = btn.querySelector("[data-test-selector]");
+  const tagged = btn.querySelector("[data-test-selector]");
   return {
     text: (btn.textContent || "").trim().slice(0, 80),
     testSelector:
-      btn.getAttribute("data-test-selector") || inner?.getAttribute("data-test-selector") || "",
+      btn.getAttribute("data-test-selector") || tagged?.getAttribute("data-test-selector") || "",
     aTarget: btn.getAttribute("data-a-target") || "",
     ariaLabel: btn.getAttribute("aria-label") || "",
+    inner: innerMarkersOf(btn),
     context: contextOf(btn),
     visible: isVisible(btn),
     disabled: btn.disabled === true || btn.getAttribute("aria-disabled") === "true",
