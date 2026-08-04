@@ -1,10 +1,10 @@
-// Observation, en lecture seule, des requêtes qui prouvent que Twitch comptabilise
-// le visionnage d'un onglet. On ne bloque ni ne modifie rien : `chrome.webRequest`
-// est utilisé en simple écoute (cf. docs/SECURITY-AUDIT.md).
+// Read-only observation of the requests that prove Twitch is counting a tab's
+// viewing. Nothing is blocked and nothing is modified: `chrome.webRequest` is used
+// purely as a listener (see docs/SECURITY-AUDIT.md).
 //
-// Les segments vidéo arrivent toutes les deux secondes : écrire à chaque fois dans
-// le stockage saturerait le quota. On garde un cache en mémoire et on ne persiste
-// qu'à intervalle, ou immédiatement pour le signal rare qu'est le ping de comptage.
+// Video segments arrive every two seconds: writing to storage each time would
+// saturate the quota. We keep an in-memory cache and persist only on an interval,
+// or immediately for the rare, decisive watch ping.
 
 import { classifyRequest } from "../lib/counted.js";
 import * as store from "../lib/storage.js";
@@ -41,25 +41,25 @@ async function flush() {
 export function registerWatchCounter() {
   chrome.webRequest.onCompleted.addListener(
     (details) => {
-      if (details.tabId < 0) return; // requête hors onglet, rien à attribuer
+      if (details.tabId < 0) return; // request outside any tab, nothing to attribute
       const kind = classifyRequest(details.url);
       if (!kind) return;
 
       touch(details.tabId, kind, Date.now());
 
-      // Le ping de comptage est rare et décisif : on l'écrit tout de suite.
+      // The watch ping is rare and decisive: write it straight away.
       if (kind === "spade" || Date.now() - lastFlush > FLUSH_EVERY_MS) void flush();
     },
     { urls: OBSERVED_URLS },
   );
 }
 
-/** Oublie un onglet fermé. */
+/** Forget a closed tab. */
 export function forgetCountedTab(tabId) {
   cache.delete(tabId);
 }
 
-/** Force l'écriture, avant de calculer un état affiché. */
+/** Force the write, before computing a state that will be displayed. */
 export function flushWatchCounter() {
   return flush();
 }
