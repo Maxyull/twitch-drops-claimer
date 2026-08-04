@@ -1,41 +1,41 @@
-// « Est-ce que Twitch me compte comme spectateur ? »
+// "Is Twitch counting me as a viewer?"
 //
-// On ne le devine pas, on l'observe. Trois signaux, du plus fort au plus faible :
-//   1. la progression elle-même : minutes de drop accumulées, solde de points qui
-//      monte. C'est irréfutable, mais lent à confirmer ;
-//   2. le ping de comptage que le lecteur envoie à Twitch : preuve directe ;
-//   3. les segments vidéo téléchargés : preuve que le flux est consommé,
-//      condition nécessaire pour être compté.
+// We do not guess it, we observe it. Three signals, strongest to weakest:
+//   1. progress itself: drop minutes accumulating, point balance going up. That
+//      is irrefutable, but slow to confirm;
+//   2. the watch ping the player sends to Twitch: direct proof;
+//   3. downloaded video segments: proof the stream is being consumed, which is a
+//      necessary condition for being counted.
 //
-// Règle de fond : **une preuve l'emporte toujours sur une déduction**. L'état du
-// lecteur lu dans le DOM n'est qu'une déduction, et il s'est déjà trompé. S'il
-// dit « en pause » alors que la progression avance, c'est lui qui a tort.
+// Underlying rule: **evidence always beats deduction**. Player state read from
+// the DOM is only a deduction, and it has already been wrong. If it says "paused"
+// while progress is advancing, it is the player state that is wrong.
 //
-// Module pur.
+// Pure module.
 
 export const COUNTED = {
-  CONFIRMED: "confirmed", // progression ou ping de comptage observés
-  STREAMING: "streaming", // flux téléchargé, mais aucune preuve plus forte
-  NO: "no", // aucun signal, et rien qui laisse penser que ça tourne
-  UNKNOWN: "unknown", // trop tôt pour se prononcer
+  CONFIRMED: "confirmed", // progress or a watch ping observed
+  STREAMING: "streaming", // stream downloading, but no stronger evidence
+  NO: "no", // no signal, and nothing suggesting it is running
+  UNKNOWN: "unknown", // too early to say
 };
 
 /**
- * Pourquoi ce n'est pas compté. « Non compté » sans explication renvoie chercher
- * au hasard, alors que les trois causes possibles n'appellent pas les mêmes gestes.
+ * Why it is not counted. "Not counted" with no explanation sends you looking at
+ * random, while the three possible causes call for entirely different moves.
  */
 export const REASON = {
-  PLAYER_STOPPED: "player_stopped", // le lecteur ne tourne pas
-  NO_SIGNAL: "no_signal", // rien n'a jamais été observé
-  STALE: "stale", // des signaux, mais trop vieux
+  PLAYER_STOPPED: "player_stopped", // the player is not running
+  NO_SIGNAL: "no_signal", // nothing has ever been observed
+  STALE: "stale", // signals, but too old
 };
 
 export const PROGRESS_MAX_AGE_MS = 15 * 60_000;
 export const SPADE_MAX_AGE_MS = 3 * 60_000;
 export const SEGMENT_MAX_AGE_MS = 45_000;
 /**
- * En dessous, aucune preuve n'est encore attendue : la progression se vérifie
- * toutes les cinq minutes, annoncer « non compté » avant serait faux.
+ * Below this, no evidence is expected yet: progress is checked every five
+ * minutes, so announcing "not counted" any earlier would be wrong.
  */
 export const WARMUP_MS = 6 * 60_000;
 
@@ -55,7 +55,7 @@ export function evaluateCounted(signals, ctx = {}) {
   const segmentAge = age(signals?.segmentAt, now);
   const out = (code, reason = null) => ({ code, reason, progressAge, spadeAge, segmentAge });
 
-  // Les preuves d'abord, avant tout jugement sur l'état du lecteur.
+  // Evidence first, before any judgement on the player's state.
   if (progressAge !== null && progressAge < PROGRESS_MAX_AGE_MS) return out(COUNTED.CONFIRMED);
   if (spadeAge !== null && spadeAge < SPADE_MAX_AGE_MS) return out(COUNTED.CONFIRMED);
   if (segmentAge !== null && segmentAge < SEGMENT_MAX_AGE_MS) return out(COUNTED.STREAMING);
@@ -67,19 +67,19 @@ export function evaluateCounted(signals, ctx = {}) {
   return out(COUNTED.NO, jamaisRienVu ? REASON.NO_SIGNAL : REASON.STALE);
 }
 
-/** Le visionnage est-il en train d'être comptabilisé, au mieux de ce qu'on sait ? */
+/** Is the viewing being counted, as far as we can tell? */
 export function isCounted(code) {
   return code === COUNTED.CONFIRMED || code === COUNTED.STREAMING;
 }
 
-/** Une valeur de progression a-t-elle augmenté depuis le dernier relevé ? */
+/** Has a progress value gone up since the last reading? */
 export function progressAdvanced(previous, current) {
   return typeof previous === "number" && typeof current === "number" && current > previous;
 }
 
 /**
- * Reconnaît les URL qui portent les signaux réseau.
- * Séparé du service worker pour être testable sans navigateur.
+ * Recognises the URLs that carry the network signals.
+ * Kept out of the service worker so it can be tested without a browser.
  */
 export function classifyRequest(url) {
   if (typeof url !== "string") return null;

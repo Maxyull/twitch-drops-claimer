@@ -1,13 +1,13 @@
-// « Actions requises » : les drops qui demandent un geste hors de Twitch
-// (lier son compte sur le site de l'éditeur, aller chercher la récompense).
-// L'utilisateur les coche dans le popup pour dire « c'est fait ».
-// Module pur.
+// "Required actions": the drops that call for something outside Twitch (linking
+// the account on the publisher's site, going to collect the reward).
+// The user ticks them off in the popup to say "done".
+// Pure module.
 
 import { needsAccountLink } from "./campaigns.js";
 
 export const ACTION_KIND = {
-  LINK: "link", // il faut lier son compte Twitch au site partenaire
-  REDEEM: "redeem", // drop récupéré, la récompense s'active sur le site partenaire
+  LINK: "link", // the Twitch account must be linked to the partner site
+  REDEEM: "redeem", // drop collected, the reward is activated on the partner site
 };
 
 export function actionId(kind, campaignId, extra = "") {
@@ -31,8 +31,8 @@ function baseAction(kind, campaign, now, extra = {}) {
 }
 
 /**
- * Fusionne les actions déjà connues avec celles déduites des campagnes.
- * Ne perd jamais l'état « coché » d'une action existante.
+ * Merges the actions already known with those derived from the campaigns.
+ * Never loses the "ticked" state of an existing action.
  *
  * @returns {{list: Array, added: Array}}
  */
@@ -55,8 +55,8 @@ export function buildPendingActions(campaigns, existing = [], now = Date.now()) 
 }
 
 /**
- * Action créée au moment où un drop est réclamé sur une campagne dont la
- * récompense se récupère sur un site partenaire.
+ * The action created when a drop is claimed on a campaign whose reward is
+ * collected on a partner site.
  */
 export function redeemAction(campaign, drop, now = Date.now()) {
   if (!campaign?.id || !campaign.accountLinkURL) return null;
@@ -86,7 +86,7 @@ export function countOpen(list = []) {
   return openActions(list).length;
 }
 
-/** Campagnes que l'utilisateur a déclarées liées à la main. */
+/** Campaigns the user has declared linked by hand. */
 export function linkedOverrides(list = []) {
   return list
     .filter((a) => a && a.kind === ACTION_KIND.LINK && a.done)
@@ -94,8 +94,8 @@ export function linkedOverrides(list = []) {
 }
 
 /**
- * Nettoyage : on jette les actions cochées de plus de 7 jours et celles dont
- * la campagne est finie depuis plus de 2 jours.
+ * Cleanup: drop the actions ticked more than 7 days ago, and those whose campaign
+ * ended more than 2 days ago.
  */
 export function pruneActions(list = [], now = Date.now()) {
   const WEEK = 7 * 24 * 60 * 60 * 1000;

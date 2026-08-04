@@ -1,9 +1,9 @@
-// Unique porte d'entrée du stockage : valeurs par défaut, schéma versionné,
-// migration à la mise à jour, quota géré.
-//   - `local`   : réglages, compteurs, actions à cocher, cache de campagnes.
-//   - `session` : état volatil (onglets, battements), le service worker meurt souvent.
-// Rien de sensible n'y est écrit : pas de jeton, pas de mot de passe
-// (cf. docs/SECURITY-AUDIT.md, passe 2).
+// The one door into storage: defaults, versioned schema, migration on update,
+// quota handled.
+//   - `local`   : settings, counters, actions to tick off, campaign cache.
+//   - `session` : volatile state (tabs, heartbeats), the service worker dies often.
+// Nothing sensitive is written here: no token, no password
+// (see docs/SECURITY-AUDIT.md, pass 2).
 
 import { DEFAULT_SETTINGS, normalizeSettings } from "./settings.js";
 
@@ -11,7 +11,7 @@ export const STORAGE_VERSION = 2;
 
 export const DEFAULT_STATS = { drops: 0, points: 0, lastClaim: null, lastClaimLabel: "" };
 
-/** Écriture tolérante au quota : on n'explose pas la boucle pour un stockage plein. */
+/** Quota-tolerant write: a full storage must not blow up the loop. */
 async function write(area, values) {
   try {
     await chrome.storage[area].set(values);
@@ -25,7 +25,7 @@ async function write(area, values) {
         lastError: { message: `Stockage : ${message}`, at: Date.now() },
       });
     } catch {
-      /* stockage vraiment mort, on abandonne en silence */
+      /* storage really is dead, give up quietly */
     }
     return { ok: false, error: message };
   }
@@ -34,18 +34,17 @@ async function write(area, values) {
 // --- migration ------------------------------------------------------------
 
 /**
- * v1 (extension d'origine) : { enabled, claimPoints, stats }.
- * v2 : réglages complets + actions à cocher + cache de campagnes.
+ * v1 (the original extension): { enabled, claimPoints, stats }.
+ * v2: full settings + actions to tick off + campaign cache.
  */
 export async function migrate() {
   const { storageVersion = 1, ...rest } = await chrome.storage.local.get(null);
   if (storageVersion === STORAGE_VERSION) return storageVersion;
 
-  // Fusion, jamais remise à zéro : tout réglage déjà présent et valide survit,
-  // `normalizeSettings` se charge d'écarter ce qui ne l'est pas et de combler
-  // les manques. Énumérer les clés à conserver ferait perdre en silence celles
-  // qu'on oublie, et cette perte se rejouerait à chaque rechargement tant que
-  // `storageVersion` n'est pas écrit.
+  // Merge, never reset: any setting already present and valid survives, and
+  // `normalizeSettings` drops whatever is not and fills the gaps. Listing the
+  // keys to keep would silently lose the ones we forget, and that loss would
+  // replay on every reload for as long as `storageVersion` stays unwritten.
   const migrated = normalizeSettings({ ...DEFAULT_SETTINGS, ...rest });
 
   await write("local", {
@@ -57,7 +56,7 @@ export async function migrate() {
   return STORAGE_VERSION;
 }
 
-// --- réglages -------------------------------------------------------------
+// --- settings -------------------------------------------------------------
 
 export async function getSettings() {
   const raw = await chrome.storage.local.get(DEFAULT_SETTINGS);
@@ -70,7 +69,7 @@ export async function setSettings(patch) {
   return merged;
 }
 
-// --- compteurs ------------------------------------------------------------
+// --- counters ---------------------------------------------------------------
 
 export async function getStats() {
   const { stats = DEFAULT_STATS } = await chrome.storage.local.get("stats");
@@ -86,7 +85,7 @@ export async function bumpStat(kind, label = "", amount = 1) {
   return stats;
 }
 
-/** Une réclamation vient d'avoir lieu, sans qu'on sache encore ce qu'elle a rapporté. */
+/** A claim just happened, before we know what it brought in. */
 export async function touchLastClaim(label = "") {
   const stats = await getStats();
   stats.lastClaim = Date.now();
@@ -95,7 +94,7 @@ export async function touchLastClaim(label = "") {
   return stats;
 }
 
-/** Journal des réclamations : ce qui a été pris, et quand. */
+/** Claim log: what was taken, and when. */
 export async function getHistory() {
   const { history = [] } = await chrome.storage.local.get("history");
   return Array.isArray(history) ? history : [];
@@ -106,7 +105,7 @@ export async function setHistory(history) {
   return history;
 }
 
-/** Paliers déjà vus comme obtenus, pour ne compter chaque drop qu'une fois. */
+/** Tiers already seen as obtained, so each drop is counted exactly once. */
 export async function getClaimedDrops() {
   const { claimedDropIds = [], claimedSeeded = false } = await chrome.storage.local.get([
     "claimedDropIds",
@@ -123,7 +122,7 @@ export async function setClaimedDrops(ids) {
   return ids;
 }
 
-// --- actions à cocher -----------------------------------------------------
+// --- actions to tick off ----------------------------------------------------
 
 export async function getActions() {
   const { actions = [] } = await chrome.storage.local.get("actions");
@@ -135,7 +134,7 @@ export async function setActions(actions) {
   return actions;
 }
 
-// --- campagnes ------------------------------------------------------------
+// --- campaigns --------------------------------------------------------------
 
 export async function getCampaigns() {
   const { campaigns = [], campaignsAt = null } = await chrome.storage.local.get([
@@ -146,9 +145,9 @@ export async function getCampaigns() {
 }
 
 /**
- * `campaignsAt` date la dernière DÉCOUVERTE, pas le dernier rafraîchissement.
- * Un simple report d'avancement passe donc `touchDate: false` : sinon l'écran
- * dirait qu'il vient de chercher des campagnes alors qu'il n'a rien cherché.
+ * `campaignsAt` dates the last DISCOVERY, not the last refresh. A plain progress
+ * update therefore passes `touchDate: false`: otherwise the screen would claim it
+ * had just gone looking for campaigns when it had looked for nothing.
  */
 export async function setCampaigns(campaigns, { touchDate = true } = {}) {
   await write("local", touchDate ? { campaigns, campaignsAt: Date.now() } : { campaigns });
@@ -163,7 +162,7 @@ export async function setDetailsCache(detailsCache) {
   await write("local", { detailsCache });
 }
 
-// --- dernière erreur ------------------------------------------------------
+// --- last error -------------------------------------------------------------
 
 export async function getLastError() {
   const { lastError = null } = await chrome.storage.local.get("lastError");
@@ -176,63 +175,63 @@ export async function setLastError(message) {
   });
 }
 
-// --- état volatil ---------------------------------------------------------
+// --- volatile state ---------------------------------------------------------
 
 const EMPTY_STATE = {
   pointsTabId: null,
   pointsChannel: null,
-  // Depuis quand on regarde cette favorite : sert à savoir si le bonus de
-  // série y est encore atteignable.
+  // Since when we have been watching this favourite: tells whether the streak
+  // bonus is still reachable there.
   pointsSince: null,
-  // Un onglet de farm par campagne : { tabId, channel, campaignId, since }.
+  // One farming tab per campaign: { tabId, channel, campaignId, since }.
   dropTabs: [],
   inventoryTabId: null,
   inventorySince: null,
-  // Fenêtre dédiée aux onglets de l'extension, quand l'option est active.
+  // Window dedicated to the extension's tabs, when the option is on.
   windowId: null,
-  // Date de la dernière création, pour ne pas en enchaîner si on n'arrive pas
-  // à la retrouver ensuite.
+  // When the last one was created, so we do not chain more of them when we
+  // cannot find it again afterwards.
   windowCreatedAt: 0,
-  // tabId -> date du dernier réveil, pour ne pas s'acharner.
+  // tabId -> when it was last woken, so we do not keep hammering it.
   wokeAt: {},
-  // Position dans le tour de rôle des onglets de la fenêtre dédiée.
+  // Position in the round-robin over the dedicated window's tabs.
   rotationIndex: -1,
-  // { channel, balance, hasBonus, at } : solde de points de la chaîne suivie.
+  // { channel, balance, hasBonus, at }: point balance of the followed channel.
   pointsBalance: null,
-  // chaîne -> { balance, hasBonus, at } : solde de CHAQUE chaîne regardée, pas
-  // seulement de la favorite. Une chaîne de farm distribue des coffres aussi.
+  // channel -> { balance, hasBonus, at }: balance of EVERY watched channel, not
+  // only the favourite. A farming channel hands out chests too.
   pointsByChannel: {},
-  // chaîne -> dernier coffre réclamé, pour ne pas le réclamer deux fois. Par
-  // chaîne : un identifiant global ferait perdre le coffre d'une chaîne dès
-  // qu'une autre en réclame un.
+  // channel -> last chest claimed, so it is not claimed twice. Per channel: one
+  // global id would lose a channel's chest as soon as another channel claimed
+  // one.
   claimedBonusIds: {},
-  // tabId -> chaîne demandée. Évite de relire l'adresse de l'onglet, donc évite
-  // la permission "tabs".
+  // tabId -> requested channel. Saves re-reading the tab's address, which is
+  // what keeps the "tabs" permission unnecessary.
   tabChannels: {},
   beats: {},
   prevBeats: {},
-  // tabId -> { spadeAt, segmentAt } : dernières preuves réseau que Twitch
-  // comptabilise le visionnage de cet onglet.
+  // tabId -> { spadeAt, segmentAt }: latest network evidence that Twitch is
+  // counting this tab's viewing.
   counted: {},
-  // { dropsAt, pointsAt } : dernières fois où une progression réelle a été
-  // constatée, et { marks } les relevés qui servent à la comparer.
+  // { dropsAt, pointsAt }: the last times real progress was observed, and
+  // { marks } the readings used to compare against.
   proof: {},
   marks: {},
   proofCheckedAt: 0,
-  // Progression en direct : dernier passage, identifiants de chaîne retenus, et
-  // le drapeau posé si Twitch retire l'empreinte de la requête.
+  // Live progress: last pass, channel ids kept, and the flag raised if Twitch
+  // retires the query fingerprint.
   liveCheckedAt: 0,
   channelIds: {},
   livePersistedGone: false,
-  // Depuis quand le farm est en panne, et quand on a prévenu.
+  // Since when farming has been broken, and when we warned about it.
   brokenSince: null,
   alertedAt: null,
 };
 
 /**
- * En-têtes capturés sur les requêtes de la page Twitch, dont son jeton de session.
- * En `session` volontairement : mémoire seulement, effacé à la fermeture de Chrome,
- * jamais écrit sur le disque (docs/SECURITY-AUDIT.md, passe 2).
+ * Headers captured from the Twitch page's own requests, including its session token.
+ * In `session` on purpose: memory only, cleared when Chrome closes, never written to
+ * disk (docs/SECURITY-AUDIT.md, pass 2).
  */
 export async function getCapturedHeaders() {
   const { gqlHeaders = null } = await chrome.storage.session.get("gqlHeaders");
@@ -245,13 +244,12 @@ export async function setCapturedHeaders(captured) {
 }
 
 /**
- * Ce qui doit survivre à un rechargement de l'extension : l'identité des onglets
- * et de la fenêtre. `storage.session` est vidé à ce moment-là, et tout ce qui
- * était bâti pour compenser cette perte reposait sur un marqueur d'URL que
- * Twitch efface régulièrement.
+ * What has to survive an extension reload: the identity of the tabs and of the
+ * window. `storage.session` is cleared at that moment, and everything built to
+ * make up for that loss rested on a URL marker Twitch wipes regularly.
  *
- * Un identifiant devenu périmé après un redémarrage du navigateur ne coûte rien :
- * chaque lecture vérifie déjà que l'onglet existe. Une fenêtre en trop, si.
+ * An id gone stale after a browser restart costs nothing: every read already
+ * checks the tab exists. One window too many does cost something.
  */
 const PERSISTENT_STATE_KEYS = new Set([
   "pointsTabId",
@@ -279,8 +277,8 @@ export async function setState(patch) {
   const next = { ...(await getState()), ...patch };
   const keys = Object.keys(patch);
 
-  // On n'écrit que la zone touchée : les battements arrivent toutes les cinq
-  // secondes, il n'y a aucune raison de les faire toucher le disque.
+  // Only the area actually touched gets written: heartbeats arrive every five
+  // seconds, and there is no reason for them to reach the disk.
   const ecritures = [];
   if (keys.some(isPersistent)) {
     ecritures.push(

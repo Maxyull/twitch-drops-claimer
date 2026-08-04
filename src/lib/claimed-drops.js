@@ -1,11 +1,11 @@
-// Compter les drops réellement obtenus, et non les boutons que l'extension a
-// cliqués. Twitch peut créditer un drop sans nous, et un clic peut échouer :
-// dans les deux cas un compteur de clics ment. La source de vérité est
-// l'inventaire, qui dit `isClaimed` pour chaque palier.
+// Count the drops actually obtained, not the buttons the extension clicked.
+// Twitch can credit a drop without us, and a click can fail: either way a counter
+// of clicks lies. The source of truth is the inventory, which says `isClaimed`
+// for each tier.
 //
-// Module pur.
+// Pure module.
 
-/** Identifiants des paliers marqués comme obtenus par Twitch. */
+/** Ids of the tiers Twitch marks as obtained. */
 export function collectClaimedIds(campaigns) {
   const ids = [];
   for (const campaign of campaigns || []) {
@@ -17,15 +17,15 @@ export function collectClaimedIds(campaigns) {
 }
 
 /**
- * Fusionne ce que Twitch dit avec ce qu'on savait déjà.
+ * Merges what Twitch says with what we already knew.
  *
- * Le premier passage est une simple prise d'empreinte : tout ce qui est déjà
- * obtenu est absorbé sans être compté, sinon le compteur afficherait d'un coup
- * l'historique complet du compte à l'installation.
+ * The first pass is a plain snapshot: everything already obtained is absorbed
+ * without being counted, otherwise the counter would display the account's whole
+ * history at once on install.
  *
- * @param {string[]} known    identifiants déjà connus
- * @param {boolean} seeded    l'empreinte initiale a-t-elle été prise ?
- * @param {Array} campaigns   campagnes fraîchement lues
+ * @param {string[]} known    ids already known
+ * @param {boolean} seeded    has the initial snapshot been taken?
+ * @param {Array} campaigns   freshly read campaigns
  * @returns {{ids: string[], added: string[]}}
  */
 export function mergeClaimed(known, seeded, campaigns) {
@@ -41,7 +41,7 @@ export function mergeClaimed(known, seeded, campaigns) {
   return { ids: [...set], added };
 }
 
-/** Les campagnes expirent : on ne garde pas un historique sans fin. */
+/** Campaigns expire: there is no point keeping an endless history. */
 export const MAX_REMEMBERED = 2000;
 
 export function trimRemembered(ids, max = MAX_REMEMBERED) {

@@ -1,10 +1,14 @@
-// Validation des messages entrants.
-// Deux principes, tirés de docs/SECURITY-AUDIT.md :
-//  1. un message d'un script de contenu n'est JAMAIS de confiance (la page peut
-//     être compromise) : on valide type, forme et bornes avant tout traitement ;
-//  2. pas de dispatch dynamique : seuls les types de l'allowlist passent, et
-//     chacun n'est accepté que depuis l'origine qui a le droit de l'envoyer.
-// Module pur : le contrôle d'identité de l'expéditeur est passé en paramètre.
+// Validation of incoming messages.
+// Two principles, taken from docs/SECURITY-AUDIT.md:
+//  1. a message from a content script is NEVER trusted (the page may be
+//     compromised): type, shape and bounds are validated before any processing;
+//  2. no dynamic dispatch: only allowlisted types get through, and each one is
+//     accepted only from the origin entitled to send it.
+// Pure module: the sender's identity check is passed in as a parameter.
+//
+// The French text in the `error` fields below is not an oversight: those strings
+// are asserted on in tests/message-guard.test.js and move together with the test
+// slice of #72.
 
 import { MSG, MESSAGE_ORIGIN, SENDER, CLAIM_KIND, CAMPAIGN_PRIORITY } from "./messaging.js";
 import { normalizeChannel, DEFAULT_SETTINGS } from "./settings.js";
@@ -29,7 +33,7 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-/** Nettoyeurs par type de message. Renvoient la charge utile assainie, ou null si invalide. */
+/** Sanitisers per message type. Return the cleaned payload, or null when invalid. */
 const SANITIZERS = {
   [MSG.HELLO]: (p) => ({ url: text(p?.url, 500) }),
 
@@ -69,7 +73,7 @@ const SANITIZERS = {
 
   [MSG.SET_SETTINGS]: (p) => {
     if (!isPlainObject(p)) return null;
-    // Allowlist stricte : une clé inconnue est jetée, pas propagée au stockage.
+    // Strict allowlist: an unknown key is dropped, never carried into storage.
     const out = {};
     for (const key of Object.keys(DEFAULT_SETTINGS)) {
       if (key in p) out[key] = p[key];
@@ -93,24 +97,24 @@ const SANITIZERS = {
 
 /**
  * @param {any} msg
- * @param {object} sender  l'objet `sender` de chrome.runtime.onMessage
+ * @param {object} sender  the `sender` object from chrome.runtime.onMessage
  * @param {string} extensionId  chrome.runtime.id
  * @returns {{ok:true,type:string,payload:object}|{ok:false,error:string}}
  */
 export function validateMessage(msg, sender, extensionId) {
-  // Un autre module d'extension ne parle pas ici.
+  // Another extension does not get to talk here.
   if (!sender || sender.id !== extensionId) return { ok: false, error: "expéditeur inconnu" };
 
-  // `hasOwn` et pas une simple lecture : sans ça, "constructor" ou "toString"
-  // remontent depuis Object.prototype et franchissent l'allowlist.
+  // `hasOwn` rather than a plain read: without it, "constructor" or "toString"
+  // come up from Object.prototype and clear the allowlist.
   const type = typeof msg?.type === "string" ? msg.type : "";
   if (!Object.hasOwn(MESSAGE_ORIGIN, type) || !Object.hasOwn(SANITIZERS, type)) {
     return { ok: false, error: "type de message refusé" };
   }
   const origin = MESSAGE_ORIGIN[type];
 
-  // On tranche sur l'URL de l'expéditeur, pas sur la présence de `sender.tab` :
-  // la page d'options est elle aussi un onglet, elle a donc un `sender.tab`.
+  // The decision rests on the sender's URL, not on `sender.tab` being present:
+  // the options page is a tab too, so it has a `sender.tab` as well.
   if (origin === SENDER.PRIVILEGED) {
     if (!isExtensionUrl(sender.url, extensionId)) {
       return { ok: false, error: "une page web ne peut pas piloter l'extension" };
@@ -125,7 +129,7 @@ export function validateMessage(msg, sender, extensionId) {
   return { ok: true, type, payload };
 }
 
-/** Page de l'extension elle-même : popup, page d'options. */
+/** A page of the extension itself: popup, options page. */
 export function isExtensionUrl(url, extensionId) {
   return typeof url === "string" && Boolean(extensionId)
     ? url.startsWith(`chrome-extension://${extensionId}/`)

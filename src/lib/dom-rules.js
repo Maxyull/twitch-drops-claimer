@@ -1,36 +1,39 @@
-// Décide s'il faut cliquer un bouton, à partir d'un simple descripteur.
-// Le script de contenu construit ces descripteurs depuis le vrai DOM ; ici
-// tout est pur, donc testable sans navigateur.
+// Decides whether a button should be clicked, from a plain descriptor.
+// The content script builds these descriptors from the real DOM; everything here
+// is pure, and therefore testable without a browser.
 //
-// Un descripteur :
+// A descriptor:
 // {
-//   text: string,            // libellé du bouton, déjà trimé
+//   text: string,            // the button's label, already trimmed
 //   testSelector: string,    // data-test-selector
 //   aTarget: string,         // data-a-target
 //   ariaLabel: string,
-//   context: string,         // texte/classes du conteneur parent (indice)
+//   context: string,         // text/classes of the parent container (a hint)
 //   visible: boolean,
 //   disabled: boolean,
 // }
+//
+// The French words in the patterns below are not untranslated text: they are what
+// the Twitch interface reads in French, and they are matched literally.
 
-/** Sélecteurs officiels connus d'un bouton « Réclamer » de drop. */
+/** Known official selectors for a drop "Claim" button. */
 export const DROP_CLAIM_SELECTORS = [
   "DropsCampaignInProgressRewardPresentation-claim-button",
   "drops-claim-button",
   "DropsCampaignInProgressRewardPresentation-claimButton",
 ];
 
-/** Conteneurs qui prouvent qu'on est bien dans la zone Drops. */
+/** Containers that prove we really are in the Drops area. */
 const DROP_CONTEXT_RE =
   /drop|inventaire|inventory|campaign|récompense|recompense|reward/i;
 
-/** Libellés de réclamation, FR + EN. */
+/** Claim labels, French + English. */
 const CLAIM_TEXT_RE =
   /^(claim|claim now|claim reward|réclamer|reclamer|récupérer|recuperer|obtenir)$/i;
 
 /**
- * Ce qui ressemble à « Réclamer » mais qu'il ne faut JAMAIS cliquer :
- * offres d'abonnement, Prime, bits, essais gratuits, cadeaux payants.
+ * What looks like "Claim" but must NEVER be clicked: subscription offers, Prime,
+ * bits, free trials, paid gifts.
  */
 const FORBIDDEN_RE =
   /prime|abonn|s'abonner|subscri|sub\b|gift|cadeau|offert|bits|essai|trial|crédit|credit|acheter|buy|upgrade|turbo/i;
@@ -45,9 +48,9 @@ function hasKnownSelector(d) {
 }
 
 /**
- * Faut-il cliquer ce bouton pour réclamer un drop ?
- * Stratégie : sélecteur officiel d'abord, sinon libellé exact ET contexte Drops,
- * et dans tous les cas jamais si le contexte sent l'offre commerciale.
+ * Should this button be clicked to claim a drop?
+ * Strategy: official selector first, otherwise an exact label AND a Drops context,
+ * and in every case never when the context smells of a commercial offer.
  */
 export function isDropClaimButton(d) {
   if (!usable(d)) return false;
@@ -55,26 +58,25 @@ export function isDropClaimButton(d) {
   const haystack = `${d.text || ""} ${d.ariaLabel || ""} ${d.context || ""}`;
 
   if (hasKnownSelector(d)) {
-    // Le sélecteur officiel fait foi, mais on refuse quand même une offre payante.
+    // The official selector settles it, but a paid offer is still refused.
     return !/prime|abonn|subscri|bits|acheter|buy/i.test(haystack);
   }
 
   if (!CLAIM_TEXT_RE.test((d.text || "").trim())) return false;
   if (FORBIDDEN_RE.test(haystack)) return false;
 
-  // Sans sélecteur officiel, on exige un contexte Drops explicite.
+  // With no official selector, an explicit Drops context is required.
   return DROP_CONTEXT_RE.test(`${d.context || ""} ${d.ariaLabel || ""}`);
 }
 
 /**
- * Coffre violet « bonus de points de chaîne ».
+ * The purple "channel points bonus" chest.
  *
- * Le conteneur des points (`community-points-summary`) ne prouve RIEN : il est
- * toujours présent à côté du chat, coffre ou pas, et le bouton du solde s'y
- * trouve aussi. S'en contenter revenait à cliquer le solde et à ne jamais
- * atteindre le coffre.
- * Le vrai marqueur est `claimable-bonus`, porté par un enfant du bouton, d'où
- * la lecture de `inner` en plus des ancêtres.
+ * The points container (`community-points-summary`) proves NOTHING: it sits next
+ * to the chat at all times, chest or no chest, and the balance button lives there
+ * too. Settling for it meant clicking the balance and never reaching the chest.
+ * The real marker is `claimable-bonus`, carried by a child of the button, hence
+ * reading `inner` on top of the ancestors.
  */
 export function isPointsBonusButton(d) {
   if (!usable(d)) return false;
@@ -82,12 +84,12 @@ export function isPointsBonusButton(d) {
   const markers = `${d.testSelector || ""} ${d.aTarget || ""} ${d.inner || ""} ${d.context || ""}`;
   if (/claimable-bonus/i.test(markers)) return true;
 
-  // Repli sur le libellé accessible : « Réclamer un bonus », « Claim bonus ».
+  // Fall back on the accessible label: "Réclamer un bonus", "Claim bonus".
   const label = `${d.ariaLabel || ""} ${d.text || ""}`;
   return /bonus/i.test(label) && /(réclamer|reclamer|récupérer|recuperer|claim)/i.test(label);
 }
 
-/** Bandeaux à écarter pour que le lecteur reparte : « toujours là ? », contenu sensible… */
+/** Overlays to dismiss so the player restarts: "still watching?", mature content, ... */
 export function isDismissOverlayButton(d) {
   if (!usable(d)) return false;
   const hay = `${d.text || ""} ${d.ariaLabel || ""} ${d.testSelector || ""} ${d.aTarget || ""}`;
