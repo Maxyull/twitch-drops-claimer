@@ -148,7 +148,34 @@ chrome.storage.session.get("farmState").then(console.log)  // battements et preu
 chrome.alarms.getAll().then(console.log)                   // les boucles
 ```
 
-Les trois alarmes attendues sont `tdc-tick` (1 min), `tdc-discover` et `tdc-claim`.
+Les alarmes attendues sont `tdc-tick` (1 min), `tdc-discover`, `tdc-claim` et
+`tdc-rotate`.
+
+### Une fenêtre est apparue sans raison
+
+```js
+chrome.storage.local.get("windowLog").then(console.log)
+```
+
+Chaque création laisse une ligne qui dit **pourquoi** l'extension a jugé qu'elle n'avait
+pas de fenêtre. C'est cette information qui manquait aux quatre corrections précédentes.
+
+| Champ | Ce qu'il dit |
+|---|---|
+| `appelant` | qui a demandé : ouverture d'onglet, regroupement, ou le bouton |
+| `windowIdMemorise` / `windowIdVivant` | l'extension avait-elle un identifiant, et pointait-il sur une fenêtre encore ouverte |
+| `fenetreRetrouveeParMarqueur` | a-t-elle retrouvé sa fenêtre par les onglets marqués |
+| `ongletsMarques` | combien d'onglets portent encore le marqueur, et dans quelles fenêtres |
+| `fenetresNormales` | combien de fenêtres Chrome comptait à cet instant |
+
+Une ligne `action: "refusee-delai"` veut dire que le garde-fou a bloqué une création :
+l'extension ne retrouve pas une fenêtre qu'elle vient de créer, ce qui est en soi le
+symptôme à rapporter.
+
+> Rappel : en mode « fenêtre séparée », si vous fermez la fenêtre de l'extension, elle en
+> recrée une au cycle suivant. C'est voulu, elle a besoin d'un endroit où mettre ses
+> onglets. Pour ne plus jamais en voir apparaître, décochez l'option dans les réglages :
+> les onglets iront alors dans votre fenêtre active.
 
 ---
 
