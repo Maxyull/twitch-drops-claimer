@@ -1,6 +1,6 @@
 // Service worker : alarmes, aiguillage des messages, voyants, badge.
 // Aucun état en mémoire longue durée : Chrome peut le tuer à tout moment,
-// tout ce qui compte est dans chrome.storage (cf. docs/AUDIT-SECU.md).
+// tout ce qui compte est dans chrome.storage (cf. docs/SECURITY-AUDIT.md).
 
 import { evaluateBeat, summarize, STATUS } from "../lib/status.js";
 import { evaluateCounted } from "../lib/counted.js";

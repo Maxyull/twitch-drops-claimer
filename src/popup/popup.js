@@ -1,6 +1,6 @@
 // Popup : lecture de l'état du service worker + quelques bascules.
 // Tout est posé en textContent, jamais d'injection HTML : les noms de campagnes
-// viennent de Twitch et ne sont pas de confiance (docs/AUDIT-SECU.md, passe 1).
+// viennent de Twitch et ne sont pas de confiance (docs/SECURITY-AUDIT.md, passe 1).
 
 import { MSG, ROLE, CAMPAIGN_PRIORITY } from "../lib/messaging.js";
 import { ACTION_KIND } from "../lib/actions.js";

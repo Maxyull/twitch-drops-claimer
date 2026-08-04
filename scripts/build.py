@@ -2,7 +2,7 @@
 """Construit dist/ puis release/twitch-drops-claimer-vX.Y.Z.zip.
 
 Le paquet ne contient QUE ce qui est livré : manifeste, src/, _locales/, assets/.
-Ni tests, ni docs, ni dev, ni scripts, ni package.json (cf. docs/AUDIT-SECU.md).
+Ni tests, ni docs, ni dev, ni scripts, ni package.json (cf. docs/SECURITY-AUDIT.md).
 
     python scripts/build.py             # paquet lisible (recommandé pour la relecture)
     python scripts/build.py --minify    # passe Terser si npx est disponible

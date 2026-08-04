@@ -1,5 +1,5 @@
 // Validation des messages entrants.
-// Deux principes, tirés de docs/AUDIT-SECU.md :
+// Deux principes, tirés de docs/SECURITY-AUDIT.md :
 //  1. un message d'un script de contenu n'est JAMAIS de confiance (la page peut
 //     être compromise) : on valide type, forme et bornes avant tout traitement ;
 //  2. pas de dispatch dynamique : seuls les types de l'allowlist passent, et

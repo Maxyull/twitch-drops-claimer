@@ -268,7 +268,7 @@ async function anyDropTabAlive(state) {
 /**
  * Ouvre ou recycle un onglet d'arrière-plan pointant sur une chaîne.
  * On mémorise la chaîne demandée plutôt que de relire l'adresse de l'onglet :
- * ça évite la permission "tabs" (cf. docs/AUDIT-SECU.md).
+ * ça évite la permission "tabs" (cf. docs/SECURITY-AUDIT.md).
  */
 /**
  * Onglet marqué déjà ouvert sur cette chaîne. Après un rechargement de

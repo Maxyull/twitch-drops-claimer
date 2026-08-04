@@ -1,7 +1,7 @@
 // Contrôles d'intégrité du paquet : ce qui attrape les régressions qu'un test de
 // logique ne voit pas (fichier renommé, script inline interdit par la CSP,
 // permission oubliée, clé i18n manquante, ressource trop largement exposée).
-// Ces contrôles reprennent les greps de docs/AUDIT-SECU.md.
+// Ces contrôles reprennent les greps de docs/SECURITY-AUDIT.md.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -84,7 +84,7 @@ test("périmètre réseau et injection les plus étroits possibles", () => {
 
 test("le script de contenu démarre avant le lecteur (run_at justifié)", () => {
   // document_start : la qualité et le volume se posent dans localStorage AVANT
-  // l'initialisation du lecteur Twitch. Justifié dans docs/AUDIT-SECU.md.
+  // l'initialisation du lecteur Twitch. Justifié dans docs/SECURITY-AUDIT.md.
   assert.equal(manifest.content_scripts[0].run_at, "document_start");
 });
 

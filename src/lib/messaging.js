@@ -1,6 +1,6 @@
 // Types de messages. Aucune chaîne magique ailleurs dans le code.
 // Ce module n'importe rien : il est exposé au script de contenu, on garde sa
-// surface minimale (cf. docs/AUDIT-SECU.md, web_accessible_resources).
+// surface minimale (cf. docs/SECURITY-AUDIT.md, web_accessible_resources).
 
 export const MSG = {
   // script de contenu -> service worker
