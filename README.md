@@ -1,5 +1,12 @@
 # Twitch Drops & Points Auto-Claimer
 
+[![CI](https://github.com/Maxyull/twitch-drops-claimer/actions/workflows/ci.yml/badge.svg)](https://github.com/Maxyull/twitch-drops-claimer/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Maxyull/twitch-drops-claimer/actions/workflows/codeql.yml/badge.svg)](https://github.com/Maxyull/twitch-drops-claimer/actions/workflows/codeql.yml)
+[![gitleaks](https://github.com/Maxyull/twitch-drops-claimer/actions/workflows/gitleaks.yml/badge.svg)](https://github.com/Maxyull/twitch-drops-claimer/actions/workflows/gitleaks.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Manifest V3](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)](manifest.json)
+[![Zero dependencies](https://img.shields.io/badge/runtime%20deps-0-4c9a2a)](package.json)
+
 A Chrome extension (Manifest V3) that does four things:
 
 1. **Watches a favourite channel in the background** and claims its points bonuses.
