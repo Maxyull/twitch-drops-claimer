@@ -1,193 +1,205 @@
-# SECURITY-AUDIT.md : Twitch Drops & Points (MV3)
+# SECURITY-AUDIT.md: Twitch Drops & Points (MV3)
 
-Format : 3 passes. Toute case non applicable → `N/A + raison`.
-Une bonne partie des cases est **vérifiée automatiquement** par `tests/extension.test.js` :
-c'est indiqué par `[test]` en fin de ligne. Ces contrôles tournent à chaque `npm test`.
+Format: 3 passes. Any non-applicable box → `N/A + reason`.
+A good part of these boxes is **checked automatically** by `tests/extension.test.js`:
+marked with `[test]` at the end of the line. Those checks run on every `npm test`.
 
 ---
 
-## Table des permissions
+## Permission table
 
-| Permission | Justification | Alternative envisagée | Statut |
+| Permission | Justification | Alternative considered | Status |
 |---|---|---|---|
-| `storage` | Réglages, compteurs, liste « actions requises », cache de campagnes (`local`) ; état des onglets et battements de coeur (`session`). | Aucune : sans stockage, l'extension ne survit pas au redémarrage du service worker. | ✅ |
-| `alarms` | Trois boucles périodiques : entretien des onglets (1 min), recherche de campagnes (30 min), passage de réclamation (15 min). Un service worker MV3 ne peut pas tenir un `setInterval`. | `setInterval` dans le SW, rejeté : le worker est tué au bout de 30 s d'inactivité. | ✅ |
-| `notifications` | Prévenir d'un drop récupéré et surtout d'une action à faire hors de Twitch (compte à lier). C'est une demande explicite de la fonctionnalité. | Badge seul, rejeté : l'utilisateur ne voit pas passer une campagne bloquée. | ✅ |
-| `webRequest` | **Écoute seule**, jamais de blocage ni de modification. Deux usages : reprendre les en-têtes que la page Twitch envoie déjà à son API (dont `Client-Integrity`, sans lequel Twitch répond « failed integrity check »), et observer les requêtes qui prouvent que le visionnage est comptabilisé. | Injecter un script en monde MAIN pour détourner `fetch` dans la page, rejeté : bien plus intrusif, et cela romprait la règle « le script de contenu n'injecte rien ». | ✅ |
-| ~~`cookies`~~ | **Non demandée depuis la reprise d'en-têtes.** L'autorisation est reprise de la requête de la page, l'extension ne lit plus aucun cookie. | aucune | ✅ retirée |
-| ~~`tabs`~~ | **Non demandée.** `chrome.tabs.create/update/remove/get/reload` fonctionnent sans elle. `chrome.tabs.query` est utilisé pour retrouver les onglets orphelins, mais **toujours filtré par URL** : c'est la permission d'hôte sur `www.twitch.tv` qui donne alors accès au résultat. Un test échoue si un jour la requête part sans filtre, ou avec un motif absent de `host_permissions`. Le titre et le favicon des onglets ne sont jamais lus. | aucune | ✅ retirée |
+| `storage` | Settings, counters, "action required" list, campaign cache (`local`); tab state and heartbeats (`session`). | None: without storage the extension does not survive a service worker restart. | ✅ |
+| `alarms` | Periodic loops: tab upkeep (1 min), campaign discovery (30 min), claim sweep (15 min). An MV3 service worker cannot hold a `setInterval`. | `setInterval` in the SW, rejected: the worker is killed after 30 s of inactivity. | ✅ |
+| `notifications` | Warn about a claimed drop, and above all about an action to take outside Twitch (account to link). That was an explicit part of the feature request. | Badge only, rejected: the user never notices a blocked campaign. | ✅ |
+| `webRequest` | **Listen only**, never blocking nor modifying. Two uses: reuse the headers the Twitch page already sends to its API (including `Client-Integrity`, without which Twitch answers "failed integrity check"), and observe the requests that prove viewing is being counted. | Injecting a MAIN-world script to hook `fetch` inside the page, rejected: far more intrusive, and it would break the "the content script injects nothing" rule. | ✅ |
+| ~~`cookies`~~ | **Not requested since header reuse landed.** Authorisation comes from the page's own request; the extension no longer reads any cookie. | none | ✅ dropped |
+| ~~`tabs`~~ | **Not requested.** `chrome.tabs.create/update/remove/get/reload` work without it. `chrome.tabs.query` is used to find orphan tabs, but **always filtered by URL**: it is then the host permission on `www.twitch.tv` that grants access to the result. A test fails if the query ever goes out without a filter, or with a pattern absent from `host_permissions`. Tab titles and favicons are never read. | none | ✅ dropped |
 
 | Host permission | Justification |
 |---|---|
-| `https://www.twitch.tv/*` | Script de contenu (lecteur + clics de réclamation) et onglets d'arrière-plan. |
-| `https://gql.twitch.tv/*` | API GraphQL de Twitch : liste des campagnes, progression, chaînes en direct. Lecture seule sauf si le « mode rapide » est activé par l'utilisateur. Sert aussi à la reprise d'en-têtes. |
-| `https://spade.twitch.tv/*` | **Observation seule.** C'est là que le lecteur Twitch envoie ses pings de comptage du temps de visionnage. Les voir est la seule preuve directe que le visionnage est comptabilisé. |
-| `https://*.ttvnw.net/*` | **Observation seule.** CDN vidéo de Twitch. Sous-domaines dynamiques (`video-edge-XXXX.abs.hls.ttvnw.net`), d'où le joker, inévitable. Voir passer les segments prouve que le flux est réellement consommé, ce qui rattrape le cas d'un bloqueur qui tuerait les pings ci-dessus. |
+| `https://www.twitch.tv/*` | Content script (player + claim clicks) and background tabs. |
+| `https://gql.twitch.tv/*` | Twitch GraphQL API: campaign list, progress, live channels, joining a raid, claiming points and drops. Also where headers are picked up. |
+| `https://spade.twitch.tv/*` | **Observation only.** This is where the Twitch player sends its watch-time pings. Seeing them is the only direct proof that viewing is being counted. |
+| `https://*.ttvnw.net/*` | **Observation only.** Twitch's video CDN. Dynamic subdomains (`video-edge-XXXX.abs.hls.ttvnw.net`), hence the unavoidable wildcard. Seeing segments go by proves the stream is really being consumed, which covers the case of a blocker killing the pings above. |
 
-⚠️ Ces deux derniers hôtes ne sont **jamais contactés**, seulement écoutés. Un test de
-régression vérifie que le seul `fetch` du code vise `GQL_URL`. Seuls la date et le type
-de la requête sont retenus, jamais son contenu ni ses en-têtes.
+⚠️ Those last two hosts are **never contacted**, only listened to. A regression test
+checks that the only `fetch` in the code targets `GQL_URL` or a package resource. Only
+the timestamp and the kind of the request are kept, never its content nor its headers.
 
-Aucune permission optionnelle : les quatre permissions ci-dessus sont toutes utilisées
-dès le premier cycle de fonctionnement. `[test]` vérifie qu'aucune permission déclarée
-n'est inutilisée, et qu'aucune API utilisée n'est sans permission.
+No optional permissions: the four above are all used within the first working cycle.
+`[test]` checks that no declared permission is unused, and that no API is used without
+its permission.
 
-### Reprise des en-têtes de la page
+### Reusing the page's headers
 
-Twitch calcule `Client-Integrity` dans son propre JavaScript ; une extension ne peut
-pas le fabriquer. L'extension observe donc les requêtes que la page envoie déjà et
-réutilise sept en-têtes, listés explicitement dans `src/lib/gql-headers.js` :
-`authorization`, `client-id`, `client-integrity`, `client-session-id`,
-`client-version`, `device-id`, `x-device-id`, `accept-language`.
+Twitch computes `Client-Integrity` in its own JavaScript; an extension cannot forge it.
+So the extension observes the requests the page already sends and reuses seven headers,
+listed explicitly in `src/lib/gql-headers.js`: `authorization`, `client-id`,
+`client-integrity`, `client-session-id`, `client-version`, `device-id`, `x-device-id`,
+`accept-language`.
 
-Ce qui n'est **jamais** repris, et qu'un test de régression protège : l'en-tête
-`Cookie`. Il porte la session complète, notre requête n'en a pas besoin, et le stocker
-serait une fuite gratuite.
+What is **never** reused, protected by a regression test: the `Cookie` header. It
+carries the full session, our request does not need it, and storing it would be a free
+leak.
 
-Conséquence fonctionnelle assumée : sans onglet Twitch ouvert, l'extension ne peut
-pas interroger l'API. Elle en ouvre un d'elle-même quand c'est le cas.
+Accepted functional consequence: without an open Twitch tab, the extension cannot query
+the API. It opens one itself when that happens.
 
 ---
 
-## PASSE 1 : manifest & surface d'attaque
+## PASS 1: manifest & attack surface
 
 ### Manifest
-- [x] `manifest_version: 3`, aucun résidu MV2 `[test]`
-- [x] `permissions` : chaque entrée présente dans la table ci-dessus `[test]`
-- [x] `host_permissions` : quatre hôtes, dont un seul joker de sous-domaine
-      (`*.ttvnw.net`), justifié plus haut par les sous-domaines dynamiques du CDN vidéo.
-      Aucun joker de TLD. `[test]`
-- [x] Pas de `<all_urls>` `[test]`
-- [x] `optional_permissions` : vide. N/A, toutes les permissions sont utilisées au démarrage
-- [x] `content_scripts.matches` : `https://www.twitch.tv/*` uniquement, pas de wildcard TLD `[test]`
-- [x] `content_scripts.run_at` justifié : **`document_start` volontaire**. La qualité et le
-      volume se posent dans `localStorage` **avant** l'initialisation du lecteur Twitch ;
-      en `document_idle` le lecteur démarre déjà en qualité source. `all_frames: false`. `[test]`
-- [x] `web_accessible_resources` : exactement 4 fichiers (le module du script de contenu et
-      les 3 modules qu'il importe), `matches` restreint à Twitch, `use_dynamic_url: true` `[test]`.
-      `src/lib/quality.js` s'y est ajouté avec la qualité audio seul : module pur, aucune
-      donnée, il ne fait que choisir une entrée de menu d'après des libellés
-- [x] `externally_connectable` : absent `[test]`
-- [x] CSP : aucune `content_security_policy` déclarée, donc celle par défaut de MV3 `[test]`
-- [x] `default_locale: "fr"`, icônes 16/32/48/128 présentes `[test]`
+- [x] `manifest_version: 3`, no MV2 leftovers `[test]`
+- [x] `permissions`: every entry present in the table above `[test]`
+- [x] `host_permissions`: four hosts, only one subdomain wildcard (`*.ttvnw.net`),
+      justified above by the video CDN's dynamic subdomains. No TLD wildcard. `[test]`
+- [x] No `<all_urls>` `[test]`
+- [x] `optional_permissions`: empty. N/A, every permission is used at startup
+- [x] `content_scripts.matches`: `https://www.twitch.tv/*` only, no TLD wildcard `[test]`
+- [x] `content_scripts.run_at` justified: **`document_start` on purpose**. Quality and
+      volume are written to `localStorage` **before** the Twitch player initialises; at
+      `document_idle` the player has already started at source quality.
+      `all_frames: false`. `[test]`
+- [x] `web_accessible_resources`: exactly 4 files (the content script module and the 3
+      modules it imports), `matches` restricted to Twitch, `use_dynamic_url: true`
+      `[test]`. `src/lib/quality.js` joined it with the audio-only quality: a pure
+      module, no data, it only picks a menu entry from labels
+- [x] `externally_connectable`: absent `[test]`
+- [x] CSP: no `content_security_policy` declared, so the MV3 default applies `[test]`
+- [x] `default_locale: "fr"`, icons 16/32/48/128 present `[test]`
 
-### Code distant / injection
-- [x] Aucun `eval`, `new Function`, `setTimeout(string)` `[test]`
-- [x] Aucun `<script src=` externe `[test]`, aucun script inline `[test]`
-- [x] Aucun fetch de JS exécuté ensuite. Le seul `import()` dynamique
-      (`src/content/content.js`) pointe vers une ressource **du paquet**, résolue par
+### Remote code / injection
+- [x] No `eval`, `new Function`, `setTimeout(string)` `[test]`
+- [x] No external `<script src=` `[test]`, no inline script `[test]`
+- [x] No JS fetched then executed. The only dynamic `import()`
+      (`src/content/content.js`) points at a **package** resource, resolved through
       `chrome.runtime.getURL` `[test]`
-- [x] `innerHTML` / `insertAdjacentHTML` / `document.write` : **zéro occurrence** dans `src/` `[test]`
-- [x] Les données venant de Twitch (noms de campagnes, de drops) sont posées en
-      `textContent` uniquement, y compris dans le popup et la page d'options
+- [x] `innerHTML` / `insertAdjacentHTML` / `document.write`: **zero occurrences** in
+      `src/` `[test]`
+- [x] Data coming from Twitch (campaign and drop names) is set through `textContent`
+      only, including in the popup and the options page
 
 ---
 
-## PASSE 2 : messaging, storage, données
+## PASS 2: messaging, storage, data
 
 ### Messaging
-- [x] `onMessage` valide `sender.id === chrome.runtime.id` `[test]`
-- [x] Messages du script de contenu traités comme **non fiables** : `src/lib/message-guard.js`
-      valide le type, la forme et les bornes de chaque champ avant traitement
+- [x] `onMessage` validates `sender.id === chrome.runtime.id` `[test]`
+- [x] Content script messages treated as **untrusted**: `src/lib/message-guard.js`
+      validates the type, the shape and the bounds of every field before processing
       (`tests/message-guard.test.js`)
-- [x] **Cloisonnement d'origine** : les messages qui pilotent l'extension
-      (`set-settings`, `get-state`, `refresh-now`, `blacklist-campaign`) sont **refusés**
-      s'ils viennent d'un onglet. Un Twitch compromis ne peut pas changer les réglages.
-- [x] Un message d'onglet dont l'URL n'est pas `https://www.twitch.tv` est refusé
-- [x] `onMessageExternal` : absent
-- [x] Pas de dispatch dynamique sans allowlist : la table des types est parcourue avec
-      `Object.hasOwn`, sinon `"constructor"` ou `"toString"` franchiraient l'allowlist
-      via `Object.prototype` (trou trouvé et corrigé pendant cet audit)
-- [x] `window.postMessage` : aucune occurrence. Le script de contenu ne parle jamais à la page.
-- [x] Aucune donnée sensible envoyée à la page hôte : le script de contenu n'écrit rien
-      dans le DOM de Twitch, il ne fait que lire et cliquer
+- [x] **Origin partitioning**: messages that drive the extension (`set-settings`,
+      `get-state`, `refresh-now`, `blacklist-campaign`) are **refused** when they come
+      from a tab. A compromised Twitch cannot change the settings.
+- [x] A tab message whose URL is not `https://www.twitch.tv` is refused
+- [x] `onMessageExternal`: absent
+- [x] No dynamic dispatch without an allowlist: the type table is read with
+      `Object.hasOwn`, otherwise `"constructor"` or `"toString"` would get through the
+      allowlist via `Object.prototype` (hole found and closed during this audit)
+- [x] `window.postMessage`: no occurrences. The content script never talks to the page.
+- [x] No sensitive data sent to the host page: the content script writes nothing into
+      Twitch's DOM, it only reads and clicks
 
 ### Storage
-- [x] `chrome.storage.local` : aucun secret. **Le jeton Twitch n'y est jamais écrit.**
-      Contenu : réglages, compteurs, liste d'actions, cache de campagnes, login Twitch,
-      dernière erreur.
-- [x] Les en-têtes repris de la page, qui contiennent le jeton de session et le jeton
-      d'intégrité, vivent en **`chrome.storage.session`** : mémoire seulement, effacé à la
-      fermeture de Chrome, jamais écrit sur le disque. C'est exactement la recommandation
-      « tokens de session en `session` si possible ». Ils sont jetés dès que Twitch les
-      refuse, ce qui force une nouvelle capture.
-- [x] `session` contient par ailleurs les identifiants d'onglets et les battements de coeur.
-- [x] Schéma versionné : `STORAGE_VERSION = 2` + `migrate()` appelée à l'installation et au
-      démarrage. Migration écrite depuis la v1 (l'extension d'origine). `[test]`
-- [x] Quota : toutes les écritures passent par `write()` qui attrape l'erreur, la journalise
-      et la remonte dans l'interface via `lastError`. Pas de plantage silencieux.
-- [x] Désinstallation : aucune donnée hors du navigateur, `chrome.storage` est purgé par
-      Chrome. Pas d'`uninstall_url` (rien à nettoyer côté serveur).
+- [x] `chrome.storage.local`: no secrets. **The Twitch token is never written there.**
+      Contents: settings, counters, claim log, action list, campaign cache, Twitch login
+      and account id, last error.
+- [x] The headers reused from the page, which carry the session token and the integrity
+      token, live in **`chrome.storage.session`**: memory only, cleared when Chrome
+      closes, never written to disk. That is exactly the "session tokens in `session`
+      where possible" recommendation. They are discarded as soon as Twitch refuses them,
+      which forces a fresh capture.
+- [x] `session` also holds tab ids and heartbeats.
+- [x] Versioned schema: `STORAGE_VERSION = 2` + `migrate()` called on install and on
+      startup. Migration written from v1 (the original extension). `[test]`
+- [x] Quota: every write goes through `write()`, which catches the error, logs it and
+      surfaces it in the UI through `lastError`. No silent failure.
+- [x] Uninstall: no data outside the browser, `chrome.storage` is purged by Chrome. No
+      `uninstall_url` (nothing to clean up server-side).
 
-### Données & réseau
-- [x] **Inventaire des données collectées : aucune ne quitte la machine.** Détail dans
-      `docs/PRIVACY.md`. Aucun serveur n'appartient au projet.
-- [x] Tout fetch sortant : HTTPS, un seul domaine (`gql.twitch.tv`) `[test]`
-- [x] **Une seule socket**, `wss://pubsub-edge.twitch.tv/v1`, le canal temps réel de Twitch.
-      Chiffrée, et un test de régression vérifie qu'aucune autre adresse `ws://` ou `wss://`
-      n'apparaît dans le code. Elle transporte le jeton de session dans sa trame
-      d'abonnement : c'est le même jeton, vers le même émetteur, et il ne quitte jamais
-      `chrome.storage.session`. Aucune donnée de l'utilisateur n'est envoyée, seulement
-      un abonnement à ses propres évènements. Elle se coupe depuis les réglages.
-- [x] Pas de télémétrie, même anonyme
-- [x] `docs/PRIVACY.md` à jour
-- [x] Pas de backend, donc N/A pour RLS et jetons courts
-- [x] Le `Client-Id` présent dans `src/background/gql.js` est **l'identifiant public du client
-      web Twitch**, visible dans n'importe quelle requête du site. Ce n'est pas un secret. `[test]`
-      vérifie qu'aucune chaîne ressemblant à une clé privée n'est écrite en dur.
-- [x] `OP_CURRENT_DROP.hash` (`src/background/gql.js`) est l'**empreinte publique d'une requête
-      enregistrée chez Twitch** (`DropCurrentSessionContext`), celle que son propre site envoie.
-      Ce n'est pas une clé : elle ne donne aucun accès, elle désigne une requête. Elle sert à
-      appeler une opération dont on ne connaît pas la signature exacte, plutôt que d'en deviner
-      une. Si Twitch la retire, l'API répond `PersistedQueryNotFound`, le code le reconnaît
-      (`kind: "persisted"`), arrête d'appeler et retombe sur l'inventaire.
+### Data & network
+- [x] **Inventory of collected data: none of it leaves the machine.** Details in
+      `docs/PRIVACY.md`. The project owns no server.
+- [x] Every outbound fetch: HTTPS, a single domain (`gql.twitch.tv`). Reading a package
+      resource through `chrome.runtime.getURL` is allowed and restricted to `_locales/`,
+      which is how the translation catalogue is loaded `[test]`
+- [x] **A single socket**, `wss://pubsub-edge.twitch.tv/v1`, Twitch's real-time channel.
+      Encrypted, and a regression test checks no other `ws://` or `wss://` address
+      appears in the code. It carries the session token in its subscription frame: the
+      same token, to the same issuer, and it never leaves `chrome.storage.session`. No
+      user data is sent, only a subscription to their own events. It can be switched off
+      from the settings.
+- [x] No telemetry, not even anonymous
+- [x] `docs/PRIVACY.md` up to date
+- [x] No backend, so N/A for RLS and short-lived tokens
+- [x] **No `Client-Id` is hardcoded.** It is read from the headers the Twitch page
+      already sends, like the rest. It would not be a secret either way, being the
+      public identifier of Twitch's own web client, but there is nothing in the code to
+      argue about. `[test]` checks that no string resembling a private key is hardcoded.
+- [x] `OP_CURRENT_DROP.hash` (`src/background/gql.js`) is the **public fingerprint of a
+      query registered with Twitch** (`DropCurrentSessionContext`), the one its own site
+      sends. It is not a key: it grants no access, it designates a query. It exists so we
+      can call an operation whose exact signature is not public, rather than guessing one.
+      If Twitch retires it, the API answers `PersistedQueryNotFound`, the code recognises
+      it (`kind: "persisted"`), stops calling and falls back to the inventory.
 
 ---
 
-## PASSE 3 : supply chain, build, store
+## PASS 3: supply chain, build, store
 
-### Dépendances
-- [x] **Zéro dépendance runtime**, extension vanilla, aucun `node_modules` dans le paquet
-- [x] `npm audit --audit-level=high` : bloquant en CI
-- [x] `package-lock.json` committé, `npm ci` en CI. Une seule devDependency,
-      `@playwright/test`, version épinglée, jamais embarquée dans le paquet
-- [x] Aucune dépendance qui ferait des requêtes réseau à l'exécution
+### Dependencies
+- [x] **Zero runtime dependencies**, vanilla extension, no `node_modules` in the package
+- [x] `npm audit --audit-level=high`: blocking in CI
+- [x] `package-lock.json` committed, `npm ci` in CI. A single devDependency,
+      `@playwright/test`, pinned, never shipped in the package
+- [x] No dependency that would make network requests at runtime
+- [x] **Actions pinned by commit SHA**, not by tag. A tag is mutable: whoever controls
+      the action repository could repoint it at different code running with our token.
+      Dependabot covers `github-actions` precisely because pinning freezes them.
+- [x] **CodeQL** (`security-extended`) and **gitleaks** (working tree + full history) run
+      on every push and pull request, plus weekly. `.gitleaks.toml` adds a rule for the
+      Twitch OAuth session token, which the default rules do not cover.
 
 ### Build & release
-- [x] `python scripts/build.py` construit `dist/` avec **uniquement** ce qui est livré
-      (manifeste, `src/`, `_locales/`, `assets/`) puis `release/twitch-drops-claimer-vX.Y.Z.zip`
-- [x] Le zip exclut `tests/`, `docs/`, `dev/`, `scripts/`, `.github/`, `package.json`, `CLAUDE.md`
-- [x] Minification : **désactivée par défaut** (`--minify` pour l'activer). Un paquet lisible
-      se relit à la main avant publication, ce qui est le vrai contrôle anti-supply-chain ici.
-- [ ] Compte Chrome Web Store en 2FA : à faire au moment de la publication
-- [ ] Diff review avant chaque publication : procédure à tenir, pas automatisable ici
+- [x] `python scripts/build.py` builds `dist/` with **only** what ships (manifest,
+      `src/`, `_locales/`, `assets/`) then `release/twitch-drops-claimer-vX.Y.Z.zip`
+- [x] The zip excludes `tests/`, `docs/`, `dev/`, `scripts/`, `.github/`,
+      `package.json`, `CLAUDE.md`
+- [x] Minification: **off by default** (`--minify` to enable). A readable package can be
+      re-read by hand before publishing, which is the real anti-supply-chain control here.
+- [ ] Chrome Web Store account on 2FA: to do at publication time
+- [ ] Diff review before every publication: a procedure to hold, not automatable here
 
-### Comportement runtime
-- [x] Service worker : aucun état critique en mémoire, tout passe par `chrome.storage`.
-      Pas d'appel au chargement du module (sinon chaque réveil relancerait la mécanique).
-- [x] Script de contenu : **n'injecte ni DOM ni CSS** dans la page → aucun préfixe nécessaire,
-      aucune collision possible
-- [x] Pas de `MutationObserver` : balayage périodique toutes les 8 s, borné, et qui ne fait
-      que lire des attributs. Aucune dégradation mesurable de la page.
-- [x] Navigation privée : l'extension est désactivée par défaut par Chrome ; si l'utilisateur
-      l'autorise, `storage.local` est celui du profil normal, comportement inchangé
-- [x] Erreurs attrapées : les messages remontés dans l'interface sont tronqués à 300
-      caractères et ne contiennent ni jeton ni cookie
+### Runtime behaviour
+- [x] Service worker: no critical state in memory, everything goes through
+      `chrome.storage`. No call at module load (otherwise every wake-up would restart the
+      machinery).
+- [x] Content script: **injects neither DOM nor CSS** into the page → no prefix needed,
+      no possible collision
+- [x] No `MutationObserver`: a periodic sweep every 8 s, bounded, that only reads
+      attributes. No measurable degradation of the page.
+- [x] Incognito: the extension is disabled by default by Chrome; if the user allows it,
+      `storage.local` is the normal profile's, behaviour unchanged
+- [x] Errors caught: messages surfaced in the UI are truncated to 300 characters and
+      contain neither token nor cookie
 
 ### Store review readiness
-- [x] Description = ce que fait réellement l'extension
-- [x] Justification de chaque permission rédigée (table ci-dessus, réutilisable telle quelle
-      dans le formulaire du store)
-- [ ] **Single purpose policy : point de vigilance.** L'extension fait deux choses proches
-      (points de chaîne + drops) autour d'un même but « automatiser la récolte de récompenses
-      Twitch ». Défendable, mais c'est le motif de rejet le plus probable.
-- [ ] Screenshots + URL de politique de confidentialité : à préparer avant soumission
-- [ ] **Risque produit, pas sécurité** : l'automatisation d'interactions est une zone grise
-      vis-à-vis des CGU Twitch. À assumer explicitement dans la fiche du store.
+- [x] Description = what the extension actually does
+- [x] Justification written for every permission (table above, reusable as-is in the
+      store form)
+- [ ] **Single purpose policy: a point of caution.** The extension does two close things
+      (channel points + drops) around one goal, "automate collecting Twitch rewards".
+      Defensible, but it is the most likely rejection reason.
+- [ ] Screenshots + privacy policy URL: to prepare before submission
+- [ ] **Product risk, not security**: automating interactions is a grey area with regard
+      to the Twitch terms. To be stated explicitly in the store listing.
 
 ---
 
-## Grep rapides
+## Quick greps
 
 ```bash
 grep -rn "eval\|new Function" src/
@@ -198,11 +210,12 @@ grep -rn "unsafe-" manifest.json
 grep -rn "all_urls" manifest.json
 ```
 
-Ces six greps sont doublés par `tests/extension.test.js`, qui échoue si l'un d'eux
-remonte quelque chose.
+Those six greps are doubled by `tests/extension.test.js`, which fails if any of them
+returns something.
 
-## Historique des audits
+## Audit history
 
-| Date | Passe | Auditeur | Résultat |
+| Date | Pass | Auditor | Outcome |
 |---|---|---|---|
-| 03/08/2026 | 1, 2, 3 | Claude | 2 correctifs : permission `tabs` retirée (inutile), contournement de l'allowlist des messages via `Object.prototype` colmaté. Reste ouvert : `package-lock.json`, préparation store. |
+| 2026-08-03 | 1, 2, 3 | Claude | 2 fixes: `tabs` permission dropped (unnecessary), message allowlist bypass through `Object.prototype` closed. Left open: `package-lock.json`, store preparation. |
+| 2026-08-04 | 1, 2, 3 | Claude | Repository hardening: actions pinned by SHA, CodeQL, gitleaks, Dependabot. Corrected a stale claim in this file: no `Client-Id` is hardcoded, it is captured from the page. |

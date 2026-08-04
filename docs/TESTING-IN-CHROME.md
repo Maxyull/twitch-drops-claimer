@@ -1,214 +1,219 @@
-# Tester l'extension dans Chrome
+# Testing the extension in Chrome
 
-Compte Twitch connecté obligatoire dans le même navigateur : l'extension réutilise ta
-session pour interroger l'API. Sans ça, seuls les clics sur les onglets déjà ouverts
-fonctionnent, et le popup affichera « Pas de session Twitch ».
+A logged-in Twitch account in the same browser is mandatory: the extension reuses your
+session to query the API. Without it, only clicks on already-open tabs work, and the
+popup will show "No Twitch session".
 
 ---
 
-## 1. Charger l'extension
+## 1. Load the extension
 
 ```bash
 python scripts/build.py
 ```
 
 1. `chrome://extensions`
-2. Activer **Mode développeur** (interrupteur en haut à droite)
-3. **Charger l'extension non empaquetée** → choisir le dossier `dist/` du projet
+2. Turn on **Developer mode** (top-right switch)
+3. **Load unpacked** → pick the project's `dist/` folder
 
-Tu peux aussi charger le dossier racine directement, ça marche, mais `dist/` est ce qui
-sera publié : autant tester exactement ça.
+You can also load the repository root directly, which works, but `dist/` is what will be
+published: you may as well test exactly that.
 
-**Ce qui doit s'afficher tout de suite :**
+**What must show up immediately:**
 
-- la carte de l'extension, sans bandeau rouge « Erreurs »
-- **« Service worker »** en bleu cliquable sur la carte
-- l'icône dans la barre d'outils, avec une pastille (grise si désactivé, sinon verte ou rouge)
+- the extension card, with no red "Errors" banner
+- **"Service worker"** in clickable blue on the card
+- the toolbar icon, with a badge (grey if disabled, otherwise green or red)
 
-Si un bandeau rouge apparaît, clique dessus : le message pointe la ligne exacte.
+If a red banner appears, click it: the message points at the exact line.
 
 ---
 
-## 2. Les trois consoles
+## 2. The three consoles
 
-C'est le point qui perd le plus de monde : une extension a **trois contextes séparés**,
-donc trois consoles différentes. Une erreur dans l'une n'apparaît jamais dans les autres.
+This is what trips most people up: an extension has **three separate contexts**, so three
+different consoles. An error in one never appears in the others.
 
-| Ce que tu veux voir | Où regarder |
+| What you want to see | Where to look |
 |---|---|
-| Recherche de campagnes, alarmes, erreurs API Twitch | `chrome://extensions` → carte de l'extension → **Service worker** |
-| Rendu du popup, clics sur les bascules | clic droit sur l'icône → **Inspecter le pop-up** |
-| Clics de réclamation, état du lecteur | onglet Twitch → F12 → filtrer sur `[TDC]` |
+| Campaign discovery, alarms, Twitch API errors | `chrome://extensions` → the extension card → **Service worker** |
+| Popup rendering, toggle clicks | right-click the icon → **Inspect popup** |
+| Claim clicks, player state | Twitch tab → F12 → filter on `[TDC]` |
 
-Les messages du script de contenu sont en `console.debug`, il faut donc cocher
-**Verbose** dans le filtre de niveau de la console, sinon tu ne verras rien.
-
----
-
-## 3. Réglage minimum
-
-Clic sur l'icône → **Réglages** (ou `chrome://extensions` → Détails → Options).
-
-Mettre au moins une chaîne favorite, une par ligne. Un pseudo ou une URL complète,
-les deux sont acceptés. **Enregistrer**.
-
-Vérification immédiate : le champ se réécrit tout seul en pseudos minuscules
-(`https://www.twitch.tv/ZeratoR` devient `zerator`). Si ça se produit, l'aller-retour
-avec le service worker fonctionne.
+Content script messages use `console.debug`, so you have to tick **Verbose** in the
+console's level filter, otherwise you will see nothing.
 
 ---
 
-## 4. Vérifier chaque fonction
+## 3. Minimum setup
 
-### Points de chaîne et voyant vert/rouge
+Click the icon → **Settings** (or `chrome://extensions` → Details → Options).
 
-Dans la minute qui suit, un **onglet épinglé** doit apparaître sur ta chaîne favorite.
+Add at least one favourite channel, one per line. A handle or a full URL, both are
+accepted. **Save**.
 
-Ouvre le popup :
-
-- voyant **vert** + « en train de regarder » → le temps de visionnage compte
-- voyant **rouge** → survole la pastille, elle dit pourquoi (tableau du [README](../README.md))
-
-Vérifie l'onglet lui-même : le lecteur tourne, le son est à 1 %, la qualité est en 160p
-(roue crantée du lecteur). Si la qualité est restée en source, l'extension retentera
-deux fois par le menu avant d'abandonner.
-
-Le coffre violet de points de chaîne est cliqué automatiquement dans les 8 secondes qui
-suivent son apparition. Le compteur « bonus de points » du popup monte de 1 et une
-notification s'affiche.
-
-> Le coffre n'apparaît qu'une fois toutes les 15 minutes environ. Pour ne pas attendre,
-> regarde plutôt le compteur après une demi-heure de fonctionnement.
-
-### Recherche de campagnes
-
-Bouton **Rechercher** du popup : il force le cycle au lieu d'attendre les 30 minutes.
-
-Après quelques secondes, la section **Campagnes suivies** doit se remplir : nom, jeu,
-pourcentage, paliers, temps restant. Celle qui est encadrée en violet est celle en cours
-de farm. Un **second onglet épinglé** s'ouvre sur une chaîne qui distribue ces drops.
-
-Si la liste reste vide, regarde le bandeau rouge en haut du popup : il affiche l'erreur
-exacte renvoyée par Twitch. Les deux cas courants :
-
-- « Pas de session Twitch » → tu n'es pas connecté sur twitch.tv dans ce navigateur
-- « Session Twitch refusée » → reconnecte-toi, le cookie a expiré
-
-**Changer de chaîne** force le passage à la campagne suivante de la liste, utile pour
-vérifier la rotation sans attendre qu'une campagne se termine.
-
-### Réclamation des drops
-
-Deux chemins, testables séparément.
-
-**En direct** : quand un drop se termine pendant que tu regardes, Twitch affiche une
-notification avec un bouton Réclamer. L'extension le clique dans les 8 secondes.
-
-**Par l'inventaire** : c'est le chemin le plus simple à provoquer. Va sur
-`twitch.tv/drops/inventory` : s'il y a quelque chose de réclamable, les boutons sont
-cliqués tout seuls. Sinon, attends le passage automatique (15 min par défaut, réglable),
-qui ouvre un onglet d'inventaire en arrière-plan et le recharge.
-
-À chaque réclamation : compteur « drops réclamés » +1, notification système, et le nom
-de la récompense sous les compteurs.
-
-### Actions requises et cases à cocher
-
-Cette section ne se remplit que si une de tes campagnes exige de lier ton compte chez
-l'éditeur. Quand c'est le cas :
-
-- la pastille de l'icône passe **orange** avec le nombre d'actions
-- une notification s'affiche, avec deux boutons : **Ouvrir le site** et **C'est fait**
-- la campagne apparaît dans **Actions requises** du popup avec une case à cocher
-
-Coche la case (ou clique « C'est fait » dans la notification) : la ligne passe en vert
-pâle, la pastille orange disparaît, et la campagne redevient éligible au farm même si
-tu as activé « Ignorer les campagnes dont le compte n'est pas lié ».
-
-Décocher remet l'action en attente : c'est réversible, aucune donnée n'est perdue.
+Immediate check: the field rewrites itself into lowercase handles
+(`https://www.twitch.tv/ZeratoR` becomes `zerator`). If that happens, the round trip with
+the service worker works.
 
 ---
 
-## 5. Diagnostic quand un voyant reste rouge
+## 4. Check each feature
 
-| Message | Cause probable | Quoi faire |
+### Channel points and the green/red indicator
+
+Within a minute, a **pinned tab** must appear on your favourite channel.
+
+Open the popup:
+
+- **green** indicator + "watching" → watch time is counting
+- **red** indicator → hover the badge, it says why (table in the [README](../README.md))
+
+Check the tab itself: the player is running, sound is at 1 %, quality is 160p (player
+gear icon). If quality stayed at source, the extension will retry twice through the menu
+before giving up.
+
+The purple channel-points chest is clicked automatically within 8 seconds of appearing.
+The popup's "points bonus" counter goes up by 1 and a notification shows.
+
+> The chest only appears about once every 15 minutes. Rather than waiting, look at the
+> counter after half an hour of running.
+
+### Campaign discovery
+
+The popup's **Search** button forces the cycle instead of waiting 30 minutes.
+
+After a few seconds the **Campaigns** tab must fill up: name, game, percentage, tiers,
+time left. The one outlined in purple is the one being farmed. A **second pinned tab**
+opens on a channel handing out those drops.
+
+If the list stays empty, look at the red banner at the top of the popup: it shows the
+exact error Twitch returned. The two common cases:
+
+- "No Twitch session" → you are not logged in to twitch.tv in this browser
+- "Twitch session refused" → log back in, the cookie expired
+
+**Switch channel** forces a move to the next campaign in the list, useful to check
+rotation without waiting for a campaign to finish.
+
+### Claiming drops
+
+Two paths, testable separately.
+
+**Live**: when a drop completes while you are watching, Twitch shows a notification with
+a Claim button. The extension clicks it within 8 seconds.
+
+**Through the inventory**: the easiest path to trigger. Go to
+`twitch.tv/drops/inventory`: if anything is claimable, the buttons are clicked on their
+own. Otherwise wait for the automatic sweep (15 min by default, configurable), which
+opens an inventory tab in the background and reloads it.
+
+On every claim: "drops claimed" counter +1, a system notification, and the reward name
+under the counters.
+
+### Actions required and checkboxes
+
+This section only fills up if one of your campaigns requires linking your account with
+the publisher. When that happens:
+
+- the icon badge turns **orange** with the number of actions
+- a notification shows, with two buttons: **Open the site** and **Done**
+- the campaign appears under **Actions required** in the popup, with a checkbox
+
+Tick the box (or click "Done" in the notification): the row turns pale green, the orange
+badge disappears, and the campaign becomes eligible for farming again even if you enabled
+"Ignore campaigns whose account is not linked".
+
+Unticking puts the action back in the pending list: it is reversible, no data is lost.
+
+---
+
+## 5. Diagnosis when an indicator stays red
+
+| Message | Likely cause | What to do |
 |---|---|---|
-| aucune réponse de l'onglet | Chrome a mis l'onglet en veille | `chrome://settings/performance` → ajouter `twitch.tv` aux sites à garder actifs |
-| flux figé | le flux a planté sans mettre le lecteur en pause | recharger l'onglet, ou attendre le prochain cycle |
-| chaîne hors ligne | la chaîne a coupé | normal, l'extension bascule au cycle suivant |
-| onglet fermé | tu as fermé l'onglet épinglé | il se rouvre au cycle suivant, dans la minute |
-| mauvaise chaîne chargée | une redirection Twitch | rare, se corrige au cycle suivant |
+| no answer from the tab | Chrome discarded the tab | `chrome://settings/performance` → add `twitch.tv` to the sites to keep active |
+| stream frozen | the stream died without pausing the player | reload the tab, or wait for the next cycle |
+| channel offline | the channel stopped | normal, the extension switches on the next cycle |
+| tab closed | you closed the pinned tab | it reopens on the next cycle, within a minute |
+| wrong channel loaded | a Twitch redirect | rare, corrects itself on the next cycle |
 
-Dans la console du service worker, pour voir l'état brut :
+In the service worker console, to see the raw state:
 
 ```js
-chrome.storage.local.get(null).then(console.log)            // réglages, compteurs, campagnes
-chrome.storage.local.get("tabState").then(console.log)     // onglets et fenêtre, survit au rechargement
-chrome.storage.session.get("farmState").then(console.log)  // battements et preuves, volatils
-chrome.alarms.getAll().then(console.log)                   // les boucles
+chrome.storage.local.get(null).then(console.log)            // settings, counters, campaigns
+chrome.storage.local.get("tabState").then(console.log)     // tabs and window, survives a reload
+chrome.storage.session.get("farmState").then(console.log)  // heartbeats and proofs, volatile
+chrome.alarms.getAll().then(console.log)                   // the loops
 ```
 
-Les alarmes attendues sont `tdc-tick` (1 min), `tdc-discover`, `tdc-claim` et
-`tdc-rotate`.
+The expected alarms are `tdc-tick` (1 min), `tdc-discover`, `tdc-claim` and `tdc-rotate`.
 
-### Une fenêtre est apparue sans raison
+### A window appeared for no reason
 
 ```js
 chrome.storage.local.get("windowLog").then(console.log)
 ```
 
-Chaque création laisse une ligne qui dit **pourquoi** l'extension a jugé qu'elle n'avait
-pas de fenêtre. C'est cette information qui manquait aux quatre corrections précédentes.
+Every creation leaves a line saying **why** the extension decided it had no window. That
+is the information the four previous fixes were missing.
 
-| Champ | Ce qu'il dit |
+| Field | What it says |
 |---|---|
-| `appelant` | qui a demandé : ouverture d'onglet, regroupement, ou le bouton |
-| `windowIdMemorise` / `windowIdVivant` | l'extension avait-elle un identifiant, et pointait-il sur une fenêtre encore ouverte |
-| `fenetreRetrouveeParMarqueur` | a-t-elle retrouvé sa fenêtre par les onglets marqués |
-| `ongletsMarques` | combien d'onglets portent encore le marqueur, et dans quelles fenêtres |
-| `fenetresNormales` | combien de fenêtres Chrome comptait à cet instant |
+| `appelant` | who asked: opening a tab, regrouping, or the button |
+| `windowIdMemorise` / `windowIdVivant` | did the extension have an id, and did it point at a window still open |
+| `fenetreRetrouveeParMarqueur` | did it find its window through the marked tabs |
+| `ongletsMarques` | how many tabs still carry the marker, and in which windows |
+| `fenetresNormales` | how many windows Chrome counted at that moment |
 
-Une ligne `action: "refusee-delai"` veut dire que le garde-fou a bloqué une création :
-l'extension ne retrouve pas une fenêtre qu'elle vient de créer, ce qui est en soi le
-symptôme à rapporter.
+A line with `action: "refusee-delai"` means the guard blocked a creation: the extension
+cannot find a window it just created, which is itself the symptom to report.
 
-> Rappel : en mode « fenêtre séparée », si vous fermez la fenêtre de l'extension, elle en
-> recrée une au cycle suivant. C'est voulu, elle a besoin d'un endroit où mettre ses
-> onglets. Pour ne plus jamais en voir apparaître, décochez l'option dans les réglages :
-> les onglets iront alors dans votre fenêtre active.
+> Reminder: in "separate window" mode, if you close the extension's window it recreates
+> one on the next cycle. That is intended, it needs somewhere to put its tabs. To never
+> see one appear again, untick the option in the settings: tabs will then go to your
+> active window.
 
 ---
 
-## 6. Après une modification du code
+## 6. After changing the code
 
 ```bash
 python scripts/build.py
 ```
 
-Puis, sur `chrome://extensions`, l'icône **recharger** (flèche circulaire) de la carte.
+Then, on `chrome://extensions`, the **reload** icon (circular arrow) on the card.
 
-Attention : recharger l'extension **invalide les scripts de contenu déjà injectés**.
-Les onglets Twitch ouverts affichent alors « Extension context invalidated » dans leur
-console. C'est normal, ce n'est pas un bug : recharge les onglets Twitch concernés,
-ou laisse l'extension les rouvrir au prochain cycle.
+Careful: reloading the extension **invalidates already-injected content scripts**. Open
+Twitch tabs then show "Extension context invalidated" in their console. That is normal,
+not a bug: reload the affected Twitch tabs, or let the extension reopen them on the next
+cycle.
 
-## 7. Repartir de zéro
+> If a newly added interface string shows up as a raw key (`popup_tab_live`), that is
+> Chrome's message catalogue cache. Since the fix for
+> [#59](../../../issues/59) the extension reads `_locales` itself, so this should no
+> longer happen; if it does, remove and re-add the extension.
 
-Console du service worker :
+## 7. Starting from scratch
+
+Service worker console:
 
 ```js
 chrome.storage.local.clear(); chrome.storage.session.clear();
 ```
 
-Puis recharge l'extension. Les réglages repartent aux valeurs par défaut, les compteurs
-à zéro, la liste d'actions se vide. Le bouton **Valeurs par défaut** de la page de
-réglages fait la même chose sans toucher aux compteurs.
+Then reload the extension. Settings go back to defaults, counters to zero, the action
+list empties. The **Defaults** button on the settings page does the same without touching
+the counters.
 
 ---
 
-## Ce que ce test ne couvre pas
+## What this test does not cover
 
-Le comportement sur la durée, qui est le vrai juge : laisse tourner une soirée sur une
-campagne réelle et compare le nombre de paliers obtenus à ce que Twitch affiche dans
-`twitch.tv/drops/inventory`. Un écart signifie que le temps de visionnage n'est pas
-comptabilisé comme prévu, et c'est le voyant qu'il faut alors surveiller.
+Behaviour over time, which is the real judge: let it run for an evening on a real
+campaign and compare the number of tiers obtained with what Twitch shows at
+`twitch.tv/drops/inventory`. A gap means watch time is not being counted as expected, and
+the indicator is then what to watch.
+
+The wire formats that come from elsewhere are not covered either: they are tracked in
+pinned issue [#56](../../../issues/56), together with everything else CI cannot prove.
