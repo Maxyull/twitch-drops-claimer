@@ -203,10 +203,17 @@ The comment is the only readable trace of what a SHA is, and
 cannot be seen to be stale, since it stays plausible across any bump. A full
 version can. `tests/workflows.test.js` requires the full form.
 
-What it does **not** do: check that the version matches the SHA, which needs the
-network. Doing that in CI would mean an API call that can rate-limit, and an
-intermittent check is worse than no check. The versions are resolved by hand when
-a pin moves, and written down in the pull request.
+**Writing the full version also fixes the cause, not only the symptom.** Verified
+on [#64](../../../pull/64): once `setup-node` carried `# v4.4.0`, rebasing that
+pull request rewrote it to `# v7.0.0` on its own. Dependabot does maintain a
+version comment, it simply leaves a bare major alone. So the pin comments stay
+true from here on, and the manual resolution below is only needed when a pin moves
+by hand.
+
+What the test does **not** do: check that the version matches the SHA, which needs
+the network. Doing that in CI would mean an API call that can rate-limit, and an
+intermittent check is worse than no check. When a pin is moved by hand, the version
+is resolved against the GitHub API and written down in the pull request.
 
 ---
 
