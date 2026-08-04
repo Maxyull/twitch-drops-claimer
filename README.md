@@ -183,9 +183,11 @@ la mise en page sans recharger l'extension.
 |---|---|
 | [CONTRIBUTING.md](CONTRIBUTING.md) | conventions, workflow issue / PR / merge |
 | [docs/PIEGES.md](docs/PIEGES.md) | **à lire avant de toucher au code** : ce que Chrome et Twitch imposent, et pourquoi le code est écrit comme ça |
+| [SECURITY.md](SECURITY.md) | signaler une faille, et ce qui en est une ici |
 | [docs/AUDIT-SECU.md](docs/AUDIT-SECU.md) | permissions justifiées une par une, trois passes d'audit |
 | [docs/PRIVACY.md](docs/PRIVACY.md) | ce qui est stocké, ce qui sort de la machine |
 | [docs/TESTER-DANS-CHROME.md](docs/TESTER-DANS-CHROME.md) | vérifier chaque fonction à la main |
+| [docs/A-VERIFIER.md](docs/A-VERIFIER.md) | ce que la CI ne peut pas prouver, suivi dans l'issue [#56](../../issues/56) |
 
 ### Limite connue de l'environnement
 
