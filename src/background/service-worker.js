@@ -103,6 +103,7 @@ async function tick() {
     const points = await farm.refreshPoints(settings);
     if (points?.claimed && settings.notifyDrops) notify.notifyPointsClaimed(points.channel);
     await farm.refreshWatchProof();
+    await farm.refreshLiveProgress();
     if (settings.dedicatedWindow) await farm.regroupTabs(settings);
     if (settings.wakeStuckTabs) await wakeStuckTabs(status);
     await checkAlert(settings, status);

@@ -114,6 +114,40 @@ export function mergeProgress(campaigns, fresh) {
   return { campaigns: changed ? fusionnees : campaigns || [], changed };
 }
 
+/**
+ * Reporte la progression en direct d'un seul palier, celle que Twitch
+ * comptabilise à l'instant sur la chaîne regardée.
+ *
+ * Ne fait JAMAIS reculer un compteur : l'inventaire et la session en direct ne
+ * se rafraîchissent pas au même rythme, et une valeur plus vieille arrivant
+ * après une plus récente ferait redescendre la barre sous les yeux de
+ * l'utilisateur. Un palier ne perd pas des minutes déjà acquises.
+ */
+export function applyLiveSession(campaigns, session) {
+  const dropID = session?.dropID;
+  const minutes = Number(session?.watchedMinutes);
+  if (!dropID || !Number.isFinite(minutes)) return { campaigns: campaigns || [], changed: false };
+
+  let changed = false;
+
+  const fusionnees = (campaigns || []).map((campaign) => {
+    if (!(campaign?.drops || []).some((d) => d.id === dropID)) return campaign;
+
+    let bouge = false;
+    const drops = campaign.drops.map((drop) => {
+      if (drop.id !== dropID || minutes <= drop.watchedMinutes) return drop;
+      bouge = true;
+      return { ...drop, watchedMinutes: minutes };
+    });
+
+    if (!bouge) return campaign;
+    changed = true;
+    return { ...campaign, drops };
+  });
+
+  return { campaigns: changed ? fusionnees : campaigns || [], changed };
+}
+
 export function dropState(drop) {
   if (!drop) return DROP_STATE.TODO;
   if (drop.isClaimed) return DROP_STATE.CLAIMED;

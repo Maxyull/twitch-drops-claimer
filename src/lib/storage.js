@@ -211,6 +211,11 @@ const EMPTY_STATE = {
   proof: {},
   marks: {},
   proofCheckedAt: 0,
+  // Progression en direct : dernier passage, identifiants de chaîne retenus, et
+  // le drapeau posé si Twitch retire l'empreinte de la requête.
+  liveCheckedAt: 0,
+  channelIds: {},
+  livePersistedGone: false,
   // Depuis quand le farm est en panne, et quand on a prévenu.
   brokenSince: null,
   alertedAt: null,

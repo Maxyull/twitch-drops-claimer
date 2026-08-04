@@ -129,6 +129,12 @@ pas interroger l'API. Elle en ouvre un d'elle-même quand c'est le cas.
 - [x] Le `Client-Id` présent dans `src/background/gql.js` est **l'identifiant public du client
       web Twitch**, visible dans n'importe quelle requête du site. Ce n'est pas un secret. `[test]`
       vérifie qu'aucune chaîne ressemblant à une clé privée n'est écrite en dur.
+- [x] `OP_CURRENT_DROP.hash` (`src/background/gql.js`) est l'**empreinte publique d'une requête
+      enregistrée chez Twitch** (`DropCurrentSessionContext`), celle que son propre site envoie.
+      Ce n'est pas une clé : elle ne donne aucun accès, elle désigne une requête. Elle sert à
+      appeler une opération dont on ne connaît pas la signature exacte, plutôt que d'en deviner
+      une. Si Twitch la retire, l'API répond `PersistedQueryNotFound`, le code le reconnaît
+      (`kind: "persisted"`), arrête d'appeler et retombe sur l'inventaire.
 
 ---
 
