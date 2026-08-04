@@ -15,6 +15,7 @@ import { mergeClaimed, trimRemembered } from "../lib/claimed-drops.js";
 import { HISTORY_KIND, addEntries, makeEntry } from "../lib/history.js";
 import { progressAdvanced } from "../lib/counted.js";
 import { rankForStreak, streakReachable } from "../lib/streak.js";
+import { isTabDead } from "../lib/stall.js";
 import { mapLimited } from "../lib/concurrency.js";
 import * as gql from "./gql.js";
 import * as store from "../lib/storage.js";
@@ -902,8 +903,13 @@ function pickFavorite(settings, state, live) {
 }
 
 /** Une entrée de farm est-elle encore valable ? */
-async function stillWorth(entry, campaigns) {
+async function stillWorth(entry, campaigns, state) {
   if (!(await tabExists(entry.tabId))) return false;
+
+  // Un onglet qui ne répond plus est mort : les trois conditions ci-dessous
+  // resteraient vraies indéfiniment et la campagne garderait sa place pour
+  // toujours. Voir #68.
+  if (isTabDead(entry, { beatAt: state?.beats?.[entry.tabId]?.at ?? null })) return false;
 
   const campaign = campaigns.find((c) => c.id === entry.campaignId);
   if (!campaign || !isActive(campaign) || campaignProgress(campaign).done) return false;
@@ -939,17 +945,22 @@ export async function ensureDropsTabs(settings, { force = false } = {}) {
   if (!force) {
     for (const entry of actifs) {
       if (gardes.length >= voulus) break;
-      if (await stillWorth(entry, campaigns)) gardes.push(entry);
+      if (await stillWorth(entry, campaigns, state)) gardes.push(entry);
     }
   }
 
+  const abandonnees = [];
   for (const entry of actifs) {
-    if (!gardes.some((g) => g.tabId === entry.tabId)) await closeTab(entry.tabId);
+    if (gardes.some((g) => g.tabId === entry.tabId)) continue;
+    abandonnees.push(entry.channel);
+    await closeTab(entry.tabId);
   }
 
   // Deux onglets sur la même campagne ou la même chaîne ne serviraient à rien.
   const campagnesPrises = new Set(gardes.map((g) => g.campaignId));
-  const chainesPrises = new Set(gardes.map((g) => g.channel));
+  // Les chaînes qu'on vient de lâcher sont exclues du même passage : sans ça,
+  // la rotation revient se coller sur l'onglet mort qu'elle vient de fermer.
+  const chainesPrises = new Set([...gardes.map((g) => g.channel), ...abandonnees]);
   const suite = [...gardes];
 
   while (suite.length < voulus) {
