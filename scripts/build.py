@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Construit dist/ puis release/twitch-drops-claimer-vX.Y.Z.zip.
+"""Builds dist/ then release/twitch-drops-claimer-vX.Y.Z.zip.
 
-Le paquet ne contient QUE ce qui est livré : manifeste, src/, _locales/, assets/.
-Ni tests, ni docs, ni dev, ni scripts, ni package.json (cf. docs/SECURITY-AUDIT.md).
+The package contains ONLY what ships: manifest, src/, _locales/, assets/. No tests,
+no docs, no dev, no scripts, no package.json (see docs/SECURITY-AUDIT.md).
 
-    python scripts/build.py             # paquet lisible (recommandé pour la relecture)
-    python scripts/build.py --minify    # passe Terser si npx est disponible
+    python scripts/build.py             # readable package (recommended for review)
+    python scripts/build.py --minify    # runs Terser when npx is available
 """
 
 from __future__ import annotations
@@ -22,16 +22,16 @@ ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
 RELEASE = ROOT / "release"
 
-# Ce qui part dans le zip. Tout le reste est exclu par construction.
+# What goes into the zip. Everything else is excluded by construction.
 SHIPPED = ["manifest.json", "src", "_locales", "assets"]
 
-# Sécurité : ces motifs ne doivent jamais se retrouver dans dist/.
+# Safety: these patterns must never end up in dist/.
 FORBIDDEN_NAMES = {".git", ".env", "node_modules", "__pycache__"}
 FORBIDDEN_SUFFIXES = {".map", ".test.js", ".pyc", ".md"}
 
 
 def fail(message: str) -> None:
-    print(f"ERREUR : {message}", file=sys.stderr)
+    print(f"ERROR: {message}", file=sys.stderr)
     sys.exit(1)
 
 
@@ -40,8 +40,8 @@ def read_version() -> str:
     package = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
     if manifest["version"] != package["version"]:
         fail(
-            f"versions désynchronisées : manifest {manifest['version']} "
-            f"!= package.json {package['version']} (lance scripts/bump-version.py)"
+            f"versions out of sync: manifest {manifest['version']} "
+            f"!= package.json {package['version']} (run scripts/bump-version.py)"
         )
     return manifest["version"]
 
@@ -54,7 +54,7 @@ def copy_shipped() -> None:
     for name in SHIPPED:
         source = ROOT / name
         if not source.exists():
-            fail(f"{name} est introuvable")
+            fail(f"{name} is missing")
         if source.is_dir():
             shutil.copytree(source, DIST / name)
         else:
@@ -64,13 +64,13 @@ def copy_shipped() -> None:
 def check_clean() -> None:
     for path in DIST.rglob("*"):
         if path.name in FORBIDDEN_NAMES or path.suffix in FORBIDDEN_SUFFIXES:
-            fail(f"fichier interdit dans le paquet : {path.relative_to(DIST)}")
+            fail(f"forbidden file in the package: {path.relative_to(DIST)}")
 
 
 def minify() -> None:
     npx = shutil.which("npx") or shutil.which("npx.cmd")
     if not npx:
-        print("npx introuvable, minification ignorée.")
+        print("npx not found, minification skipped.")
         return
 
     files = sorted(DIST.rglob("*.js"))
@@ -81,8 +81,8 @@ def minify() -> None:
             text=True,
         )
         if result.returncode != 0:
-            fail(f"terser a échoué sur {path.relative_to(DIST)} :\n{result.stderr}")
-    print(f"Minifié : {len(files)} fichiers.")
+            fail(f"terser failed on {path.relative_to(DIST)}:\n{result.stderr}")
+    print(f"Minified: {len(files)} files.")
 
 
 def make_zip(version: str) -> Path:
@@ -100,7 +100,7 @@ def make_zip(version: str) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--minify", action="store_true", help="passe Terser sur le JS")
+    parser.add_argument("--minify", action="store_true", help="run Terser over the JS")
     args = parser.parse_args()
 
     version = read_version()
@@ -112,8 +112,8 @@ def main() -> None:
     target = make_zip(version)
     count = sum(1 for p in DIST.rglob("*") if p.is_file())
     size = target.stat().st_size / 1024
-    print(f"dist/ : {count} fichiers")
-    print(f"{target.relative_to(ROOT)} : {size:.1f} Ko")
+    print(f"dist/: {count} files")
+    print(f"{target.relative_to(ROOT)}: {size:.1f} kB")
 
 
 if __name__ == "__main__":
