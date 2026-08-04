@@ -1,18 +1,18 @@
-// Parcours parallèle borné.
-// Twitch expose parfois plusieurs dizaines de campagnes : les chercher une par
-// une prend des minutes, toutes d'un coup c'est se faire jeter. Un petit nombre
-// de requêtes en vol à la fois est le bon compromis.
-// Module pur.
+// Bounded parallel traversal.
+// Twitch sometimes exposes several dozen campaigns: fetching them one by one
+// takes minutes, all at once gets you throttled. A small number of requests in
+// flight at a time is the right compromise.
+// Pure module.
 
 /**
- * Applique `fn` à chaque élément, au plus `limit` en parallèle.
- * L'ordre des résultats suit celui des éléments, pas celui des fins d'exécution.
- * Un échec n'interrompt rien : l'élément vaut `fallback`, les autres continuent.
+ * Applies `fn` to every item, at most `limit` at a time.
+ * Result order follows the items, not the order they finish in.
+ * A failure interrupts nothing: that item gets `fallback`, the rest carry on.
  *
  * @param {Array} items
- * @param {number} limit  nombre maximum d'exécutions simultanées
+ * @param {number} limit  maximum number of simultaneous executions
  * @param {(item:any, index:number)=>Promise<any>} fn
- * @param {any} fallback  valeur retenue quand `fn` échoue
+ * @param {any} fallback  value kept when `fn` throws
  */
 export async function mapLimited(items, limit, fn, fallback = null) {
   const list = Array.isArray(items) ? items : [];
