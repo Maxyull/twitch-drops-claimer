@@ -1,5 +1,5 @@
-// Notifications système. Les boutons de notification servent de raccourci ;
-// la vraie liste à cocher vit dans le popup.
+// System notifications. The notification buttons are a shortcut; the real
+// checklist lives in the popup.
 
 import { ACTION_KIND } from "../lib/actions.js";
 import { t } from "../lib/i18n.js";
@@ -30,7 +30,7 @@ export function notifyPointsClaimed(channel) {
   });
 }
 
-/** Drop qui demande d'aller lier ou récupérer sur un site externe. */
+/** A drop that calls for linking or collecting on an external site. */
 export function notifyActionRequired(action) {
   const isLink = action.kind === ACTION_KIND.LINK;
   return create(
@@ -47,7 +47,7 @@ export function notifyActionRequired(action) {
   );
 }
 
-/** Un raid a été rejoint sur la chaîne favorite : c'est un bonus de points. */
+/** A raid was joined on the favourite channel: that is a points bonus. */
 export function notifyRaidJoined(target) {
   return create(`raid:${Date.now()}`, {
     title: t("notif_raid_title"),
@@ -55,7 +55,7 @@ export function notifyRaidJoined(target) {
   });
 }
 
-/** Le farm est à l'arrêt depuis assez longtemps pour que ça mérite un signal. */
+/** Farming has been stopped long enough to be worth a signal. */
 export function notifyStalled(raison, minutes) {
   return create(`stalled:${Date.now()}`, {
     title: t("notif_stalled_title"),
@@ -72,8 +72,8 @@ export function notifyProblem(message) {
 }
 
 /**
- * Branche les clics de notification.
- * @param {(actionId:string)=>Promise<void>} onDone  appelé sur « C'est fait »
+ * Wires up notification clicks.
+ * @param {(actionId:string)=>Promise<void>} onDone  called on "Done"
  */
 export function registerNotificationHandlers(onDone) {
   chrome.notifications.onButtonClicked.addListener(async (id, index) => {

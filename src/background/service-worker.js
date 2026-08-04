@@ -1,6 +1,6 @@
-// Service worker : alarmes, aiguillage des messages, voyants, badge.
-// Aucun état en mémoire longue durée : Chrome peut le tuer à tout moment,
-// tout ce qui compte est dans chrome.storage (cf. docs/SECURITY-AUDIT.md).
+// Service worker: alarms, message routing, indicators, badge.
+// No long-lived in-memory state: Chrome can kill it at any moment, so everything
+// that matters lives in chrome.storage (see docs/SECURITY-AUDIT.md).
 
 import { evaluateBeat, summarize, STATUS } from "../lib/status.js";
 import { evaluateCounted } from "../lib/counted.js";
@@ -27,7 +27,7 @@ const COLOR_GREEN = "#00b37e";
 const COLOR_RED = "#e02f2f";
 const COLOR_ORANGE = "#d98324";
 
-// --- alarmes --------------------------------------------------------------
+// --- alarms -----------------------------------------------------------------
 
 async function installAlarms() {
   const settings = await store.getSettings();
@@ -49,18 +49,18 @@ async function installAlarms() {
   }
 }
 
-// La migration tourne au démarrage du service worker, pas seulement sur
-// `onInstalled` / `onStartup` : ces évènements peuvent être manqués, et rien ne
-// doit lire les réglages avant qu'elle soit passée. Elle est idempotente, un
-// simple test de version dans la plupart des cas.
+// The migration runs when the service worker starts, not only on `onInstalled` /
+// `onStartup`: those events can be missed, and nothing must read the settings
+// before it has gone through. It is idempotent, a plain version check in most
+// cases.
 const migrated = store.migrate().catch((err) => {
   console.error("[TDC] migration impossible :", err);
 });
 
-// Le catalogue de traduction se charge au démarrage du module, pour la même
-// raison que la migration : le service worker peut se réveiller sur une alarme
-// sans jamais voir `onInstalled` ni `onStartup`. Sans ça, le titre du badge et
-// les notifications sortiraient en clés brutes.
+// The translation catalogue loads when the module starts, for the same reason as
+// the migration: the service worker can wake on an alarm without ever seeing
+// `onInstalled` or `onStartup`. Without this, the badge title and the
+// notifications would come out as raw keys.
 let i18nReady = migrated
   .then(() => store.getSettings())
   .then((settings) => initI18n(settings.language))
@@ -69,9 +69,9 @@ let i18nReady = migrated
 async function boot() {
   await migrated;
   await i18nReady;
-  // Avant toute alarme, donc avant que quoi que ce soit ouvre un onglet : la
-  // session précédente a peut-être laissé une fenêtre, et on ne veut surtout pas
-  // en ouvrir une seconde à côté.
+  // Before any alarm, therefore before anything opens a tab: the previous session
+  // may have left a window behind, and the last thing we want is to open a second
+  // one next to it.
   await farm.adoptExistingWindow();
   await installAlarms();
   await updateBadge();
@@ -87,7 +87,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_ROTATE) void rotate();
 });
 
-// --- boucles --------------------------------------------------------------
+// --- loops ------------------------------------------------------------------
 
 async function tick() {
   await i18nReady;
@@ -97,21 +97,21 @@ async function tick() {
     return;
   }
 
-  // On n'interroge Twitch que si un voyant est au rouge : tant que ça tourne,
-  // il n'y a rien à réparer et rien à demander à l'API.
+  // Twitch is only queried when an indicator is red: while it is running there is
+  // nothing to repair and nothing to ask the API for.
   const status = await computeStatus();
 
   try {
     if (!status.points.green) await farm.ensurePointsTab(settings);
     if (status.drops.some((s) => !s.green)) {
-      // Une chaîne passée hors ligne ne reviendra pas : on force le changement
-      // plutôt que d'attendre que l'API confirme ce que le lecteur constate déjà.
+      // A channel that has gone offline will not come back: force the switch
+      // rather than wait for the API to confirm what the player already sees.
       const horsLigne = status.drops.some((s) => s.code === STATUS.OFFLINE);
       await farm.ensureDropsTabs(settings, { force: horsLigne });
     }
-    // Le ménage vient APRÈS : les ensure* reprennent d'abord les onglets déjà
-    // ouverts dont ils ont besoin, et seuls les vrais doublons sont fermés.
-    // Dans l'autre sens, on fermait ce qu'on allait rouvrir juste après.
+    // The cleanup comes AFTER: the ensure* calls first reclaim the already open
+    // tabs they need, so only genuine duplicates get closed. The other way round,
+    // we were closing what we were about to reopen a moment later.
     await farm.closeOrphanTabs();
     await farm.closeInventoryIfRedundant();
     const points = await farm.refreshPoints(settings);
@@ -129,13 +129,13 @@ async function tick() {
   await updateBadge();
 }
 
-// --- temps réel -----------------------------------------------------------
+// --- real time ----------------------------------------------------------------
 
 /**
- * La connexion temps réel est rouverte ici, à chaque passage, et nulle part
- * ailleurs. Chrome peut recycler le service worker à tout moment : la socket
- * part avec lui, et c'est la boucle d'une minute qui la remonte. Rien ne
- * dépend d'elle, elle ne fait qu'arriver avant.
+ * The real-time connection is reopened here, on every pass, and nowhere else.
+ * Chrome can recycle the service worker at any moment: the socket goes with it,
+ * and it is the one-minute loop that brings it back. Nothing depends on it, it
+ * only makes things arrive sooner.
  */
 async function keepRealtime(settings) {
   if (!settings.realtime) {
@@ -144,8 +144,8 @@ async function keepRealtime(settings) {
   }
   await pubsub.ensureConnected({
     userId: await farm.getUserId(),
-    // Les raids ne s'annoncent que par identifiant de chaîne, et la liste des
-    // chaînes regardées change : les abonnements la suivent.
+    // Raids only announce themselves by channel id, and the list of watched
+    // channels changes: the subscriptions follow it.
     channelIds: Object.values(await farm.refreshChannelIds()),
     onEvent: (evt) => onRealtimeEvent(evt, settings),
   });
@@ -158,13 +158,13 @@ async function onRealtimeEvent(evt, settings) {
       break;
 
     case EVENT.DROP_CLAIM:
-      // Twitch annonce un palier prêt. La récolte existante sait le prendre et
-      // dédoublonne déjà : on l'appelle plus tôt, on ne la double pas.
+      // Twitch announces a tier is ready. The existing sweep knows how to take it
+      // and already deduplicates: we call it sooner, we do not duplicate it.
       await farm.runClaimSweep(settings);
       break;
 
     case EVENT.POINTS_AVAILABLE: {
-      // Même raisonnement : `refreshPoints` réclame par l'API et dédoublonne.
+      // Same reasoning: `refreshPoints` claims through the API and deduplicates.
       const points = await farm.refreshPoints(settings, { force: true });
       if (points?.claimed && settings.notifyDrops) notify.notifyPointsClaimed(points.channel);
       break;
@@ -187,12 +187,12 @@ async function onRealtimeEvent(evt, settings) {
 }
 
 /**
- * Passage périodique dans la fenêtre de l'extension : on avance d'un onglet à
- * chaque tour et on l'y laisse actif, plutôt que de tous les parcourir pour
- * n'en laisser qu'un devant. Chacun a ainsi son temps au premier plan, ce qui
- * suffit à relancer un lecteur que le navigateur avait mis de côté.
- * Seul un onglet qui n'est pas au vert est rechargé : recharger un onglet qui
- * marche couperait le visionnage pour rien.
+ * Periodic pass through the extension's window: move on by one tab each round and
+ * leave that one active, rather than walking through them all only to leave one
+ * in front. Each tab therefore gets its turn in the foreground, which is enough
+ * to restart a player the browser had set aside.
+ * Only a tab that is not green gets reloaded: reloading a working tab would cut
+ * the viewing for nothing.
  */
 async function rotate() {
   const settings = await store.getSettings();
@@ -218,10 +218,11 @@ async function rotate() {
 }
 
 /**
- * Prévient quand le farm ne tourne plus depuis un moment.
+ * Warns when farming has not been running for a while.
  *
- * Sans ça, tout le diagnostic ne sert qu'à celui qui pense à ouvrir le popup :
- * on lance le farm le soir, et on découvre au matin qu'il s'est arrêté à 22 h.
+ * Without it, the whole diagnosis only serves whoever thinks to open the popup:
+ * you start farming in the evening and find out in the morning that it stopped at
+ * 10 pm.
  */
 async function checkAlert(settings, status) {
   if (!settings.notifyProblems) return;
@@ -252,9 +253,9 @@ async function checkAlert(settings, status) {
 const WAKE_COOLDOWN_MS = 3 * 60_000;
 
 /**
- * Un lecteur que le navigateur a refusé de démarrer ne repartira pas tout seul :
- * activer son onglet lui donne le contexte qui manque. On espace les tentatives,
- * il ne s'agit pas de faire clignoter le navigateur.
+ * A player the browser refused to start will not restart on its own: activating
+ * its tab gives it the missing context. The attempts are spaced out; the point is
+ * not to make the browser flicker.
  */
 async function wakeStuckTabs(status) {
   const state = await store.getState();
@@ -290,20 +291,20 @@ async function discover() {
   } catch (err) {
     await store.setLastError(err.message);
 
-    // Sans onglet Twitch ouvert, aucun jeton d'intégrité à reprendre, donc aucune
-    // requête possible. On en ouvre un : il servira aussi au prochain passage de
-    // réclamation, et la capture se fera toute seule au chargement de la page.
+    // With no Twitch tab open there is no integrity token to pick up, therefore no
+    // request is possible. Open one: it will serve the next claim pass too, and
+    // the capture happens by itself when the page loads.
     if (err.kind === "integrity") await farm.ensureHarvestTab();
     else if (err.kind === "auth" && settings.notifyActions) notify.notifyProblem(err.message);
   }
 
-  // Le comptage des drops ne dépend pas du succès de la recherche complète :
-  // l'inventaire seul porte l'information, et une seule requête suffit. Le lier
-  // au reste faisait perdre tout comptage au moindre hoquet de l'API.
+  // Counting drops does not depend on the full discovery succeeding: the
+  // inventory alone carries that information, and one request is enough. Tying it
+  // to the rest lost all counting on the slightest API hiccup.
   try {
     await farm.syncClaimedDrops(campaigns ?? (await farm.inventoryCampaigns()));
   } catch {
-    /* inventaire indisponible : on retentera au prochain passage */
+    /* inventory unavailable: we will try again on the next pass */
   }
 
   if (campaigns) {
@@ -332,7 +333,7 @@ async function claimSweep() {
   }
 }
 
-// --- voyants --------------------------------------------------------------
+// --- indicators ---------------------------------------------------------------
 
 async function computeStatus() {
   const settings = await store.getSettings();
@@ -369,8 +370,8 @@ async function computeStatus() {
 }
 
 /**
- * Une ligne par onglet que l'extension fait tourner en arrière-plan : quelle
- * chaîne, pour quoi faire, et surtout si Twitch la comptabilise réellement.
+ * One row per tab the extension runs in the background: which channel, what for,
+ * and above all whether Twitch is really counting it.
  */
 async function computeWatchers(status) {
   await flushWatchCounter();
@@ -405,14 +406,14 @@ async function computeWatchers(status) {
       since: row.since ?? null,
       campaignName: campaigns.find((c) => c.id === row.campaignId)?.name ?? null,
       status: { code: row.status.code, green: row.status.green },
-      // Le solde de CHAQUE chaîne regardée, pas seulement de la favorite : les
-      // coffres sont désormais réclamés partout, la ligne doit pouvoir le montrer.
+      // The balance of EVERY watched channel, not only the favourite: chests are
+      // now claimed everywhere, and the row has to be able to show it.
       points: state.pointsByChannel?.[row.channel]?.balance ?? null,
       counted: evaluateCounted(
         {
           ...state.counted[row.tabId],
-          // La progression est attribuée au rôle, pas à l'onglet : c'est la
-          // campagne suivie ou le solde de la chaîne favorite qui avance.
+          // Progress is attributed to the role, not to the tab: what advances is
+          // the campaign being followed, or the favourite channel's balance.
           progressAt:
             row.role === ROLE.POINTS
               ? state.proof?.pointsAt
@@ -454,7 +455,7 @@ async function updateBadge() {
   });
 }
 
-// --- rôle d'un onglet -----------------------------------------------------
+// --- a tab's role -------------------------------------------------------------
 
 async function roleFor(tabId) {
   const state = await store.getState();
@@ -464,8 +465,8 @@ async function roleFor(tabId) {
   return ROLE.PASSIVE;
 }
 
-// --- traitement des messages ---------------------------------------------
-// Un handler par type, jamais de dispatch dynamique sur une clé du message.
+// --- message handling ---------------------------------------------------------
+// One handler per type, never a dynamic dispatch on a key of the message.
 
 async function onHello(payload, tabId) {
   const settings = await store.getSettings();
@@ -475,11 +476,11 @@ async function onHello(payload, tabId) {
     enabled: settings.enabled,
     claimPoints: settings.claimPoints,
     farmDrops: settings.farmDrops,
-    // On ne force qualité et volume que sur NOS onglets : celui que
-    // l'utilisateur regarde vraiment ne doit pas tomber en 160p.
+    // Quality and volume are forced on OUR tabs only: the one the user is really
+    // watching must not drop to 160p.
     forcePlayer: role === ROLE.POINTS || role === ROLE.DROPS,
-    // L'onglet doit garder son marqueur : c'est ce qui permettra de le retrouver
-    // après un rechargement de l'extension.
+    // The tab must keep its marker: that is what will allow finding it again
+    // after an extension reload.
     owned: role !== ROLE.PASSIVE,
     quality: settings.quality,
     volumePercent: settings.volumePercent,
@@ -499,17 +500,17 @@ async function onClaimed(payload) {
   const name = dropName || label;
 
   if (kind === CLAIM_KIND.POINTS) {
-    // Même garde que le chemin API : le coffre ne se compte qu'une fois, quel
-    // que soit celui des deux qui l'a pris.
+    // Same guard as the API path: a chest is counted once, whichever of the two
+    // took it.
     const compte = await farm.recordPointsClaim(channel);
     if (compte && settings.notifyDrops) notify.notifyPointsClaimed(channel);
     await updateBadge();
     return { ok: true, counted: compte };
   }
 
-  // Le compteur de drops ne suit PAS nos clics : un clic peut échouer, et Twitch
-  // peut créditer un palier sans nous. Il est recalculé depuis l'inventaire, que
-  // cette recherche va justement rafraîchir.
+  // The drop counter does NOT follow our clicks: a click can fail, and Twitch can
+  // credit a tier without us. It is recomputed from the inventory, which this
+  // discovery pass is about to refresh.
   await store.touchLastClaim(name);
   void discover();
 
@@ -526,7 +527,7 @@ async function onClaimed(payload) {
     });
   }
 
-  // Récompense qui s'active chez l'éditeur : on l'ajoute à la liste à cocher.
+  // A reward that activates on the publisher's site: add it to the checklist.
   const drop = campaign?.drops.find((d) => d.name === name);
   const action = redeemAction(campaign, drop);
   if (action) {
@@ -539,16 +540,16 @@ async function onClaimed(payload) {
 }
 
 async function onInventoryDone() {
-  void discover(); // l'inventaire a bougé : on rafraîchit la progression réelle
+  void discover(); // the inventory moved: refresh the real progress
   void farm.closeInventoryIfRedundant();
   return { ok: true };
 }
 
-/** Poids de tri d'une campagne dans la liste du popup. */
+/** Sort weight of a campaign in the popup's list. */
 function sortWeight(c) {
   if (c.rank !== null) return c.rank;
   if (!c.selected) return 20_000;
-  return 10_000; // gardée mais hors rotation : terminée, ou compte non lié
+  return 10_000; // kept but out of rotation: finished, or account not linked
 }
 
 async function onGetState() {
@@ -563,9 +564,9 @@ async function onGetState() {
     store.getHistory(),
   ]);
 
-  // Le popup montre TOUTES les campagnes actives, pas seulement celles qu'on
-  // farme : on ne peut pas choisir ce qu'on ne voit pas. `rank` dit la place
-  // dans la rotation, `selected` si l'utilisateur la veut.
+  // The popup shows ALL active campaigns, not only the ones being farmed: you
+  // cannot choose what you cannot see. `rank` gives the place in the rotation,
+  // `selected` whether the user wants it.
   const blacklist = new Set(settings.campaignBlacklist);
   const focusSet = new Set(settings.focusCampaigns);
   const rank = new Map(
@@ -595,7 +596,7 @@ async function onGetState() {
       focus: focusSet.has(c.id),
       rank: rank.has(c.id) ? rank.get(c.id) : null,
     }))
-    // Dans l'ordre de la rotation, puis les terminées, puis les écartées.
+    // In rotation order, then the finished ones, then the discarded ones.
     .sort((a, b) => sortWeight(a) - sortWeight(b));
 
   return {
@@ -627,8 +628,8 @@ async function onSetSettings(payload) {
     await installAlarms();
   }
   if (before.muteTabs !== settings.muteTabs) await farm.refreshTabMute(settings);
-  // Le badge et les notifications sortent d'ici : ils doivent changer de langue
-  // en même temps que les pages, pas au prochain redémarrage du navigateur.
+  // The badge and the notifications come out of here: they have to change
+  // language at the same time as the pages, not on the next browser restart.
   if (before.language !== settings.language) {
     i18nReady = initI18n(settings.language);
     await i18nReady;
@@ -637,8 +638,8 @@ async function onSetSettings(payload) {
   if (!settings.enabled) {
     await farm.closeAllTabs();
   } else {
-    // Surtout pas d'`await` : `tick()` interroge Twitch et ouvre des onglets.
-    // La page d'options n'a pas à attendre tout ça pour savoir que c'est enregistré.
+    // Definitely no `await`: `tick()` queries Twitch and opens tabs. The options
+    // page has no business waiting for all that to learn the save succeeded.
     void tick();
   }
 
@@ -660,15 +661,15 @@ async function onRefreshNow() {
 }
 
 /**
- * Repart d'une fenêtre neuve pour l'extension. Le geste implique de vouloir la
- * fenêtre dédiée, donc l'option s'active si elle ne l'était pas : sans ça, le
- * bouton ferait quelque chose que le cycle suivant déferait.
+ * Starts again from a fresh window for the extension. Asking for it implies
+ * wanting the dedicated window, so the option turns itself on if it was off:
+ * without that, the button would do something the next cycle would undo.
  */
 async function onRebuildWindow() {
   const settings = await store.setSettings({ dedicatedWindow: true });
   const { placed } = await farm.rebuildWindow(settings);
 
-  // Ce qui manquait est rouvert par le cycle, sans faire attendre le popup.
+  // Whatever was missing is reopened by the cycle, without making the popup wait.
   void tick();
   return { ok: true, placed };
 }
@@ -684,7 +685,7 @@ async function onSetCampaignPriority(payload) {
   const ignored = new Set(settings.campaignBlacklist);
   const focused = new Set(settings.focusCampaigns);
 
-  // Les trois places s'excluent : on retire partout avant de reposer.
+  // The three slots are mutually exclusive: remove from everywhere before placing.
   ignored.delete(payload.id);
   focused.delete(payload.id);
   if (payload.priority === CAMPAIGN_PRIORITY.IGNORE) ignored.add(payload.id);
@@ -720,12 +721,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return false;
   }
 
-  // On attend la migration : aucun réglage ne doit être lu ni écrit avant elle.
+  // Wait for the migration: no setting may be read or written before it.
   migrated
     .then(() => HANDLERS[check.type](check.payload, sender.tab?.id ?? null))
     .then(sendResponse)
     .catch((err) => sendResponse({ ok: false, error: err.message }));
-  return true; // réponse asynchrone
+  return true; // asynchronous response
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
@@ -738,11 +739,11 @@ notify.registerNotificationHandlers(async (actionId) => {
   await updateBadge();
 });
 
-// À enregistrer au chargement du module, de façon synchrone : le service worker
-// est réveillé et tué en permanence, un écouteur posé plus tard raterait des requêtes.
+// Registered when the module loads, synchronously: the service worker is woken
+// and killed constantly, and a listener attached later would miss requests.
 registerHeaderCapture();
 registerWatchCounter();
 
-// Pas de `tick()` au chargement du module : le service worker est réveillé à
-// chaque message, ça relancerait la mécanique en boucle. C'est l'alarme qui pilote.
+// No `tick()` when the module loads: the service worker is woken on every
+// message, which would restart the machinery in a loop. The alarm drives it.
 void updateBadge();

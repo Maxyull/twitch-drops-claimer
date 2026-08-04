@@ -1,14 +1,14 @@
-// Capture, en lecture seule, des en-têtes que la page Twitch envoie à son API.
-// `chrome.webRequest` est utilisé en simple écoute : on n'annule ni ne modifie
-// aucune requête (cf. docs/SECURITY-AUDIT.md).
+// Read-only capture of the headers the Twitch page sends to its own API.
+// `chrome.webRequest` is used purely as a listener: no request is cancelled and
+// none is modified (see docs/SECURITY-AUDIT.md).
 
 import { pickForwardableHeaders, isUsable, isStale } from "../lib/gql-headers.js";
 import * as store from "../lib/storage.js";
 
 export const GQL_URL_PATTERN = "https://gql.twitch.tv/*";
 
-// Écrire à chaque requête GQL de la page serait absurde : elle en fait des dizaines
-// par minute. On ne persiste que si la capture précédente commence à dater.
+// Writing on every GQL request the page makes would be absurd: it makes dozens a
+// minute. We only persist once the previous capture starts to age.
 const REFRESH_EVERY_MS = 5 * 60_000;
 
 let lastWriteAt = 0;
@@ -32,7 +32,7 @@ export function registerHeaderCapture() {
 }
 
 /**
- * @returns {Promise<{headers:object, at:number}|null>} capture exploitable, ou null
+ * @returns {Promise<{headers:object, at:number}|null>} a usable capture, or null
  */
 export async function getUsableHeaders() {
   const captured = await store.getCapturedHeaders();

@@ -1,10 +1,13 @@
-// Client GQL Twitch (lecture seule par défaut).
+// Twitch GQL client (read-only by default).
 //
-// Twitch protège cette API par un jeton d'intégrité que seul son propre JavaScript
-// sait calculer. On ne le fabrique pas : on réutilise les en-têtes que la page
-// Twitch envoie déjà, capturés par `header-capture.js`. Conséquence directe,
-// l'extension a besoin d'au moins un onglet Twitch ouvert pour interroger l'API,
-// et elle n'a plus besoin de lire le moindre cookie.
+// Twitch protects this API with an integrity token only its own JavaScript can
+// compute. We do not forge it: we reuse the headers the Twitch page already
+// sends, captured by `header-capture.js`. Direct consequence, the extension needs
+// at least one open Twitch tab to query the API, and it no longer needs to read a
+// single cookie.
+//
+// The French text in the thrown `GqlError` messages is user-visible and tracked
+// in #76, not here: it is a missing catalogue key, not a translation leftover.
 
 import { buildRequestHeaders } from "../lib/gql-headers.js";
 import { getUsableHeaders } from "./header-capture.js";
@@ -25,14 +28,14 @@ async function request(operationName, query, variables = {}) {
 }
 
 /**
- * Requête « persistée » : Twitch accepte l'empreinte d'une requête enregistrée
- * chez lui à la place de son texte. C'est ce que fait son propre site, et c'est
- * le seul moyen d'appeler une opération dont on ne connaît pas la signature
- * exacte, comme `DropCurrentSessionContext`.
+ * "Persisted" query: Twitch accepts the fingerprint of a query registered on its
+ * side instead of its text. That is what its own site does, and it is the only
+ * way to call an operation whose exact signature is unknown, such as
+ * `DropCurrentSessionContext`.
  *
- * Une empreinte peut être retirée par Twitch : l'API répond alors
- * `PersistedQueryNotFound`. `kind: "persisted"` permet à l'appelant de le
- * reconnaître et de repasser sur le chemin normal plutôt que d'insister.
+ * A fingerprint can be retired by Twitch: the API then answers
+ * `PersistedQueryNotFound`. `kind: "persisted"` lets the caller recognise it and
+ * fall back to the normal path rather than keep insisting.
  */
 async function requestPersisted(operationName, sha256Hash, variables = {}) {
   try {
@@ -42,8 +45,8 @@ async function requestPersisted(operationName, sha256Hash, variables = {}) {
       extensions: { persistedQuery: { version: 1, sha256Hash } },
     });
   } catch (err) {
-    // Volontairement étroit : « not found » tout court désignerait aussi des
-    // erreurs sans rapport, et couperait la progression en direct pour rien.
+    // Deliberately narrow: a plain "not found" would also match unrelated errors
+    // and would cut live progress off for nothing.
     if (err instanceof GqlError && /persisted\s*query/i.test(err.message)) {
       throw new GqlError(`Requête ${operationName} retirée par Twitch (${err.message})`, {
         kind: "persisted",
@@ -93,7 +96,7 @@ async function send(body) {
       : null;
 
   if (failure) {
-    // Le jeton capturé a expiré : on le jette pour forcer une nouvelle capture.
+    // The captured token has expired: throw it away to force a fresh capture.
     if (/integrity/i.test(failure)) {
       await chrome.storage.session.remove("gqlHeaders");
       throw new GqlError(
@@ -241,13 +244,13 @@ export async function currentUser() {
   return data?.currentUser ?? null;
 }
 
-/** Campagnes visibles par le compte (sans le détail des paliers). */
+/** Campaigns visible to the account (without the tier details). */
 export async function campaignList() {
   const data = await request("TdcCampaignList", Q_CAMPAIGN_LIST);
   return data?.currentUser?.dropCampaigns ?? [];
 }
 
-/** Détail d'une campagne (paliers + chaînes autorisées). `channelLogin` = le login du compte. */
+/** A campaign's details (tiers + allowed channels). `channelLogin` = the account's login. */
 export async function campaignDetails(channelLogin, dropID) {
   const data = await request("TdcCampaignDetails", Q_CAMPAIGN_DETAILS, {
     channelLogin,
@@ -256,13 +259,13 @@ export async function campaignDetails(channelLogin, dropID) {
   return data?.user?.dropCampaign ?? null;
 }
 
-/** Campagnes déjà entamées, avec la progression exacte. */
+/** Campaigns already started, with their exact progress. */
 export async function inventory() {
   const data = await request("TdcInventory", Q_INVENTORY);
   return data?.currentUser?.inventory?.dropCampaignsInProgress ?? [];
 }
 
-/** Chaînes réellement en direct, avec leur identifiant. */
+/** Channels actually live, with their id. */
 export async function liveChannels(logins) {
   const list = (logins || []).filter(Boolean).slice(0, 100);
   if (!list.length) return [];
@@ -272,27 +275,27 @@ export async function liveChannels(logins) {
     .map((u) => ({
       login: u.login.toLowerCase(),
       id: u.id ?? null,
-      // Depuis quand le flux est ouvert : c'est ce qui dit si le bonus de série
-      // est encore atteignable. `null` = information absente, pas « ancien ».
+      // Since when the stream has been open: that is what says whether the streak
+      // bonus is still reachable. `null` = information absent, not "old".
       startedAt: Date.parse(u.stream?.createdAt ?? "") || null,
     }));
 }
 
-/** Sous-ensemble des logins réellement en direct. */
+/** The subset of logins that are actually live. */
 export async function liveLogins(logins) {
   return (await liveChannels(logins)).map((c) => c.login);
 }
 
 /**
- * Progression du drop que Twitch comptabilise EN CE MOMENT sur une chaîne.
+ * Progress of the drop Twitch is counting RIGHT NOW on a channel.
  *
- * L'inventaire dit où en sont toutes les campagnes ; cette requête dit lequel
- * des paliers avance vraiment, tout de suite, et de combien. C'est la source
- * qu'utilisent TwitchDropsMiner et Twitch-Channel-Points-Miner : elle est bien
- * plus légère que l'inventaire complet, donc interrogeable chaque minute.
+ * The inventory says where every campaign stands; this query says which tier is
+ * really advancing, right now, and by how much. It is the source TwitchDropsMiner
+ * and Twitch-Channel-Points-Miner use: far lighter than the full inventory, and
+ * therefore cheap enough to query every minute.
  *
- * Empreinte publique de l'opération, telle que le site de Twitch l'envoie.
- * Ce n'est pas un secret : c'est l'identifiant d'une requête enregistrée.
+ * Public fingerprint of the operation, exactly as Twitch's own site sends it.
+ * It is not a secret: it is the identifier of a registered query.
  */
 export const OP_CURRENT_DROP = {
   name: "DropCurrentSessionContext",
@@ -302,7 +305,7 @@ export const OP_CURRENT_DROP = {
 export async function currentDropSession(channelId) {
   if (!channelId) return null;
   const data = await requestPersisted(OP_CURRENT_DROP.name, OP_CURRENT_DROP.hash, {
-    // `channelLogin` est attendu par l'opération et toujours vide côté Twitch.
+    // `channelLogin` is expected by the operation and always empty on Twitch's side.
     channelID: String(channelId),
     channelLogin: "",
   });
@@ -317,7 +320,7 @@ export async function currentDropSession(channelId) {
   };
 }
 
-/** Un live de la catégorie avec les drops activés (le plus regardé d'abord). */
+/** A live stream in the category with drops enabled (most watched first). */
 export async function gameDropStreams(slug, limit = 10) {
   if (!slug) return [];
   const data = await request("TdcGameStreams", Q_GAME_STREAMS, { slug, limit });
@@ -328,9 +331,9 @@ export async function gameDropStreams(slug, limit = 10) {
 }
 
 /**
- * Solde de points de chaîne sur une chaîne, et bonus en attente s'il y en a un.
- * C'est la seule façon de savoir ce que le visionnage rapporte vraiment : compter
- * les coffres cliqués ne dit rien du solde.
+ * Channel points balance on a channel, and the pending bonus if there is one.
+ * This is the only way to know what the viewing really earns: counting the chests
+ * clicked says nothing about the balance.
  */
 export async function channelPoints(login) {
   if (!login) return null;
@@ -341,15 +344,15 @@ export async function channelPoints(login) {
 
   return {
     balance: Number(points.balance) || 0,
-    // Identifiant du coffre en attente. C'est lui qui permet de le réclamer
-    // sans dépendre du DOM de Twitch.
+    // Id of the pending chest. It is what allows claiming it without depending
+    // on Twitch's DOM.
     claimId: points.availableClaim?.id ?? null,
     channelId: community.channel?.id ?? community.id ?? null,
   };
 }
 
 /**
- * Réclame le bonus de points en attente.
+ * Claims the pending points bonus.
  * @returns {{ok: boolean, error: string|null}}
  */
 export async function claimCommunityPoints(channelId, claimId) {
@@ -362,11 +365,11 @@ export async function claimCommunityPoints(channelId, claimId) {
 }
 
 /**
- * Rejoint un raid en cours.
+ * Joins a raid in progress.
  *
- * Twitch verse un bonus de points au spectateur qui suit le raid. Sans cet
- * appel, la chaîne passe hors ligne et l'extension part chercher ailleurs :
- * le bonus est simplement perdu.
+ * Twitch pays a points bonus to the viewer who follows the raid. Without this
+ * call the channel goes offline and the extension goes looking elsewhere: the
+ * bonus is simply lost.
  */
 export async function joinRaid(raidID) {
   if (!raidID) return { ok: false, error: "identifiant manquant" };
@@ -374,7 +377,7 @@ export async function joinRaid(raidID) {
   return { ok: Boolean(data?.joinRaid?.raidID), error: null };
 }
 
-/** Réclamation directe (mode rapide, désactivé par défaut). */
+/** Direct claim (fast mode, off by default). */
 export async function claimDrop(dropInstanceID) {
   if (!dropInstanceID) return null;
   const data = await request("TdcClaimDrop", M_CLAIM, { input: { dropInstanceID } });

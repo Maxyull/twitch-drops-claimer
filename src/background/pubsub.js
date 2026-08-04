@@ -1,17 +1,19 @@
-// Canal temps réel de Twitch (PubSub).
+// Twitch's real-time channel (PubSub).
 //
-// Ce que ça apporte : un coffre de points ou un palier de drop est signalé à la
-// seconde, au lieu d'être découvert au prochain passage de la boucle, jusqu'à
-// une minute plus tard.
+// What it buys: a points chest or a drop tier is reported within the second,
+// instead of being discovered on the loop's next pass, up to a minute later.
 //
-// Ce que ça n'est pas : une source de vérité. Tout continue de fonctionner sans
-// lui. Les alarmes ne changent pas, les interrogations périodiques restent en
-// place, et rien ici ne peut faire échouer le farm. C'est une accélération.
+// What it is not: a source of truth. Everything keeps working without it. The
+// alarms do not change, the periodic queries stay in place, and nothing here can
+// make farming fail. It is an acceleration.
 //
-// Pourquoi un `setInterval` alors que le projet les interdit : la connexion doit
-// recevoir quelque chose au moins toutes les 30 secondes, sinon Chrome recycle
-// le service worker et la coupe. Une alarme ne descend pas sous la minute. Ce
-// battement est donc lié à la vie de la socket, et disparaît avec elle.
+// Why a `setInterval` when the project forbids them: the connection has to
+// receive something at least every 30 seconds, otherwise Chrome recycles the
+// service worker and cuts it. An alarm cannot go below one minute. This heartbeat
+// is therefore tied to the socket's lifetime, and disappears with it.
+//
+// The French identifiers below (`abonnes`, `jeton`, `envoyer`, `noter`) are kept
+// on purpose: renaming them is churn with regression risk, and #72 settled that.
 
 import {
   EVENT,
@@ -27,21 +29,21 @@ import {
 } from "../lib/pubsub-messages.js";
 import { getUsableHeaders } from "./header-capture.js";
 
-/** Chrome recycle un service worker inactif au bout de 30 secondes. */
+/** Chrome recycles an idle service worker after 30 seconds. */
 const KEEPALIVE_MS = 20_000;
-/** Une socket refusée ne se retente pas en boucle. */
+/** A refused socket is not retried in a loop. */
 const RETRY_MS = 60_000;
 
-// Ces variables meurent avec le service worker, exactement comme la socket
-// qu'elles décrivent : les deux repartent ensemble au prochain réveil.
+// These variables die with the service worker, exactly like the socket they
+// describe: the two start again together on the next wake-up.
 let socket = null;
 let keepalive = null;
 let lastAttempt = 0;
 let lastError = null;
 let nonce = 0;
-/** Sujets réellement demandés à Twitch sur la connexion en cours. */
+/** Topics actually requested from Twitch on the current connection. */
 let abonnes = [];
-/** Le jeton sert aussi aux abonnements ajoutés en cours de route. */
+/** The token is also needed for subscriptions added along the way. */
 let jeton = "";
 
 export function isConnected() {
@@ -58,14 +60,14 @@ export function disconnect() {
   try {
     socket?.close();
   } catch {
-    /* déjà fermée */
+    /* already closed */
   }
   socket = null;
   abonnes = [];
   jeton = "";
 }
 
-/** Sujets voulus : ceux du compte, plus un sujet de raid par chaîne regardée. */
+/** Wanted topics: the account's, plus one raid topic per watched channel. */
 function wantedTopics(userId, channelIds) {
   const compte = userTopics(userId);
   if (!compte.length) return [];
@@ -73,11 +75,11 @@ function wantedTopics(userId, channelIds) {
 }
 
 /**
- * Aligne les abonnements sur les chaînes actuellement regardées.
+ * Brings the subscriptions in line with the channels currently being watched.
  *
- * On n'envoie que les différences. Se désabonner de tout pour se réabonner
- * ferait perdre les coffres et les paliers à chaque rotation d'onglet, alors
- * que seule la liste des chaînes a bougé.
+ * Only the differences are sent. Unsubscribing from everything to resubscribe
+ * would lose chests and tiers on every tab rotation, when all that moved was the
+ * list of channels.
  */
 function syncTopics(voulus) {
   const { listen, unlisten } = topicDelta(abonnes, voulus);
@@ -87,20 +89,20 @@ function syncTopics(voulus) {
 }
 
 /**
- * Ouvre la connexion si elle ne l'est pas, sans jamais jeter.
+ * Opens the connection if it is not already open, and never throws.
  *
  * @param {object} opts { userId, onEvent }
- * @returns {Promise<boolean>} connectée ou non
+ * @returns {Promise<boolean>} connected or not
  */
 export async function ensureConnected({ userId, channelIds = [], onEvent }) {
   const topics = wantedTopics(userId, channelIds);
 
   if (isConnected()) {
-    // Connexion déjà là : seule la liste des chaînes regardées a pu changer.
+    // Connection already there: only the list of watched channels can have moved.
     if (topics.length) syncTopics(topics);
     return true;
   }
-  if (socket) return false; // en cours d'ouverture
+  if (socket) return false; // currently opening
 
   const now = Date.now();
   if (now - lastAttempt < RETRY_MS) return false;
@@ -131,8 +133,8 @@ export async function ensureConnected({ userId, channelIds = [], onEvent }) {
     lastError = null;
     envoyer(listenFrame(topics, token, `tdc-l${++nonce}`));
     abonnes = [...topics];
-    // Le battement sert deux choses à la fois : tenir la connexion ouverte côté
-    // Twitch, et tenir le service worker éveillé côté Chrome.
+    // The heartbeat does two jobs at once: keeping the connection open on the
+    // Twitch side, and keeping the service worker awake on the Chrome side.
     keepalive = setInterval(() => envoyer(PING_FRAME), KEEPALIVE_MS);
   });
 
@@ -150,7 +152,7 @@ export async function ensureConnected({ userId, channelIds = [], onEvent }) {
     }
     if (evt.kind === EVENT.PONG || evt.kind === EVENT.UNKNOWN) return;
 
-    // Un gestionnaire qui échoue ne doit pas emporter la socket avec lui.
+    // A handler that fails must not take the socket down with it.
     try {
       const res = onEvent?.(evt);
       if (res && typeof res.catch === "function") res.catch(noter);
@@ -178,7 +180,7 @@ function envoyer(frame) {
   try {
     socket.send(JSON.stringify(frame));
   } catch {
-    /* socket partie entre-temps, le prochain passage rouvrira */
+    /* socket gone in the meantime, the next pass will reopen it */
   }
 }
 
