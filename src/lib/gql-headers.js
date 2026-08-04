@@ -1,14 +1,14 @@
-// Twitch protège son API GraphQL par un jeton d'intégrité (`Client-Integrity`)
-// calculé par son propre JavaScript, dans la page. Impossible de le fabriquer
-// depuis une extension : sans lui, toute requête reçoit « failed integrity check ».
+// Twitch protects its GraphQL API with an integrity token (`Client-Integrity`)
+// computed by its own JavaScript, inside the page. There is no forging it from an
+// extension: without it, every request gets "failed integrity check".
 //
-// La solution retenue : observer les en-têtes que la page Twitch envoie déjà pour
-// ses propres requêtes, et les réutiliser tels quels. On ne fabrique rien, on ne
-// contourne aucune protection, on emprunte la session que l'utilisateur a ouverte.
+// The approach taken: observe the headers the Twitch page already sends for its
+// own requests, and reuse them as they are. Nothing is forged, no protection is
+// bypassed, we borrow the session the user opened.
 //
-// Module pur : le tri et la péremption sont testables sans navigateur.
+// Pure module: the filtering and the expiry are testable without a browser.
 
-/** En-têtes repris de la page. Tout le reste est ignoré. */
+/** Headers taken from the page. Everything else is ignored. */
 export const FORWARDED_HEADERS = new Set([
   "authorization",
   "client-id",
@@ -20,12 +20,12 @@ export const FORWARDED_HEADERS = new Set([
   "accept-language",
 ]);
 
-/** Le jeton d'intégrité est renouvelé régulièrement par la page. */
+/** The page renews the integrity token regularly. */
 export const HEADERS_MAX_AGE_MS = 30 * 60_000;
 
 /**
- * @param {Array<{name:string, value:string}>} requestHeaders  tels que fournis par webRequest
- * @returns {Object<string,string>} en-têtes conservés, noms d'origine préservés
+ * @param {Array<{name:string, value:string}>} requestHeaders  as provided by webRequest
+ * @returns {Object<string,string>} the headers kept, original names preserved
  */
 export function pickForwardableHeaders(requestHeaders) {
   const out = {};
@@ -42,7 +42,7 @@ function lowerKeys(headers) {
   return new Set(Object.keys(headers || {}).map((k) => k.toLowerCase()));
 }
 
-/** Une capture n'est exploitable que si elle porte le jeton d'intégrité et l'autorisation. */
+/** A capture is only usable when it carries the integrity token and the authorisation. */
 export function isUsable(captured) {
   if (!captured?.headers) return false;
   const names = lowerKeys(captured.headers);
@@ -55,8 +55,8 @@ export function isStale(captured, now = Date.now()) {
 }
 
 /**
- * En-têtes à envoyer, capture fusionnée avec nos propres valeurs.
- * `Content-Type` est à nous : c'est notre corps de requête, pas celui de la page.
+ * The headers to send: the capture merged with our own values.
+ * `Content-Type` is ours: it describes our request body, not the page's.
  */
 export function buildRequestHeaders(captured) {
   return { ...(captured?.headers ?? {}), "Content-Type": "application/json" };

@@ -1,11 +1,11 @@
-// Modèle de campagne de drops : lecture des réponses GQL, progression, classement.
-// Module pur (aucune API chrome, aucun fetch) pour rester testable sous Node.
+// Drop campaign model: reading GQL responses, progress, ranking.
+// Pure module (no chrome API, no fetch) so it stays testable under Node.
 
 export const DROP_STATE = {
-  CLAIMED: "claimed", // déjà récupéré
-  CLAIMABLE: "claimable", // temps atteint, bouton dispo
-  IN_PROGRESS: "inProgress", // temps en cours d'accumulation
-  TODO: "todo", // rien de regardé
+  CLAIMED: "claimed", // already collected
+  CLAIMABLE: "claimable", // time reached, button available
+  IN_PROGRESS: "inProgress", // time being accumulated
+  TODO: "todo", // nothing watched yet
 };
 
 function ms(value) {
@@ -19,7 +19,7 @@ function num(value, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Noeud GQL `DropCampaign` -> modèle interne, tolérant aux champs manquants. */
+/** GQL `DropCampaign` node -> internal model, tolerant of missing fields. */
 export function parseCampaign(node) {
   if (!node || !node.id) return null;
 
@@ -47,7 +47,7 @@ export function parseCampaign(node) {
     gameSlug: node.game?.slug ?? "",
     detailsURL: node.detailsURL ?? "",
     accountLinkURL: node.accountLinkURL ?? "",
-    // `null` = information absente de cette requête, à ne pas confondre avec `false`.
+    // `null` = the query did not carry that information, not to be confused with `false`.
     isAccountConnected:
       typeof node.self?.isAccountConnected === "boolean" ? node.self.isAccountConnected : null,
     channels: (node.allow?.channels || [])
@@ -63,16 +63,16 @@ export function parseCampaigns(nodes) {
 }
 
 /**
- * Reporte l'avancement d'un inventaire frais sur des campagnes déjà stockées,
- * sans toucher à leur structure.
+ * Carries progress from a fresh inventory onto already stored campaigns, without
+ * touching their structure.
  *
- * La structure (paliers, récompenses, chaînes autorisées) coûte cher à obtenir
- * et ne bouge pas. L'avancement bouge en permanence et vient d'une requête que
- * `refreshWatchProof` fait déjà. Séparer les deux évite de re-découvrir tout
- * l'univers des campagnes juste pour faire monter un pourcentage.
+ * The structure (tiers, rewards, allowed channels) is expensive to obtain and does
+ * not move. Progress moves constantly and comes from a query `refreshWatchProof`
+ * already makes. Separating the two avoids re-discovering the entire campaign
+ * universe just to push a percentage up.
  *
- * Une campagne absente de l'inventaire garde ce qu'elle avait : l'inventaire ne
- * liste que ce à quoi le compte participe, une absence n'est pas une remise à zéro.
+ * A campaign missing from the inventory keeps what it had: the inventory only
+ * lists what the account takes part in, and an absence is not a reset.
  */
 export function mergeProgress(campaigns, fresh) {
   const parId = new Map((fresh || []).filter(Boolean).map((c) => [c.id, c]));
@@ -115,13 +115,13 @@ export function mergeProgress(campaigns, fresh) {
 }
 
 /**
- * Reporte la progression en direct d'un seul palier, celle que Twitch
- * comptabilise à l'instant sur la chaîne regardée.
+ * Carries the live progress of a single tier, the one Twitch is counting right
+ * now on the watched channel.
  *
- * Ne fait JAMAIS reculer un compteur : l'inventaire et la session en direct ne
- * se rafraîchissent pas au même rythme, et une valeur plus vieille arrivant
- * après une plus récente ferait redescendre la barre sous les yeux de
- * l'utilisateur. Un palier ne perd pas des minutes déjà acquises.
+ * NEVER moves a counter backwards: the inventory and the live session do not
+ * refresh at the same rate, and an older value arriving after a newer one would
+ * pull the bar back down in front of the user. A tier does not lose minutes it
+ * has already earned.
  */
 export function applyLiveSession(campaigns, session) {
   const dropID = session?.dropID;
@@ -159,9 +159,9 @@ export function dropState(drop) {
 }
 
 /**
- * Progression d'une campagne.
- * `remainingMinutes` = temps restant sur le PROCHAIN palier non obtenu,
- * c'est ce qui sert à classer « le plus proche de la fin ».
+ * A campaign's progress.
+ * `remainingMinutes` = time left on the NEXT unearned tier, which is what ranks
+ * "closest to done".
  */
 export function campaignProgress(campaign) {
   const drops = campaign?.drops || [];
@@ -195,7 +195,7 @@ export function campaignProgress(campaign) {
   };
 }
 
-/** Prochain palier à travailler (non réclamé, pas encore réclamable), le plus court d'abord. */
+/** Next tier to work on (unclaimed, not yet claimable), shortest first. */
 export function nextDrop(campaign) {
   const pending = (campaign?.drops || [])
     .filter((d) => dropState(d) === DROP_STATE.IN_PROGRESS || dropState(d) === DROP_STATE.TODO)
@@ -203,12 +203,12 @@ export function nextDrop(campaign) {
   return pending[0] || null;
 }
 
-/** Paliers prêts à être réclamés. */
+/** Tiers ready to be claimed. */
 export function claimableDrops(campaign) {
   return (campaign?.drops || []).filter((d) => dropState(d) === DROP_STATE.CLAIMABLE);
 }
 
-/** La campagne exige-t-elle de lier son compte sur un site partenaire ? */
+/** Does the campaign require linking the account on a partner site? */
 export function needsAccountLink(campaign) {
   return Boolean(campaign?.accountLinkURL) && campaign.isAccountConnected === false;
 }
@@ -221,7 +221,7 @@ export function isActive(campaign, now = Date.now()) {
   return true;
 }
 
-/** Mélange sans biais. Le tirage est injectable pour rendre le résultat testable. */
+/** Unbiased shuffle. The draw is injectable so the result can be tested. */
 export function shuffle(items, random = Math.random) {
   const out = [...items];
   for (let i = out.length - 1; i > 0; i -= 1) {
@@ -232,14 +232,14 @@ export function shuffle(items, random = Math.random) {
 }
 
 /**
- * Classe les campagnes à farmer, de la plus prioritaire à la moins prioritaire.
+ * Ranks the campaigns to farm, most important first.
  *
- * Deux groupes : les campagnes mises en avant par l'utilisateur passent d'abord,
- * entre elles dans l'ordre d'expiration. Le reste suit, dans l'ordre choisi ou
- * au hasard si demandé.
+ * Two groups: the campaigns the user pushed to the front come first, among
+ * themselves in expiry order. The rest follows, in the chosen order or at random
+ * if asked for.
  *
- * Écarte : inactives, terminées, sur liste noire, et (si demandé) celles dont le
- * compte n'est pas lié, sauf si l'utilisateur a coché « c'est fait » (linkedOverrides).
+ * Discards: inactive, finished, blacklisted, and (on request) those whose account
+ * is not linked, unless the user ticked "done" (linkedOverrides).
  */
 export function rankCampaigns(campaigns, options = {}) {
   const {
@@ -260,7 +260,7 @@ export function rankCampaigns(campaigns, options = {}) {
     if (!c || blocked.has(c.id)) return false;
     if (!isActive(c, now)) return false;
     if (campaignProgress(c).done) return false;
-    if (!nextDrop(c)) return false; // plus rien à accumuler
+    if (!nextDrop(c)) return false; // nothing left to accumulate
     if (onlyLinkedCampaigns && needsAccountLink(c) && !overridden.has(c.id)) return false;
     return true;
   });
@@ -274,7 +274,7 @@ export function rankCampaigns(campaigns, options = {}) {
     return ea !== eb ? ea - eb : order.get(a.id) - order.get(b.id);
   };
 
-  // Les campagnes mises en avant, entre elles par date d'expiration.
+  // The campaigns pushed to the front, among themselves by expiry date.
   const prioritaires = eligible.filter((c) => focusSet.has(c.id)).sort(byEndAt);
   const autres = eligible.filter((c) => !focusSet.has(c.id));
 
@@ -288,7 +288,7 @@ export function rankCampaigns(campaigns, options = {}) {
       if (d !== 0) return d;
     }
 
-    // Par défaut (et en départage) : ce qui expire le plus tôt.
+    // By default (and as a tie-break): whatever expires soonest.
     const ea = a.endAt ?? Number.MAX_SAFE_INTEGER;
     const eb = b.endAt ?? Number.MAX_SAFE_INTEGER;
     if (ea !== eb) return ea - eb;
@@ -302,9 +302,9 @@ export function rankCampaigns(campaigns, options = {}) {
 }
 
 /**
- * Choisit la chaîne à regarder pour une campagne.
- * - liste blanche de chaînes -> la première qui est en live
- * - pas de liste blanche -> null, l'appelant ira chercher un live dans la catégorie
+ * Picks the channel to watch for a campaign.
+ * - allowlist of channels -> the first one that is live
+ * - no allowlist -> null, and the caller goes looking for a live in the category
  */
 export function pickChannel(campaign, liveLogins = []) {
   const live = new Set(liveLogins.map((l) => String(l).toLowerCase()));
@@ -314,7 +314,7 @@ export function pickChannel(campaign, liveLogins = []) {
   return hit ? hit.login : null;
 }
 
-/** true si la campagne accepte n'importe quel live de la catégorie. */
+/** true when the campaign accepts any live stream in the category. */
 export function isCategoryWide(campaign) {
   return !(campaign?.channels || []).length;
 }
