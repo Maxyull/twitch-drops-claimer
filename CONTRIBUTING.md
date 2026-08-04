@@ -84,6 +84,17 @@ Un test minimum par permission demandée : la couverture est vérifiée automati
 dans `tests/extension.test.js`. Toute nouvelle règle de sécurité se double d'un test
 qui échoue si on retire la règle.
 
+### Ce que la CI ne peut pas prouver
+
+L'API de Twitch exige un jeton d'intégrité pris sur une page ouverte : aucun test
+automatique ne l'obtient. Le format des trames, l'empreinte d'une requête persistée,
+le comportement réel du lecteur, les notifications : tout ça se vérifie à la main.
+
+**Une PR qui ajoute un tel comportement ajoute sa section à l'issue épinglée
+[#56](../../issues/56) avant le merge.** La forme est décrite dans
+`docs/A-VERIFIER.md`. Une CI verte sur des modules purs ne dit rien du format d'une
+trame : c'est exactement la zone où le projet peut casser en silence.
+
 ## Build et version
 
 ```bash
