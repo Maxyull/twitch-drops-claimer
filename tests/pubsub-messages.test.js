@@ -10,24 +10,24 @@ import {
   userTopics,
 } from "../src/lib/pubsub-messages.js";
 
-/** Trame telle que Twitch l'envoie : le message utile est du JSON DANS du JSON. */
+/** A frame as Twitch sends it: the useful message is JSON INSIDE JSON. */
 const message = (topic, inner) =>
   JSON.stringify({ type: "MESSAGE", data: { topic, message: JSON.stringify(inner) } });
 
-test("les sujets sont ceux du compte, pas d'une chaîne", () => {
+test("the topics are the account's, not a channel's", () => {
   assert.deepEqual(userTopics("12345"), [
     "community-points-user-v1.12345",
     "user-drop-events.12345",
   ]);
 });
 
-test("sans identifiant de compte, on ne s'abonne à rien", () => {
-  // S'abonner à `community-points-user-v1.` (sujet vide) ferait refuser
+test("with no account id, we subscribe to nothing", () => {
+  // Subscribing to `community-points-user-v1.` (empty topic) would get
   // l'ensemble de la trame par Twitch.
   for (const id of [null, undefined, "", "   "]) assert.deepEqual(userTopics(id), []);
 });
 
-test("la trame d'abonnement porte le jeton et le nonce", () => {
+test("the subscribe frame carries the token and the nonce", () => {
   const frame = listenFrame(["a", "b"], "abc", "n1");
   assert.equal(frame.type, "LISTEN");
   assert.equal(frame.nonce, "n1");
@@ -35,8 +35,8 @@ test("la trame d'abonnement porte le jeton et le nonce", () => {
   assert.equal(frame.data.auth_token, "abc");
 });
 
-test("le préfixe OAuth est retiré du jeton", () => {
-  // L'en-tête capturé vaut « OAuth abc » ; PubSub veut le jeton nu.
+test("the OAuth prefix is stripped from the token", () => {
+  // The captured header reads "OAuth abc"; PubSub wants the bare token.
   assert.equal(bareToken("OAuth abc"), "abc");
   assert.equal(bareToken("oauth  abc"), "abc");
   assert.equal(bareToken("Bearer abc"), "abc");
@@ -44,11 +44,11 @@ test("le préfixe OAuth est retiré du jeton", () => {
   assert.equal(bareToken(null), "");
 });
 
-test("le point d'entrée est bien celui de Twitch, en chiffré", () => {
+test("the endpoint really is Twitch's, over an encrypted connection", () => {
   assert.match(PUBSUB_URL, /^wss:\/\/pubsub-edge\.twitch\.tv\//);
 });
 
-test("un coffre disponible est reconnu", () => {
+test("an available chest is recognised", () => {
   const evt = parseFrame(
     message("community-points-user-v1.42", {
       type: "claim-available",
@@ -58,7 +58,7 @@ test("un coffre disponible est reconnu", () => {
   assert.deepEqual(evt, { kind: EVENT.POINTS_AVAILABLE, claimId: "claim-1", channelId: "999" });
 });
 
-test("un gain de points dit d'où il vient", () => {
+test("a points gain says where it came from", () => {
   const evt = parseFrame(
     message("community-points-user-v1.42", {
       type: "points-earned",
@@ -75,7 +75,7 @@ test("un gain de points dit d'où il vient", () => {
   assert.equal(evt.reason, "WATCH_STREAK");
 });
 
-test("une progression de drop est reconnue", () => {
+test("drop progress is recognised", () => {
   const evt = parseFrame(
     message("user-drop-events.42", {
       type: "drop-progress",
@@ -90,7 +90,7 @@ test("une progression de drop est reconnue", () => {
   });
 });
 
-test("un palier prêt à réclamer porte son instance", () => {
+test("a tier ready to claim carries its instance", () => {
   const evt = parseFrame(
     message("user-drop-events.42", {
       type: "drop-claim",
@@ -100,7 +100,7 @@ test("un palier prêt à réclamer porte son instance", () => {
   assert.deepEqual(evt, { kind: EVENT.DROP_CLAIM, dropID: "d1", dropInstanceID: "inst-1" });
 });
 
-test("PONG, RECONNECT et RESPONSE sont distingués", () => {
+test("PONG, RECONNECT and RESPONSE are told apart", () => {
   assert.equal(parseFrame(JSON.stringify({ type: "PONG" })).kind, EVENT.PONG);
   assert.equal(parseFrame(JSON.stringify({ type: "RECONNECT" })).kind, EVENT.RECONNECT);
 
@@ -111,13 +111,13 @@ test("PONG, RECONNECT et RESPONSE sont distingués", () => {
   assert.equal(ko.error, "ERR_BADAUTH");
 });
 
-test("RÉGRESSION : une trame illisible ne fait jamais tomber la boucle", () => {
-  // Ce canal n'est qu'une accélération. Le jour où Twitch change une trame,
-  // l'extension doit continuer à tourner sur ses interrogations périodiques,
-  // pas s'arrêter sur une exception.
+test("REGRESSION: an unreadable frame never brings the loop down", () => {
+  // This channel is only an acceleration. The day Twitch changes a frame, the
+  // extension must keep running on its periodic queries, not stop on an
+  // exception.
   const nimporteQuoi = [
     "",
-    "pas du json",
+    "not json",
     "null",
     "[]",
     JSON.stringify({ type: "MESSAGE" }),
@@ -135,9 +135,9 @@ test("RÉGRESSION : une trame illisible ne fait jamais tomber la boucle", () => 
   }
 });
 
-test("RÉGRESSION : un sujet d'une autre chaîne ne passe pas pour le nôtre", () => {
-  // Les sujets se ressemblent : une correspondance trop large ferait prendre
-  // un évènement de points pour un évènement de drop.
+test("REGRESSION: a topic from another channel does not pass for ours", () => {
+  // The topics look alike: too broad a match would take a points event for a
+  // drop event.
   const evt = parseFrame(
     message("community-points-channel-v1.42", {
       type: "claim-available",

@@ -7,36 +7,39 @@ import { MSG, CLAIM_KIND } from "../src/lib/messaging.js";
 const EXT_ID = "abcdefghijklmnopabcdefghijklmnop";
 const fromTab = { id: EXT_ID, tab: { id: 7 }, url: "https://www.twitch.tv/zerator" };
 const fromPopup = { id: EXT_ID, url: `chrome-extension://${EXT_ID}/src/popup/popup.html` };
-// La page d'options s'ouvre dans un onglet : elle a donc un `sender.tab`.
+// The options page opens in a tab: it therefore has a `sender.tab`.
+//
+// The French `error` strings matched below belong to src/lib/message-guard.js and
+// stay: they reach the popup, so they are user-visible and move with #76.
 const fromOptions = {
   id: EXT_ID,
   tab: { id: 12 },
   url: `chrome-extension://${EXT_ID}/src/options/options.html`,
 };
 
-test("un expéditeur d'une autre extension est rejeté", () => {
+test("a sender from another extension is rejected", () => {
   const res = validateMessage({ type: MSG.BEAT }, { id: "autre-extension", tab: { id: 1 } }, EXT_ID);
   assert.equal(res.ok, false);
   assert.match(res.error, /expéditeur/);
 });
 
-test("un type de message inconnu est rejeté (pas de dispatch dynamique)", () => {
+test("an unknown message type is rejected (no dynamic dispatch)", () => {
   for (const type of ["", "constructor", "__proto__", "toString", "n-importe-quoi", 42]) {
-    assert.equal(validateMessage({ type }, fromPopup, EXT_ID).ok, false, `type accepté : ${type}`);
+    assert.equal(validateMessage({ type }, fromPopup, EXT_ID).ok, false, `type accepted: ${type}`);
   }
   assert.equal(validateMessage(null, fromPopup, EXT_ID).ok, false);
 });
 
-test("RÉGRESSION : une page web ne peut pas piloter l'extension", () => {
-  // Le point critique : si Twitch était compromis, son script de contenu ne doit
-  // pas pouvoir changer les réglages ni lire l'état complet.
+test("REGRESSION: a web page cannot drive the extension", () => {
+  // The critical point: if Twitch were compromised, its content script must not
+  // be able to change the settings or read the full state.
   for (const type of [MSG.SET_SETTINGS, MSG.GET_STATE, MSG.REFRESH_NOW, MSG.SET_CAMPAIGN_PRIORITY]) {
     const res = validateMessage({ type, payload: { enabled: false } }, fromTab, EXT_ID);
-    assert.equal(res.ok, false, `${type} accepté depuis un onglet`);
+    assert.equal(res.ok, false, `${type} accepted from a tab`);
   }
 });
 
-test("un message d'onglet venu d'ailleurs que Twitch est rejeté", () => {
+test("a tab message coming from anywhere but Twitch is rejected", () => {
   const res = validateMessage(
     { type: MSG.BEAT, payload: {} },
     { id: EXT_ID, tab: { id: 3 }, url: "https://evil.example/x" },
@@ -45,15 +48,15 @@ test("un message d'onglet venu d'ailleurs que Twitch est rejeté", () => {
   assert.equal(res.ok, false);
 });
 
-test("un message de contenu envoyé depuis le popup est rejeté", () => {
+test("a content message sent from the popup is rejected", () => {
   assert.equal(validateMessage({ type: MSG.BEAT, payload: {} }, fromPopup, EXT_ID).ok, false);
 });
 
-test("RÉGRESSION : la page d'options est un onglet et doit être acceptée", () => {
-  // Le premier jet tranchait sur la présence de `sender.tab`, ce qui rejetait la
-  // page d'options : ses enregistrements partaient à la poubelle en silence.
+test("REGRESSION: the options page is a tab and must be accepted", () => {
+  // The first attempt decided on `sender.tab` being present, which rejected the
+  // options page: its saves went silently into the bin.
   for (const type of [MSG.GET_STATE, MSG.REFRESH_NOW]) {
-    assert.equal(validateMessage({ type }, fromOptions, EXT_ID).ok, true, `${type} rejeté`);
+    assert.equal(validateMessage({ type }, fromOptions, EXT_ID).ok, true, `${type} rejected`);
   }
   const res = validateMessage(
     { type: MSG.SET_SETTINGS, payload: { enabled: false } },
@@ -63,7 +66,7 @@ test("RÉGRESSION : la page d'options est un onglet et doit être acceptée", ()
   assert.equal(res.ok, true);
 });
 
-test("une page d'extension d'un autre identifiant est rejetée", () => {
+test("an extension page with another id is rejected", () => {
   const usurpateur = {
     id: EXT_ID,
     tab: { id: 3 },
@@ -72,7 +75,7 @@ test("une page d'extension d'un autre identifiant est rejetée", () => {
   assert.equal(validateMessage({ type: MSG.GET_STATE }, usurpateur, EXT_ID).ok, false);
 });
 
-test("isExtensionUrl ne reconnaît que nos propres pages", () => {
+test("isExtensionUrl only recognises our own pages", () => {
   assert.equal(isExtensionUrl(`chrome-extension://${EXT_ID}/src/popup/popup.html`, EXT_ID), true);
   assert.equal(isExtensionUrl("chrome-extension://autre/src/popup/popup.html", EXT_ID), false);
   assert.equal(isExtensionUrl("https://www.twitch.tv/", EXT_ID), false);
@@ -80,7 +83,7 @@ test("isExtensionUrl ne reconnaît que nos propres pages", () => {
   assert.equal(isExtensionUrl(`chrome-extension://${EXT_ID}/x`, ""), false);
 });
 
-test("le battement est borné et nettoyé", () => {
+test("the heartbeat is bounded and cleaned", () => {
   const res = validateMessage(
     {
       type: MSG.BEAT,
@@ -102,22 +105,22 @@ test("le battement est borné et nettoyé", () => {
   assert.equal(res.ok, true);
   assert.equal(res.payload.channel, "zerator");
   assert.equal(res.payload.currentTime, 12.5);
-  assert.equal(res.payload.videoHeight, 10_000, "borné");
+  assert.equal(res.payload.videoHeight, 10_000, "bounded");
   assert.equal(res.payload.paused, false, "seul true vaut true");
   assert.equal(res.payload.ads, false);
   assert.equal(res.payload.offline, true);
-  assert.equal(res.payload.url.length, 500, "tronqué");
-  assert.equal("extra" in res.payload, false, "champ inconnu jeté");
+  assert.equal(res.payload.url.length, 500, "truncated");
+  assert.equal("extra" in res.payload, false, "unknown field dropped");
 });
 
-test("une réclamation garde un type connu et des textes bornés", () => {
+test("a claim keeps a known kind and bounded texts", () => {
   const res = validateMessage(
     { type: MSG.CLAIMED, payload: { kind: "n'importe quoi", label: "L".repeat(500) } },
     fromTab,
     EXT_ID,
   );
   assert.equal(res.ok, true);
-  assert.equal(res.payload.kind, CLAIM_KIND.DROP, "type inconnu ramené à drop");
+  assert.equal(res.payload.kind, CLAIM_KIND.DROP, "unknown kind brought back to drop");
   assert.equal(res.payload.label.length, 120);
 
   const points = validateMessage(
@@ -129,11 +132,11 @@ test("une réclamation garde un type connu et des textes bornés", () => {
   assert.equal(points.payload.channel, "gotaga");
 });
 
-test("RÉGRESSION : setSettings n'accepte que les clés connues", () => {
+test("REGRESSION: setSettings only accepts known keys", () => {
   const res = validateMessage(
     {
       type: MSG.SET_SETTINGS,
-      payload: { enabled: false, __proto__: { pollué: true }, motDePasse: "x", quality: "160p30" },
+      payload: { enabled: false, __proto__: { polluted: true }, password: "x", quality: "160p30" },
     },
     fromPopup,
     EXT_ID,
@@ -142,7 +145,7 @@ test("RÉGRESSION : setSettings n'accepte que les clés connues", () => {
   assert.deepEqual(Object.keys(res.payload).sort(), ["enabled", "quality"]);
 });
 
-test("setSettings sans aucune clé connue est refusé", () => {
+test("setSettings with no known key at all is refused", () => {
   assert.equal(
     validateMessage({ type: MSG.SET_SETTINGS, payload: { hop: 1 } }, fromPopup, EXT_ID).ok,
     false,
@@ -158,10 +161,10 @@ test("setActionDone exige un identifiant", () => {
     EXT_ID,
   );
   assert.equal(res.ok, true);
-  assert.equal(res.payload.done, true, "par défaut on coche");
+  assert.equal(res.payload.done, true, "ticked by default");
 });
 
-test("la priorité d'une campagne n'accepte que trois valeurs", () => {
+test("a campaign's priority only accepts three values", () => {
   const ok = validateMessage(
     { type: MSG.SET_CAMPAIGN_PRIORITY, payload: { id: "camp-1", priority: "focus" } },
     fromOptions,
@@ -176,7 +179,7 @@ test("la priorité d'une campagne n'accepte que trois valeurs", () => {
       fromOptions,
       EXT_ID,
     );
-    assert.equal(res.ok, false, `valeur acceptée à tort : ${priority}`);
+    assert.equal(res.ok, false, `value wrongly accepted: ${priority}`);
   }
 
   assert.equal(
@@ -190,17 +193,17 @@ test("la priorité d'une campagne n'accepte que trois valeurs", () => {
   );
 });
 
-test("les messages sans charge utile passent", () => {
+test("messages with no payload get through", () => {
   for (const type of [MSG.GET_STATE, MSG.REFRESH_NOW, MSG.SWITCH_NOW]) {
     assert.equal(validateMessage({ type }, fromPopup, EXT_ID).ok, true);
   }
 });
 
-test("isTwitchUrl n'accepte que le domaine exact en HTTPS", () => {
+test("isTwitchUrl only accepts the exact domain over HTTPS", () => {
   assert.equal(isTwitchUrl("https://www.twitch.tv/zerator"), true);
   assert.equal(isTwitchUrl("http://www.twitch.tv/zerator"), false);
   assert.equal(isTwitchUrl("https://twitch.tv.evil.example/"), false);
   assert.equal(isTwitchUrl("https://m.twitch.tv/"), false);
-  assert.equal(isTwitchUrl("pas une url"), false);
+  assert.equal(isTwitchUrl("not a url"), false);
   assert.equal(isTwitchUrl(undefined), false);
 });

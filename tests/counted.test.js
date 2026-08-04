@@ -16,14 +16,14 @@ import {
 
 const NOW = 1_800_000_000_000;
 
-test("un ping de comptage récent est la preuve la plus forte", () => {
+test("a recent watch ping is the strongest evidence", () => {
   const res = evaluateCounted({ spadeAt: NOW - 10_000 }, { now: NOW });
   assert.equal(res.code, COUNTED.CONFIRMED);
   assert.equal(res.spadeAge, 10_000);
 });
 
-test("sans ping mais avec des segments, on ne conclut pas au négatif", () => {
-  // Cas réel : un bloqueur de pub tue le ping sans empêcher le comptage.
+test("no ping but segments arriving: we do not conclude negative", () => {
+  // Real case: an ad blocker kills the ping without stopping the counting.
   const res = evaluateCounted(
     { spadeAt: null, segmentAt: NOW - 5_000 },
     { now: NOW },
@@ -32,12 +32,12 @@ test("sans ping mais avec des segments, on ne conclut pas au négatif", () => {
   assert.equal(isCounted(res.code), true);
 });
 
-test("le ping prime sur les segments", () => {
+test("the ping outranks the segments", () => {
   const res = evaluateCounted({ spadeAt: NOW - 1_000, segmentAt: NOW - 1_000 }, { now: NOW });
   assert.equal(res.code, COUNTED.CONFIRMED);
 });
 
-test("des signaux trop vieux ne comptent plus", () => {
+test("signals that are too old no longer count", () => {
   const vieux = {
     spadeAt: NOW - SPADE_MAX_AGE_MS - 1,
     segmentAt: NOW - SEGMENT_MAX_AGE_MS - 1,
@@ -45,14 +45,14 @@ test("des signaux trop vieux ne comptent plus", () => {
   assert.equal(evaluateCounted(vieux, { now: NOW }).code, COUNTED.NO);
 });
 
-test("la progression observée est la preuve la plus forte", () => {
+test("observed progress is the strongest evidence", () => {
   const res = evaluateCounted({ progressAt: NOW - 60_000 }, { now: NOW });
   assert.equal(res.code, COUNTED.CONFIRMED);
   assert.equal(res.progressAge, 60_000);
 });
 
-test("RÉGRESSION : une preuve l'emporte sur l'état supposé du lecteur", () => {
-  // Le cas signalé : « c'est écrit non compté mais j'ai eu des drops ». Notre
+test("REGRESSION: evidence outranks the player's supposed state", () => {
+  // The reported case: "it says not counted but I got drops". Our
   // lecture du lecteur peut se tromper, la progression non. Elle gagne.
   const progression = evaluateCounted({ progressAt: NOW }, { now: NOW, playing: false });
   assert.equal(progression.code, COUNTED.CONFIRMED);
@@ -64,13 +64,13 @@ test("RÉGRESSION : une preuve l'emporte sur l'état supposé du lecteur", () =>
   assert.equal(segments.code, COUNTED.STREAMING);
 });
 
-test("sans aucune preuve, un lecteur à l'arrêt n'est pas compté", () => {
+test("with no evidence at all, a stopped player is not counted", () => {
   assert.equal(evaluateCounted({}, { now: NOW, playing: false }).code, COUNTED.NO);
 });
 
-test("un « non compté » dit toujours pourquoi", () => {
-  // Trois causes, trois gestes différents : sans la raison, on cherche au hasard.
-  // Le lecteur à l'arrêt n'est retenu que si aucune preuve ne le contredit.
+test("a \"not counted\" always says why", () => {
+  // Three causes, three different moves: without the reason, you search at
+  // random. A stopped player is only reported when no evidence contradicts it.
   const arret = evaluateCounted(
     { segmentAt: NOW - SEGMENT_MAX_AGE_MS - 1 },
     { now: NOW, playing: false },
@@ -80,51 +80,51 @@ test("un « non compté » dit toujours pourquoi", () => {
 
   const rien = evaluateCounted({}, { now: NOW, since: NOW - WARMUP_MS - 1 });
   assert.equal(rien.code, COUNTED.NO);
-  assert.equal(rien.reason, REASON.NO_SIGNAL, "aucun signal n'a jamais été vu");
+  assert.equal(rien.reason, REASON.NO_SIGNAL, "no signal was ever seen");
 
   const perime = evaluateCounted(
     { segmentAt: NOW - SEGMENT_MAX_AGE_MS - 1 },
     { now: NOW, since: NOW - WARMUP_MS - 1 },
   );
   assert.equal(perime.code, COUNTED.NO);
-  assert.equal(perime.reason, REASON.STALE, "on a déjà vu passer quelque chose");
+  assert.equal(perime.reason, REASON.STALE, "something was seen at some point");
 });
 
-test("un état positif ou indécis ne porte pas de raison", () => {
+test("a positive or undecided state carries no reason", () => {
   assert.equal(evaluateCounted({ progressAt: NOW }, { now: NOW }).reason, null);
   assert.equal(evaluateCounted({ segmentAt: NOW }, { now: NOW }).reason, null);
   assert.equal(evaluateCounted({}, { now: NOW, since: NOW }).reason, null);
 });
 
-test("une progression trop ancienne ne prouve plus rien", () => {
+test("progress that is too old proves nothing any more", () => {
   const vieille = { progressAt: NOW - PROGRESS_MAX_AGE_MS - 1 };
   assert.equal(evaluateCounted(vieille, { now: NOW }).code, COUNTED.NO);
 });
 
-test("progressAdvanced n'accepte que deux nombres et une hausse réelle", () => {
+test("progressAdvanced only accepts two numbers and a real increase", () => {
   assert.equal(progressAdvanced(10, 11), true);
-  assert.equal(progressAdvanced(10, 10), false, "stagner n'est pas progresser");
+  assert.equal(progressAdvanced(10, 10), false, "standing still is not progress");
   assert.equal(progressAdvanced(10, 9), false);
-  assert.equal(progressAdvanced(undefined, 5), false, "premier relevé, rien à comparer");
+  assert.equal(progressAdvanced(undefined, 5), false, "first reading, nothing to compare");
   assert.equal(progressAdvanced(5, null), false);
   assert.equal(progressAdvanced("10", 11), false);
 });
 
-test("on ne se prononce pas pendant la mise en route de l'onglet", () => {
+test("no verdict while the tab is still warming up", () => {
   const res = evaluateCounted({}, { now: NOW, since: NOW - 10_000 });
   assert.equal(res.code, COUNTED.UNKNOWN);
-  assert.equal(isCounted(res.code), false, "« en cours » n'est pas un oui");
+  assert.equal(isCounted(res.code), false, "\"in progress\" is not a yes");
 
   const apres = evaluateCounted({}, { now: NOW, since: NOW - WARMUP_MS - 1 });
   assert.equal(apres.code, COUNTED.NO);
 });
 
-test("aucun signal, aucune date de départ", () => {
+test("no signal, no start date", () => {
   assert.equal(evaluateCounted(null, { now: NOW }).code, COUNTED.NO);
   assert.equal(evaluateCounted(undefined, { now: NOW }).spadeAge, null);
 });
 
-test("classifyRequest reconnaît les deux signaux et rien d'autre", () => {
+test("classifyRequest recognises the two signals and nothing else", () => {
   assert.equal(classifyRequest("https://spade.twitch.tv/track?x=1"), "spade");
   assert.equal(
     classifyRequest("https://video-edge-abc.abs.hls.ttvnw.net/v1/segment/xyz.ts"),
@@ -134,11 +134,11 @@ test("classifyRequest reconnaît les deux signaux et rien d'autre", () => {
   assert.equal(classifyRequest("https://www.twitch.tv/zerator"), null);
 });
 
-test("RÉGRESSION : un domaine qui imite Twitch n'est pas reconnu", () => {
+test("REGRESSION: a domain imitating Twitch is not recognised", () => {
   assert.equal(classifyRequest("https://spade.twitch.tv.evil.example/track"), null);
   assert.equal(classifyRequest("https://ttvnw.net.evil.example/x"), null);
   assert.equal(classifyRequest("https://evil-ttvnw.net/x"), null);
-  assert.equal(classifyRequest("http://spade.twitch.tv/track"), null, "HTTP refusé");
-  assert.equal(classifyRequest("pas une url"), null);
+  assert.equal(classifyRequest("http://spade.twitch.tv/track"), null, "HTTP refused");
+  assert.equal(classifyRequest("not a url"), null);
   assert.equal(classifyRequest(null), null);
 });

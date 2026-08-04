@@ -15,31 +15,31 @@ test("normalizeChannel accepte pseudo, arobase et URL", () => {
   assert.equal(normalizeChannel("twitch.tv/domingo/videos"), "domingo");
 });
 
-test("normalizeChannel rejette ce qui n'est pas un login", () => {
+test("normalizeChannel rejects anything that is not a login", () => {
   assert.equal(normalizeChannel(""), "");
   assert.equal(normalizeChannel("   "), "");
-  assert.equal(normalizeChannel("un pseudo avec espaces"), "");
+  assert.equal(normalizeChannel("a nickname with spaces"), "");
   assert.equal(normalizeChannel("é!!"), "");
   assert.equal(normalizeChannel(null), "");
   assert.equal(normalizeChannel(42), "");
 });
 
-test("normalizeChannelList déduplique et accepte le texte multiligne", () => {
+test("normalizeChannelList deduplicates and accepts multiline text", () => {
   const list = normalizeChannelList("ZeratoR\n@zerator\nhttps://twitch.tv/gotaga\n\n , mistermv");
   assert.deepEqual(list, ["zerator", "gotaga", "mistermv"]);
 });
 
-test("normalizeChannelList plafonne à 20 chaînes", () => {
+test("normalizeChannelList caps at 20 channels", () => {
   const many = Array.from({ length: 40 }, (_, i) => `chaine${i}`);
   assert.equal(normalizeChannelList(many).length, 20);
 });
 
-test("normalizeSettings complète les manques par les valeurs par défaut", () => {
+test("normalizeSettings fills the gaps with the default values", () => {
   const s = normalizeSettings({});
   assert.deepEqual(s, { ...DEFAULT_SETTINGS, favoriteChannels: [] });
 });
 
-test("normalizeSettings borne les intervalles et le volume", () => {
+test("normalizeSettings bounds the intervals and the volume", () => {
   const s = normalizeSettings({
     claimIntervalMin: 0,
     discoverIntervalMin: 9999,
@@ -50,18 +50,18 @@ test("normalizeSettings borne les intervalles et le volume", () => {
   assert.equal(s.volumePercent, 1);
 });
 
-test("le nombre d'onglets de farm reste dans des bornes utiles", () => {
-  // 0 onglet reviendrait à couper le farm, ce que fait déjà `farmDrops`.
-  // Au-delà de 4, on ouvrirait des onglets que Twitch ne comptera pas.
+test("the number of farming tabs stays within useful bounds", () => {
+  // 0 tabs would amount to turning farming off, which `farmDrops` already does.
+  // Beyond 4 we would open tabs Twitch is not going to count.
   assert.equal(normalizeSettings({ farmTabs: 0 }).farmTabs, 1);
   assert.equal(normalizeSettings({ farmTabs: 99 }).farmTabs, 4);
   assert.equal(normalizeSettings({ farmTabs: 2 }).farmTabs, 2);
   assert.equal(normalizeSettings({ farmTabs: "trois" }).farmTabs, DEFAULT_SETTINGS.farmTabs);
 });
 
-test("0 coupe la rotation, mais ne coupe pas les autres boucles", () => {
+test("0 turns the rotation off, without turning the other loops off", () => {
   // Seul `rotateIntervalMin` accepte 0 : ailleurs, 0 voudrait dire « en boucle
-  // sans fin », ce qui n'est pas une intention exprimable.
+  // endlessly", which is not an intention anyone can express.
   assert.equal(normalizeSettings({ rotateIntervalMin: 0 }).rotateIntervalMin, 0);
   assert.equal(normalizeSettings({ rotateIntervalMin: -5 }).rotateIntervalMin, 0);
   assert.equal(normalizeSettings({ rotateIntervalMin: 9999 }).rotateIntervalMin, 240);
@@ -69,20 +69,20 @@ test("0 coupe la rotation, mais ne coupe pas les autres boucles", () => {
   assert.equal(normalizeSettings({ discoverIntervalMin: 0 }).discoverIntervalMin, 1);
 });
 
-test("normalizeSettings refuse une qualité ou une priorité inconnue", () => {
+test("normalizeSettings refuses an unknown quality or priority", () => {
   const s = normalizeSettings({ quality: "8k", priority: "n'importe quoi" });
   assert.equal(s.quality, DEFAULT_SETTINGS.quality);
   assert.equal(s.priority, DEFAULT_SETTINGS.priority);
 });
 
-test("normalizeSettings garde les booléens explicitement à false", () => {
+test("normalizeSettings keeps booleans that are explicitly false", () => {
   const s = normalizeSettings({ enabled: false, claimPoints: false, notifyDrops: false });
   assert.equal(s.enabled, false);
   assert.equal(s.claimPoints, false);
   assert.equal(s.notifyDrops, false);
 });
 
-test("normalizeSettings ignore une valeur non booléenne", () => {
+test("normalizeSettings ignores a non-boolean value", () => {
   const s = normalizeSettings({ enabled: "oui" });
   assert.equal(s.enabled, true);
 });

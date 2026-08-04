@@ -23,7 +23,7 @@ const campagne = (id, drops, extra = {}) => ({
   ...extra,
 });
 
-test("l'avancement frais remonte dans les campagnes stockées", () => {
+test("fresh progress carries into the stored campaigns", () => {
   const stockees = [campagne("c1", [drop("d1", 60, 10)])];
   const frais = [campagne("c1", [drop("d1", 60, 35)])];
 
@@ -33,10 +33,10 @@ test("l'avancement frais remonte dans les campagnes stockées", () => {
   assert.equal(campaignProgress(res.campaigns[0]).pct, 58, "la barre bouge");
 });
 
-test("RÉGRESSION : la structure ne suit pas l'avancement", () => {
-  // L'inventaire ne porte ni les chaînes autorisées ni les récompenses de la
-  // même façon que le détail de campagne. Recopier la structure ferait perdre
-  // ce qui a coûté cher à obtenir.
+test("REGRESSION: the structure does not follow the progress", () => {
+  // The inventory does not carry the allowed channels or the rewards the way the
+  // campaign details do. Copying the structure over would lose what was expensive
+  // to obtain.
   const stockees = [
     campagne("c1", [drop("d1", 60, 0, { benefits: [{ id: "b", name: "Casque", imageURL: "" }] })]),
   ];
@@ -50,7 +50,7 @@ test("RÉGRESSION : la structure ne suit pas l'avancement", () => {
   assert.equal(fusionnee.name, "c1");
 });
 
-test("un palier devenu réclamable ou réclamé remonte aussi", () => {
+test("a tier that became claimable or claimed carries over too", () => {
   const stockees = [campagne("c1", [drop("d1", 60, 59)])];
   const frais = [campagne("c1", [drop("d1", 60, 60, { dropInstanceID: "inst" })])];
 
@@ -59,15 +59,15 @@ test("un palier devenu réclamable ou réclamé remonte aussi", () => {
   assert.equal(campaignProgress(res.campaigns[0]).claimable, 1);
 });
 
-test("RÉGRESSION : une campagne absente de l'inventaire garde son avancement", () => {
-  // L'inventaire ne liste que ce à quoi le compte participe. Une absence n'est
-  // pas une remise à zéro, sinon la barre retomberait à chaque passage.
+test("REGRESSION: a campaign missing from the inventory keeps its progress", () => {
+  // The inventory only lists what the account takes part in. An absence is not a
+  // reset, otherwise the bar would drop back on every pass.
   const stockees = [campagne("c1", [drop("d1", 60, 40)]), campagne("c2", [drop("d2", 30, 10)])];
   const frais = [campagne("c1", [drop("d1", 60, 45)])];
 
   const res = mergeProgress(stockees, frais);
   assert.equal(res.campaigns[0].drops[0].watchedMinutes, 45);
-  assert.equal(res.campaigns[1].drops[0].watchedMinutes, 10, "intacte, pas remise à zéro");
+  assert.equal(res.campaigns[1].drops[0].watchedMinutes, 10, "untouched, not reset");
 });
 
 test("un palier inconnu de l'inventaire reste tel quel", () => {
@@ -79,18 +79,18 @@ test("un palier inconnu de l'inventaire reste tel quel", () => {
   assert.equal(res.campaigns[0].drops[1].watchedMinutes, 40);
 });
 
-test("rien de neuf n'écrit rien", () => {
-  // L'appel tourne toutes les 5 minutes : réécrire des campagnes identiques
-  // userait le quota de stockage pour rien.
+test("nothing new writes nothing", () => {
+  // The call runs every 5 minutes: rewriting identical campaigns would wear down
+  // the storage quota for nothing.
   const stockees = [campagne("c1", [drop("d1", 60, 40)])];
   const frais = [campagne("c1", [drop("d1", 60, 40)])];
 
   const res = mergeProgress(stockees, frais);
   assert.equal(res.changed, false);
-  assert.equal(res.campaigns[0], stockees[0], "le même objet, aucune copie");
+  assert.equal(res.campaigns[0], stockees[0], "the same object, no copy");
 });
 
-test("un inventaire vide ou illisible ne touche à rien", () => {
+test("an empty or unreadable inventory touches nothing", () => {
   const stockees = [campagne("c1", [drop("d1", 60, 40)])];
 
   for (const frais of [[], null, undefined, [null]]) {
@@ -100,7 +100,7 @@ test("un inventaire vide ou illisible ne touche à rien", () => {
   }
 });
 
-test("aucune campagne stockée : rien à fusionner, pas d'erreur", () => {
+test("no campaign stored: nothing to merge, no error", () => {
   const res = mergeProgress([], [campagne("c1", [drop("d1", 60, 5)])]);
   assert.deepEqual(res, { campaigns: [], changed: false });
   assert.deepEqual(mergeProgress(null, null), { campaigns: [], changed: false });

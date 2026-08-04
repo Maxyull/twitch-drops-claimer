@@ -1,7 +1,7 @@
-// Contrôles d'intégrité du paquet : ce qui attrape les régressions qu'un test de
-// logique ne voit pas (fichier renommé, script inline interdit par la CSP,
-// permission oubliée, clé i18n manquante, ressource trop largement exposée).
-// Ces contrôles reprennent les greps de docs/SECURITY-AUDIT.md.
+// Package integrity checks: what catches the regressions a logic test cannot see
+// (a renamed file, an inline script the CSP forbids, a forgotten permission, a
+// missing i18n key, a resource exposed too widely).
+// These checks mirror the greps in docs/SECURITY-AUDIT.md.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -37,16 +37,16 @@ const HTML_FILES = walk("src", ".html");
 
 // --- passe 1 : manifeste & surface d'attaque ------------------------------
 
-test("manifeste MV3 cohérent, aucun résidu MV2", () => {
+test("coherent MV3 manifest, no MV2 leftovers", () => {
   assert.equal(manifest.manifest_version, 3);
   assert.equal(manifest.version, pkg.version);
-  assert.equal(manifest.background.type, "module", "sans type module, les import du SW cassent");
+  assert.equal(manifest.background.type, "module", "without type module, the service worker's imports break");
   assert.equal("browser_action" in manifest, false);
   assert.equal("background" in manifest && "scripts" in manifest.background, false);
   assert.equal(manifest.default_locale, "fr");
 });
 
-test("tous les fichiers cités par le manifeste existent", () => {
+test("every file the manifest names exists", () => {
   const refs = [
     manifest.background.service_worker,
     manifest.action.default_popup,
@@ -55,16 +55,16 @@ test("tous les fichiers cités par le manifeste existent", () => {
     ...manifest.content_scripts.flatMap((cs) => cs.js),
     ...manifest.web_accessible_resources.flatMap((w) => w.resources),
   ];
-  for (const ref of refs) assert.ok(existsSync(path.join(ROOT, ref)), `fichier manquant : ${ref}`);
+  for (const ref of refs) assert.ok(existsSync(path.join(ROOT, ref)), `missing file: ${ref}`);
 });
 
-test("les quatre tailles d'icône sont fournies", () => {
+test("all four icon sizes are provided", () => {
   assert.deepEqual(Object.keys(manifest.icons).sort(), ["128", "16", "32", "48"]);
 });
 
-test("périmètre réseau et injection les plus étroits possibles", () => {
-  // `spade` et `ttvnw` ne sont là que pour OBSERVER (webRequest), jamais pour
-  // émettre : le test suivant vérifie qu'aucun fetch ne les vise.
+test("network and injection scope as narrow as possible", () => {
+  // `spade` and `ttvnw` are there to OBSERVE only (webRequest), never to send:
+  // the next test checks no fetch ever targets them.
   assert.deepEqual(manifest.host_permissions, [
     "https://www.twitch.tv/*",
     "https://gql.twitch.tv/*",
@@ -77,18 +77,18 @@ test("périmètre réseau et injection les plus étroits possibles", () => {
   assert.equal("content_security_policy" in manifest, false, "aucune CSP affaiblie");
 
   for (const cs of manifest.content_scripts) {
-    assert.deepEqual(cs.matches, ["https://www.twitch.tv/*"], "domaine explicite, pas de wildcard TLD");
+    assert.deepEqual(cs.matches, ["https://www.twitch.tv/*"], "explicit domain, no TLD wildcard");
     assert.equal(cs.all_frames, false);
   }
 });
 
-test("le script de contenu démarre avant le lecteur (run_at justifié)", () => {
-  // document_start : la qualité et le volume se posent dans localStorage AVANT
-  // l'initialisation du lecteur Twitch. Justifié dans docs/SECURITY-AUDIT.md.
+test("the content script starts before the player (run_at justified)", () => {
+  // document_start: quality and volume are written to localStorage BEFORE the
+  // Twitch player initialises. Argued in docs/SECURITY-AUDIT.md.
   assert.equal(manifest.content_scripts[0].run_at, "document_start");
 });
 
-test("web_accessible_resources : strictement ce dont le script de contenu a besoin", () => {
+test("web_accessible_resources: strictly what the content script needs", () => {
   const entry = manifest.web_accessible_resources[0];
   assert.deepEqual(entry.matches, ["https://www.twitch.tv/*"]);
   assert.equal(entry.use_dynamic_url, true, "URL tournante : moins de surface de fingerprinting");
@@ -97,7 +97,7 @@ test("web_accessible_resources : strictement ce dont le script de contenu a beso
   const imported = read(bootstrap).match(/getURL\("([^"]+)"\)/)?.[1];
   assert.ok(imported, "l'amorce doit charger son module par chrome.runtime.getURL");
 
-  // Ce que le module importe doit être exposé, et rien d'autre.
+  // What the module imports must be exposed, and nothing else.
   const needed = new Set([imported]);
   for (const m of read(imported).matchAll(/from\s+"([^"]+)"/g)) {
     needed.add(path.posix.normalize(path.posix.join(path.posix.dirname(imported), m[1])));
@@ -105,18 +105,18 @@ test("web_accessible_resources : strictement ce dont le script de contenu a beso
   assert.deepEqual([...entry.resources].sort(), [...needed].sort());
 });
 
-test("aucun code distant ni évaluation dynamique", () => {
+test("no remote code and no dynamic evaluation", () => {
   for (const file of SRC_JS) {
     const code = read(file);
-    assert.equal(/\beval\s*\(|new Function\s*\(/.test(code), false, `${file} évalue du code`);
-    assert.equal(/setTimeout\(\s*"/.test(code), false, `${file} passe une chaîne à setTimeout`);
+    assert.equal(/\beval\s*\(|new Function\s*\(/.test(code), false, `${file} evaluates code`);
+    assert.equal(/setTimeout\(\s*"/.test(code), false, `${file} passes a string to setTimeout`);
   }
   for (const file of HTML_FILES) {
     assert.equal(/<script[^>]+src="https?:/.test(read(file)), false, `${file} charge un script distant`);
   }
 });
 
-test("aucun script ni gestionnaire inline (CSP des extensions)", () => {
+test("no inline script and no inline handler (extension CSP)", () => {
   for (const file of HTML_FILES) {
     const html = read(file);
     const inline = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].filter(
@@ -127,18 +127,18 @@ test("aucun script ni gestionnaire inline (CSP des extensions)", () => {
   }
 });
 
-test("aucune injection de HTML brut dans le code livré", () => {
+test("no raw HTML injection in the shipped code", () => {
   const usage = /\.(inner|outer)HTML\s*=|insertAdjacentHTML\s*\(|document\.write\s*\(/;
   for (const file of SRC_JS) {
     assert.equal(usage.test(read(file)), false, `${file} injecte du HTML`);
   }
 });
 
-// --- passe 2 : permissions, messages, réseau ------------------------------
+// --- pass 2: permissions, messages, network -----------------------------------
 
-test("les API chrome utilisées sont couvertes par les permissions", () => {
-  // Ces espaces de noms sont utilisables sans permission déclarée.
-  // `tabs` en fait partie tant qu'on ne lit ni l'URL ni le titre des onglets.
+test("the chrome APIs used are covered by the permissions", () => {
+  // These namespaces are usable with no declared permission.
+  // `tabs` is one of them, as long as we read neither a tab's URL nor its title.
   const SANS_PERMISSION = new Set(["runtime", "action", "i18n", "windows", "extension", "tabs"]);
   const declarees = new Set(manifest.permissions);
 
@@ -148,75 +148,76 @@ test("les API chrome utilisées sont couvertes par les permissions", () => {
   }
   for (const api of utilisees) {
     if (SANS_PERMISSION.has(api)) continue;
-    assert.ok(declarees.has(api), `chrome.${api} utilisé sans la permission correspondante`);
+    assert.ok(declarees.has(api), `chrome.${api} used without the matching permission`);
   }
 
-  // Chaque permission déclarée doit servir : sinon elle saute.
+  // Every declared permission must be used: otherwise it goes.
   for (const perm of declarees) {
-    assert.ok(utilisees.has(perm), `permission ${perm} déclarée mais jamais utilisée`);
+    assert.ok(utilisees.has(perm), `permission ${perm} declared but never used`);
   }
 });
 
-test("RÉGRESSION : rien qui exigerait la permission « tabs »", () => {
+test("REGRESSION: nothing that would require the \"tabs\" permission", () => {
   assert.equal(manifest.permissions.includes("tabs"), false);
   const hotes = manifest.host_permissions;
 
   for (const file of SRC_JS) {
     const code = read(file);
 
-    // `tabs.query` est permis sans la permission « tabs » dans deux cas :
-    // filtré par une URL couverte par `host_permissions`, ce qui donne accès au
-    // resultat ; ou restreint à l'onglet actif, dont on ne lit que l'identifiant.
+    // `tabs.query` is allowed without the "tabs" permission in two cases:
+    // filtered by a URL covered by `host_permissions`, which grants access to the
+    // result; or restricted to the active tab, of which only the id is read.
     for (const m of code.matchAll(/chrome\.tabs\.query\(\s*\{([^}]*)\}/g)) {
       const filtre = m[1];
       if (/active:/.test(filtre)) continue;
 
-      assert.match(filtre, /url:/, `${file} interroge les onglets sans filtre`);
-      // On résout la constante quand le filtre en est une, sinon le test ne
-      // vérifierait plus rien dès qu'on sort le motif dans une variable.
+      assert.match(filtre, /url:/, `${file} queries tabs with no filter`);
+      // The constant is resolved when the filter is one, otherwise the test would
+      // check nothing at all as soon as the pattern moved into a variable.
       const motif = filtre.match(/url:\s*([A-Za-z_$][\w$]*|"[^"]+")/)?.[1] ?? "";
       const litteral = motif.startsWith('"')
         ? motif.slice(1, -1)
         : (code.match(new RegExp(`${motif}\\s*=\\s*"([^"]+)"`))?.[1] ?? null);
 
-      assert.ok(litteral, `${file} filtre les onglets sur un motif introuvable`);
-      assert.ok(hotes.includes(litteral), `${file} filtre sur ${litteral}, hors host_permissions`);
+      assert.ok(litteral, `${file} filters tabs on a pattern that cannot be found`);
+      assert.ok(hotes.includes(litteral), `${file} filters on ${litteral}, outside host_permissions`);
     }
 
-    // Le titre et le favicon, eux, resteraient hors de portée sans la permission.
-    assert.equal(/\btab\.(title|favIconUrl)\b/.test(code), false, `${file} lit le titre d'un onglet`);
+    // The title and the favicon, on the other hand, would stay out of reach
+    // without the permission.
+    assert.equal(/\btab\.(title|favIconUrl)\b/.test(code), false, `${file} reads a tab's title`);
   }
 });
 
-test("RÉGRESSION : on ne peut pas ouvrir un onglet sans passer par farm.js", () => {
-  // Chacun des chemins de farm.js vérifie d'abord qu'un onglet n'existe pas
-  // déjà. Exporter l'ouverture rouvrirait la porte à un appel sans contrôle,
-  // et c'est comme ça que naissaient les onglets et les fenêtres en double.
+test("REGRESSION: a tab cannot be opened without going through farm.js", () => {
+  // Each of farm.js's paths first checks a tab does not already exist. Exporting
+  // the opening would reopen the door to an unchecked call, and that is exactly
+  // how the duplicate tabs and windows were born.
   const farm = read("src/background/farm.js");
-  assert.match(farm, /async function openBackgroundTab/, "l'ouverture doit vivre dans farm.js");
+  assert.match(farm, /async function openBackgroundTab/, "the opening must live in farm.js");
   assert.equal(
     /export\s+(async\s+)?function openBackgroundTab|export\s*\{[^}]*openBackgroundTab/.test(farm),
     false,
-    "openBackgroundTab ne doit pas être exportée",
+    "openBackgroundTab must not be exported",
   );
 
-  // Ailleurs, un onglet ne s'ouvre qu'en réponse à un geste de l'utilisateur,
-  // donc visible (`active: true`). Un onglet d'arrière-plan hors de farm.js
-  // échapperait au contrôle.
+  // Elsewhere, a tab only opens in response to a user gesture, and is therefore
+  // visible (`active: true`). A background tab outside farm.js would escape the
+  // check.
   for (const file of SRC_JS) {
     if (file.endsWith("farm.js")) continue;
     for (const m of read(file).matchAll(/chrome\.tabs\.create\(\s*\{([^}]*)\}/g)) {
-      assert.match(m[1], /active:\s*true/, `${file} ouvre un onglet d'arrière-plan`);
+      assert.match(m[1], /active:\s*true/, `${file} opens a background tab`);
     }
   }
 });
 
-test("tout le réseau sortant reste sur Twitch, en HTTPS", () => {
-  // `*.ttvnw.net` est le CDN vidéo de Twitch : on l'observe, on ne le contacte jamais.
+test("all outgoing network stays on Twitch, over HTTPS", () => {
+  // `*.ttvnw.net` is Twitch's video CDN: we observe it, we never contact it.
   const OBSERVED_ONLY = /ttvnw\.net$/;
   for (const file of SRC_JS) {
     const code = read(file);
-    assert.equal(/http:\/\/(?!localhost)/.test(code), false, `${file} contient une URL en clair`);
+    assert.equal(/http:\/\/(?!localhost)/.test(code), false, `${file} contains a cleartext URL`);
     for (const m of code.matchAll(/https:\/\/\*?\.?([a-z0-9.-]+)/gi)) {
       const host = m[1].toLowerCase();
       assert.ok(
@@ -227,34 +228,34 @@ test("tout le réseau sortant reste sur Twitch, en HTTPS", () => {
   }
 });
 
-test("RÉGRESSION : un seul point de sortie réseau, l'API GraphQL de Twitch", () => {
-  // Les domaines observés ne doivent jamais devenir des destinations.
+test("REGRESSION: a single network exit point, Twitch's GraphQL API", () => {
+  // The observed domains must never become destinations.
   //
-  // `chrome.runtime.getURL` ne sort pas de la machine : c'est une lecture d'un
-  // fichier du paquet, comme le catalogue de traductions. Elle est nommée ici
-  // explicitement pour que toute AUTRE forme de fetch reste refusée.
+  // `chrome.runtime.getURL` does not leave the machine: it reads a file from the
+  // package, like the translation catalogue. It is named explicitly here so that
+  // any OTHER form of fetch stays refused.
   const AUTORISES = new Set(["GQL_URL", "chrome.runtime.getURL"]);
 
   for (const file of SRC_JS) {
     const code = read(file);
     for (const m of code.matchAll(/fetch\(\s*([A-Za-z_$][\w$.]*|"[^"]+")/g)) {
-      assert.ok(AUTORISES.has(m[1]), `${file} appelle fetch sur ${m[1]}, non autorisé`);
+      assert.ok(AUTORISES.has(m[1]), `${file} calls fetch on ${m[1]}, which is not allowed`);
     }
-    // Une lecture du paquet ne doit jamais viser autre chose que `_locales`.
+    // A read from the package must never target anything but `_locales`.
     for (const m of code.matchAll(/chrome\.runtime\.getURL\(\s*`([^`]*)`/g)) {
       assert.match(m[1], /^_locales\//, `${file} lit ${m[1]} hors de _locales`);
     }
   }
 });
 
-test("RÉGRESSION : une seule socket, celle de Twitch, et en chiffré", () => {
-  // Le test précédent ne couvre que `fetch`. Une socket est une sortie réseau
-  // au même titre, et elle porte le jeton de session dans sa première trame :
-  // elle ne doit pouvoir viser que Twitch, et jamais en clair.
+test("REGRESSION: a single socket, Twitch's, and encrypted", () => {
+  // The previous test only covers `fetch`. A socket is just as much a network
+  // exit, and it carries the session token in its very first frame: it must be
+  // able to target Twitch and nothing else, and never in cleartext.
   const dur = new Set();
   for (const file of SRC_JS) {
     for (const m of read(file).matchAll(/new WebSocket\(\s*([A-Za-z_$][\w$]*|"[^"]+")/g)) {
-      assert.equal(m[1], "PUBSUB_URL", `${file} ouvre une socket sur ${m[1]}`);
+      assert.equal(m[1], "PUBSUB_URL", `${file} opens a socket on ${m[1]}`);
     }
     for (const m of read(file).matchAll(/"(wss?:\/\/[^"]+)"/g)) dur.add(m[1]);
   }
@@ -262,25 +263,25 @@ test("RÉGRESSION : une seule socket, celle de Twitch, et en chiffré", () => {
   assert.deepEqual([...dur], ["wss://pubsub-edge.twitch.tv/v1"]);
 });
 
-test("aucun secret ni jeton écrit en dur", () => {
+test("no secret and no token written in the code", () => {
   for (const file of SRC_JS) {
     const code = read(file);
     assert.equal(
       /(api[_-]?key|secret|password|mot de passe)\s*[:=]\s*["'][^"']{8,}/i.test(code),
       false,
-      `${file} contient un secret en dur`,
+      `${file} contains a hardcoded secret`,
     );
   }
 });
 
-test("le stockage est versionné et migrable", () => {
+test("storage is versioned and migratable", () => {
   const storage = read("src/lib/storage.js");
   assert.match(storage, /STORAGE_VERSION/);
   assert.match(storage, /export async function migrate/);
   assert.match(read("src/background/service-worker.js"), /store\.migrate\(\)/);
 });
 
-test("le garde-fou des messages n'est pas exposé à la page", () => {
+test("the message guard is not exposed to the page", () => {
   const exposed = manifest.web_accessible_resources.flatMap((w) => w.resources);
   assert.equal(exposed.includes("src/lib/message-guard.js"), false);
   assert.match(read("src/background/service-worker.js"), /validateMessage\(msg, sender, chrome\.runtime\.id\)/);
@@ -288,13 +289,13 @@ test("le garde-fou des messages n'est pas exposé à la page", () => {
 
 // --- i18n -----------------------------------------------------------------
 
-test("fr et en déclarent exactement les mêmes clés", () => {
+test("fr and en declare exactly the same keys", () => {
   const [fr, en] = LOCALES.map((l) => Object.keys(messages[l]).sort());
   assert.deepEqual(fr, en);
   for (const key of ["ext_name", "ext_description"]) assert.ok(messages.fr[key], `${key} manquant`);
 });
 
-test("chaque clé i18n utilisée existe dans les deux langues", () => {
+test("every i18n key used exists in both languages", () => {
   const used = new Set();
 
   for (const file of HTML_FILES) {
@@ -305,15 +306,15 @@ test("chaque clé i18n utilisée existe dans les deux langues", () => {
   }
   for (const m of JSON.stringify(manifest).matchAll(/__MSG_([a-z0-9_]+)__/g)) used.add(m[1]);
 
-  assert.ok(used.size > 20, "extraction des clés cassée");
+  assert.ok(used.size > 20, "key extraction is broken");
   for (const key of used) {
     for (const locale of LOCALES) {
-      assert.ok(messages[locale][key], `clé ${key} absente de _locales/${locale}`);
+      assert.ok(messages[locale][key], `key ${key} missing from _locales/${locale}`);
     }
   }
 });
 
-test("aucune clé i18n morte", () => {
+test("no dead i18n key", () => {
   const sources = [...HTML_FILES.map(read), ...SRC_JS.map(read)];
   const haystack = [...sources, JSON.stringify(manifest)].join("\n");
 
@@ -323,35 +324,35 @@ test("aucune clé i18n morte", () => {
 
   for (const key of Object.keys(messages.fr)) {
     if ([...dynamic].some((prefix) => key.startsWith(prefix))) continue;
-    assert.ok(haystack.includes(key), `clé ${key} définie mais jamais utilisée`);
+    assert.ok(haystack.includes(key), `key ${key} defined but never used`);
   }
 });
 
-// --- divers ---------------------------------------------------------------
+// --- miscellaneous --------------------------------------------------------------
 
-test("tous les fichiers JS sont syntaxiquement valides", () => {
+test("every JS file is syntactically valid", () => {
   for (const file of ALL_JS) {
     try {
       execFileSync(process.execPath, ["--check", path.join(ROOT, file)], { stdio: "pipe" });
     } catch (err) {
-      assert.fail(`${file} ne compile pas :\n${err.stderr?.toString() ?? err.message}`);
+      assert.fail(`${file} does not compile:\n${err.stderr?.toString() ?? err.message}`);
     }
   }
 });
 
-test("les ressources locales des pages HTML existent", () => {
+test("the local resources of the HTML pages exist", () => {
   for (const file of HTML_FILES) {
     const dir = path.dirname(file);
     for (const m of read(file).matchAll(/(?:src|href)="([^"]+)"/g)) {
       if (/^(https?:|data:|#|mailto:)/.test(m[1])) continue;
-      assert.ok(existsSync(path.join(ROOT, dir, m[1])), `${file} référence ${m[1]}, absent`);
+      assert.ok(existsSync(path.join(ROOT, dir, m[1])), `${file} references ${m[1]}, which is missing`);
     }
   }
 });
 
-test("aucune chaîne magique de type de message hors de messaging.js", () => {
+test("no magic message-type string outside messaging.js", () => {
   const literals = /sendMessage\(\s*\{\s*type:\s*"/;
   for (const file of SRC_JS) {
-    assert.equal(literals.test(read(file)), false, `${file} utilise un type de message littéral`);
+    assert.equal(literals.test(read(file)), false, `${file} uses a literal message type`);
   }
 });

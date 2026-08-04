@@ -1,11 +1,11 @@
-// L'état de l'extension est réparti entre deux stockages, et c'est ce partage
-// qui décide de ce qui survit à un rechargement. Trois fenêtres en trop ont eu
-// pour cause commune une identité d'onglet rangée du mauvais côté.
+// The extension's state is split across two storages, and that split is what
+// decides what survives a reload. Three "extra window" reports had one common
+// cause: a tab identity filed on the wrong side.
 
 import test from "node:test";
 import assert from "node:assert/strict";
 
-/** Faux `chrome.storage` avec deux zones réellement distinctes. */
+/** A fake `chrome.storage` with two genuinely separate areas. */
 function fakeChrome() {
   const zones = { local: {}, session: {} };
 
@@ -36,7 +36,7 @@ async function freshStore() {
   return import(`../src/lib/storage.js?v=${Math.random()}`);
 }
 
-test("RÉGRESSION : l'identité des onglets survit à un rechargement de l'extension", async () => {
+test("REGRESSION: tab identity survives an extension reload", async () => {
   const { chrome, zones } = fakeChrome();
   globalThis.chrome = chrome;
   const store = await freshStore();
@@ -49,12 +49,12 @@ test("RÉGRESSION : l'identité des onglets survit à un rechargement de l'exten
     inventoryTabId: 13,
   });
 
-  // Un rechargement de l'extension vide `session`, jamais `local`.
+  // An extension reload clears `session`, never `local`.
   zones.session = {};
   globalThis.chrome.storage.session = fakeChrome().chrome.storage.session;
 
   const apres = await store.getState();
-  assert.equal(apres.windowId, 7, "sans la fenêtre, on en recrée une à côté");
+  assert.equal(apres.windowId, 7, "without the window, we create another one next to it");
   assert.equal(apres.pointsTabId, 11);
   assert.equal(apres.inventoryTabId, 13);
   assert.deepEqual(
@@ -63,7 +63,7 @@ test("RÉGRESSION : l'identité des onglets survit à un rechargement de l'exten
   );
 });
 
-test("ce qui n'a aucun sens de survivre ne survit pas", async () => {
+test("what makes no sense to survive does not survive", async () => {
   const { chrome, zones } = fakeChrome();
   globalThis.chrome = chrome;
   const store = await freshStore();
@@ -77,14 +77,14 @@ test("ce qui n'a aucun sens de survivre ne survit pas", async () => {
   zones.session = {};
 
   const apres = await store.getState();
-  assert.deepEqual(apres.beats, {}, "un battement d'avant le rechargement ne prouve rien");
+  assert.deepEqual(apres.beats, {}, "a heartbeat from before the reload proves nothing");
   assert.equal(apres.rotationIndex, -1);
   assert.equal(apres.proofCheckedAt, 0);
 });
 
-test("un battement ne touche pas le stockage sur disque", async () => {
-  // Cinq secondes d'intervalle, deux onglets : écrire sur disque à ce rythme
-  // pour une information périmée à la seconde suivante n'a aucun intérêt.
+test("a heartbeat does not touch on-disk storage", async () => {
+  // Five seconds apart, two tabs: writing to disk at that rate for information
+  // that is stale a second later is of no use whatsoever.
   const { chrome, zones } = fakeChrome();
   globalThis.chrome = chrome;
   const store = await freshStore();
@@ -96,10 +96,10 @@ test("un battement ne touche pas le stockage sur disque", async () => {
   await store.recordBeat(12, { at: 2, channel: "gotaga" });
 
   assert.equal(JSON.stringify(zones.local), avant);
-  assert.ok(zones.session.farmState.beats["11"], "le battement est bien allé en session");
+  assert.ok(zones.session.farmState.beats["11"], "the heartbeat did go to session");
 });
 
-test("forgetTab nettoie les deux zones", async () => {
+test("forgetTab cleans both areas", async () => {
   const { chrome, zones } = fakeChrome();
   globalThis.chrome = chrome;
   const store = await freshStore();
@@ -113,5 +113,5 @@ test("forgetTab nettoie les deux zones", async () => {
   assert.equal(apres.pointsTabId, null);
   assert.equal(apres.beats["11"], undefined);
   assert.equal(apres.tabChannels["11"], undefined);
-  assert.equal(zones.local.tabState.pointsTabId, null, "et c'est bien écrit sur disque");
+  assert.equal(zones.local.tabState.pointsTabId, null, "and it really is written to disk");
 });

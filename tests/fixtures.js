@@ -1,4 +1,4 @@
-// Échantillons de réponses GQL, réduits aux champs que l'extension lit.
+// Samples of GQL responses, cut down to the fields the extension reads.
 
 export const MINUTE = 60_000;
 export const HOUR = 60 * MINUTE;
@@ -37,7 +37,7 @@ export function campaignNode(overrides = {}) {
   };
 }
 
-/** Campagne restreinte à une liste de chaînes. */
+/** A campaign restricted to a list of channels. */
 export function restrictedCampaignNode(logins, overrides = {}) {
   return campaignNode({
     id: "camp-restreinte",
@@ -49,11 +49,11 @@ export function restrictedCampaignNode(logins, overrides = {}) {
   });
 }
 
-/** Campagne qui exige de lier son compte chez l'éditeur. */
+/** A campaign that requires linking the account at the publisher. */
 export function unlinkedCampaignNode(overrides = {}) {
   return campaignNode({
     id: "camp-non-liee",
-    name: "Campagne éditeur",
+    name: "Publisher campaign",
     accountLinkURL: "https://editeur.example/link",
     self: { isAccountConnected: false },
     ...overrides,

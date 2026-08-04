@@ -1,6 +1,6 @@
-// Tests de bout en bout : Chromium charge réellement dist/ et on pilote
-// le popup et la page d'options comme un utilisateur.
-// Prérequis : `python scripts/build.py` (dist/ à jour).
+// End-to-end tests: Chromium really loads dist/ and we drive the popup and the
+// options page the way a user would.
+// Prerequisite: `python scripts/build.py` (an up-to-date dist/).
 
 import { test, expect, chromium } from "@playwright/test";
 import path from "node:path";
@@ -11,8 +11,8 @@ import { tmpdir } from "node:os";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const DIST = path.join(ROOT, "dist");
 
-// La langue de l'interface suit celle du navigateur, et le runner de la CI est en
-// anglais : on accepte donc la traduction, quelle que soit la locale active.
+// The interface language follows the browser's, and the CI runner is in English:
+// so any translation is accepted, whatever the active locale.
 const LOCALES = ["fr", "en"].map((code) =>
   JSON.parse(readFileSync(path.join(ROOT, "_locales", code, "messages.json"), "utf8")),
 );
@@ -25,7 +25,7 @@ async function expectTranslated(locator, key) {
   const actual = (await locator.textContent()) ?? "";
   const expected = translations(key);
   expect(expected.length).toBeGreaterThan(0);
-  expect(expected, `texte "${actual}" absent des traductions de ${key}`).toContain(actual.trim());
+  expect(expected, `text "${actual}" is in none of the translations of ${key}`).toContain(actual.trim());
 }
 
 let context;
@@ -34,13 +34,13 @@ let profileDir;
 
 async function launch(dir) {
   const ctx = await chromium.launchPersistentContext(dir, {
-    // `channel: "chromium"` est obligatoire : le « headless shell » par défaut
-    // ne sait pas charger d'extension, il faut le vrai Chromium en --headless=new.
+    // `channel: "chromium"` is required: the default headless shell cannot load
+    // an extension, the real Chromium in --headless=new is needed.
     channel: "chromium",
     headless: true,
     args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
   });
-  // Le service worker peut mettre un instant à s'enregistrer.
+  // The service worker can take a moment to register.
   const worker = ctx.serviceWorkers()[0] ?? (await ctx.waitForEvent("serviceworker"));
   return { ctx, id: worker.url().split("/")[2] };
 }
@@ -59,12 +59,12 @@ test.afterAll(async () => {
 
 const url = (page) => `chrome-extension://${extensionId}/src/${page}`;
 
-test("l'extension se charge avec son service worker", async () => {
+test("the extension loads with its service worker", async () => {
   expect(extensionId).toMatch(/^[a-p]{32}$/);
   expect(context.serviceWorkers().length).toBeGreaterThan(0);
 });
 
-test("le popup s'affiche, traduit, sans erreur console", async () => {
+test("the popup renders, translated, with no console error", async () => {
   const page = await context.newPage();
   const errors = [];
   page.on("pageerror", (err) => errors.push(err.message));
@@ -74,18 +74,18 @@ test("le popup s'affiche, traduit, sans erreur console", async () => {
   await expectTranslated(page.locator("h1"), "popup_title");
   await expectTranslated(page.locator("#refresh"), "popup_btn_refresh");
 
-  // Aucune clé i18n laissée vide.
+  // No i18n key left empty.
   const empties = await page.locator("[data-i18n]:empty").count();
   expect(empties).toBe(0);
   expect(errors).toEqual([]);
   await page.close();
 });
 
-test("les voyants et le badge existent dès le premier lancement", async () => {
+test("the indicators and the badge exist from the very first launch", async () => {
   const page = await context.newPage();
   await page.goto(url("popup/popup.html"));
-  // Sans chaîne favorite : aucun onglet regardé, voyant rouge, et la liste vide
-  // dit pourquoi plutôt que de rester muette.
+  // With no favourite channel: no watched tab, a red indicator, and the empty
+  // list says why rather than staying silent.
   await expect(page.locator("#pointsDot")).toHaveClass(/red/);
   await expect(page.locator(".watcher")).toHaveCount(0);
   await expect(page.locator("#watchersEmpty")).toBeVisible();
@@ -93,21 +93,21 @@ test("les voyants et le badge existent dès le premier lancement", async () => {
   await page.close();
 });
 
-test("aller-retour de messages : la page d'options écrit, le worker répond", async () => {
+test("message round trip: the options page writes, the worker answers", async () => {
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
 
   await page.fill("#favoriteChannels", "https://www.twitch.tv/ZeratoR\n@gotaga");
-  await page.fill("#volumePercent", "0"); // sera ramené à 1 par la normalisation
+  await page.fill("#volumePercent", "0"); // will be brought back to 1 by the normalisation
   await page.selectOption("#priority", "closestToDone");
   await page.click("#save");
   await expect(page.locator("#saved")).toHaveClass(/show/);
 
-  // La réponse du service worker est déjà normalisée.
+  // The service worker's answer is already normalised.
   await expect(page.locator("#favoriteChannels")).toHaveValue("zerator\ngotaga");
   await expect(page.locator("#volumePercent")).toHaveValue("1");
 
-  // Et c'est bien écrit dans le stockage, pas seulement affiché.
+  // And it really is written to storage, not merely displayed.
   await expect
     .poll(() => page.evaluate(() => chrome.storage.local.get("favoriteChannels")))
     .toEqual({ favoriteChannels: ["zerator", "gotaga"] });
@@ -115,30 +115,30 @@ test("aller-retour de messages : la page d'options écrit, le worker répond", a
   await page.close();
 });
 
-test("RÉGRESSION : enregistrer est impossible avant que les réglages soient lus", async () => {
-  // Sinon le formulaire vide s'écrit par-dessus les vrais réglages, et les
-  // chaînes favorites disparaissent pour avoir cliqué trop tôt.
+test("REGRESSION: saving is impossible before the settings have been read", async () => {
+  // Otherwise the empty form is written over the real settings, and the favourite
+  // channels vanish for having clicked too early.
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
   await expect(page.locator("#save")).toBeEnabled();
   await page.close();
 });
 
-test("RÉGRESSION : « Enregistré » ne s'affiche pas si rien n'est enregistré", async () => {
+test("REGRESSION: \"Saved\" is not shown when nothing was saved", async () => {
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
   await expect(page.locator("#save")).toBeEnabled();
 
-  // On coupe la ligne avec le service worker : l'envoi échouera forcément.
+  // The line to the service worker is cut: the send is bound to fail.
   await page.evaluate(() => {
-    chrome.runtime.sendMessage = () => Promise.reject(new Error("lien coupé"));
+    chrome.runtime.sendMessage = () => Promise.reject(new Error("link cut"));
   });
   await page.click("#save");
 
   await expect(page.locator("#error")).toBeVisible();
   await expect(page.locator("#saved")).not.toHaveClass(/show/);
 
-  // Et surtout : rien n'a été écrasé au passage.
+  // And above all: nothing was overwritten along the way.
   await expect
     .poll(() => page.evaluate(() => chrome.storage.local.get("favoriteChannels")))
     .toEqual({ favoriteChannels: ["zerator", "gotaga"] });
@@ -146,7 +146,7 @@ test("RÉGRESSION : « Enregistré » ne s'affiche pas si rien n'est enregistré
   await page.close();
 });
 
-test("les réglages survivent au rechargement de la page", async () => {
+test("the settings survive a page reload", async () => {
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
   await expect(page.locator("#favoriteChannels")).toHaveValue("zerator\ngotaga");
@@ -155,17 +155,17 @@ test("les réglages survivent au rechargement de la page", async () => {
 });
 
 /**
- * Fermer le navigateur juste après une écriture peut la perdre : `storage.local`
- * n'est pas encore sur le disque. On relit la valeur depuis une page de
- * l'extension avant de couper, ce qui garantit qu'elle est bien posée et rend
- * ces deux tests déterministes plutôt qu'intermittents.
+ * Closing the browser right after a write can lose it: `storage.local` is not on
+ * disk yet. The value is read back from an extension page before shutting down,
+ * which guarantees it has landed and makes these two tests deterministic rather
+ * than intermittent.
  */
 async function restartBrowser() {
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
 
-  // On dump tout le stockage : si la valeur manque, le message d'échec doit
-  // dire ce qu'il y a à la place, pas seulement ce qui manque.
+  // The whole storage is dumped: if the value is missing, the failure message has
+  // to say what is there instead, not only what is absent.
   await expect
     .poll(async () => {
       const brut = await page.evaluate(() => chrome.storage.local.get(null));
@@ -185,7 +185,7 @@ async function restartBrowser() {
   extensionId = relaunched.id;
 }
 
-test("les réglages survivent à la mort du service worker (redémarrage du navigateur)", async () => {
+test("the settings survive the service worker's death (browser restart)", async () => {
   await restartBrowser();
 
   const page = await context.newPage();
@@ -195,10 +195,10 @@ test("les réglages survivent à la mort du service worker (redémarrage du navi
   await page.close();
 });
 
-test("RÉGRESSION : une montée de schéma ne perd aucun réglage", async () => {
-  // On rejoue une vraie migration : `storageVersion` remis à 1, puis redémarrage
-  // du navigateur. C'est le moment où `migrate()` tourne, et le seul endroit du
-  // code capable d'effacer des réglages sans bruit (issue #3).
+test("REGRESSION: a schema upgrade loses no setting", async () => {
+  // A real migration is replayed: `storageVersion` reset to 1, then a browser
+  // restart. That is when `migrate()` runs, and it is the one place in the code
+  // able to wipe settings without a sound (issue #3).
   const page = await context.newPage();
   await page.goto(url("options/options.html"));
   await page.evaluate(() => chrome.storage.local.set({ storageVersion: 1 }));
@@ -212,7 +212,7 @@ test("RÉGRESSION : une montée de schéma ne perd aucun réglage", async () => 
   await expect(after.locator("#priority")).toHaveValue("closestToDone");
   await expect(after.locator("#volumePercent")).toHaveValue("1");
 
-  // La migration a bien tourné, sinon le test ne prouverait rien.
+  // The migration really ran, otherwise the test would prove nothing.
   const version = await after.evaluate(() =>
     chrome.storage.local.get("storageVersion").then((r) => r.storageVersion),
   );
@@ -220,7 +220,7 @@ test("RÉGRESSION : une montée de schéma ne perd aucun réglage", async () => 
   await after.close();
 });
 
-test("le popup reflète les bascules et les repropage", async () => {
+test("the popup reflects the toggles and propagates them back", async () => {
   const page = await context.newPage();
   await page.goto(url("popup/popup.html"));
 
