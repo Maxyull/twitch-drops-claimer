@@ -149,7 +149,38 @@ details > summary:hover { color: var(--text); }
 .tag.partial { background: #3d3312; color: var(--orange); }
 .tag.uncounted { background: #3d1717; color: var(--red); }
 
+/* Le drop en cours, tout en haut : c'est ce qu'on vient voir. */
+.now {
+  background: var(--panel-hi);
+  border-left: 3px solid var(--purple);
+  border-radius: 8px;
+  padding: 9px 11px;
+  margin-bottom: 8px;
+}
+.now b { display: block; font-size: 13px; }
+.now small { color: var(--muted); font-size: 11px; }
+.now .bar { margin: 6px 0 4px; }
+
+/* Les compteurs servent de bouton d'ouverture du journal. */
+#historyBox > summary { display: block; margin: 0; padding: 0; text-transform: none; letter-spacing: 0; }
+#historyBox > summary::before { display: none; }
+#historyBox > summary:hover .stat { background: var(--panel-hi); }
+
+.event {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--line);
+}
+.event:last-child { border-bottom: none; }
+.event time { color: var(--muted); font-size: 11px; flex: none; font-variant-numeric: tabular-nums; }
+.event .what { flex: 1; min-width: 0; }
+.event b { display: block; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event small { color: var(--muted); font-size: 11px; }
+
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.stat { cursor: pointer; }
 .stat { background: var(--panel); border-radius: 8px; padding: 9px; text-align: center; }
 .stat b { display: block; font-size: 19px; color: var(--purple-soft); }
 .stat small { color: var(--muted); }

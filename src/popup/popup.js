@@ -142,6 +142,62 @@ function renderStats(stats) {
     : t("popup_no_claim");
 }
 
+/** Le drop en cours de farm, en tête : progression, palier suivant, échéance. */
+function renderCurrentDrop(campaigns) {
+  const box = $("currentDrop");
+  const courante = campaigns.find((c) => c.current);
+  box.hidden = !courante;
+  if (!courante) return;
+
+  box.replaceChildren();
+  box.append(el("b", null, courante.name || courante.game || ""));
+
+  const bar = el("div", "bar");
+  const fill = el("i");
+  fill.style.width = `${courante.progress.pct}%`;
+  bar.append(fill);
+  box.append(bar);
+
+  const bits = [
+    `${courante.progress.pct} %`,
+    t("popup_tiers", [String(courante.progress.claimed), String(courante.progress.total)]),
+    courante.claimable
+      ? t("popup_claimable", [String(courante.claimable)])
+      : fmtMinutes(courante.progress.remainingMinutes),
+    fmtRemaining(courante.endAt),
+  ].filter(Boolean);
+  box.append(el("small", null, bits.join(" · ")));
+}
+
+/** Le journal : ce qui a été réclamé, et à quelle heure. */
+function renderHistory(history) {
+  const list = $("history");
+  list.replaceChildren();
+  $("historyEmpty").hidden = history.length > 0;
+
+  for (const entry of history.slice(0, 60)) {
+    const li = el("li", "event");
+
+    const heure = document.createElement("time");
+    const date = new Date(entry.at);
+    heure.dateTime = date.toISOString();
+    heure.textContent = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    heure.title = date.toLocaleString();
+
+    const what = el("div", "what");
+    if (entry.kind === "points") {
+      what.append(el("b", null, t("popup_history_points")));
+      what.append(el("small", null, entry.channel));
+    } else {
+      what.append(el("b", null, entry.label || t("notif_drop_fallback")));
+      what.append(el("small", null, entry.campaign));
+    }
+
+    li.append(heure, what);
+    list.append(li);
+  }
+}
+
 function renderActions(actions) {
   const list = $("actions");
   list.replaceChildren();
@@ -269,12 +325,16 @@ function renderCampaigns(campaigns) {
 const COLLAPSIBLE = [
   ["campaignsBox", "tdc.campaignsOpen"],
   ["actionsBox", "tdc.actionsOpen"],
+  ["historyBox", "tdc.historyOpen"],
 ];
 
 function setupCollapse() {
   for (const [id, key] of COLLAPSIBLE) {
     const box = $(id);
-    box.open = localStorage.getItem(key) !== "0";
+    // Le journal est replié par défaut : on l'ouvre quand on se pose la question,
+    // il n'a pas à repousser le reste du popup vers le bas en permanence.
+    const parDefaut = id === "historyBox" ? "0" : "1";
+    box.open = (localStorage.getItem(key) ?? parDefaut) !== "0";
     box.addEventListener("toggle", () => localStorage.setItem(key, box.open ? "1" : "0"));
   }
 }
@@ -296,6 +356,8 @@ async function load() {
   for (const key of TOGGLES) $(key).classList.toggle("on", Boolean(state.settings[key]));
   renderWatchers(state);
   renderStats(state.stats);
+  renderCurrentDrop(state.campaigns);
+  renderHistory(state.history ?? []);
   renderActions(state.actions);
   renderCampaigns(state.campaigns);
   renderError(state.lastError);

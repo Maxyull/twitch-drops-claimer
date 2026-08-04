@@ -95,6 +95,17 @@ export async function touchLastClaim(label = "") {
   return stats;
 }
 
+/** Journal des réclamations : ce qui a été pris, et quand. */
+export async function getHistory() {
+  const { history = [] } = await chrome.storage.local.get("history");
+  return Array.isArray(history) ? history : [];
+}
+
+export async function setHistory(history) {
+  await write("local", { history });
+  return history;
+}
+
 /** Paliers déjà vus comme obtenus, pour ne compter chaque drop qu'une fois. */
 export async function getClaimedDrops() {
   const { claimedDropIds = [], claimedSeeded = false } = await chrome.storage.local.get([

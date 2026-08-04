@@ -517,5 +517,11 @@
   },
   "options_farm_tabs_hint": {
     "message": "One tab per campaign, on different channels. Twitch probably only advances one stream at a time: each row badge tells you which one really progresses."
+  },
+  "popup_history_empty": {
+    "message": "No claim recorded yet."
+  },
+  "popup_history_points": {
+    "message": "Points bonus"
   }
 }

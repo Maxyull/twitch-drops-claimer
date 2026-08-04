@@ -10,6 +10,7 @@ import {
 } from "../lib/campaigns.js";
 import { buildPendingActions, linkedOverrides, pruneActions } from "../lib/actions.js";
 import { mergeClaimed, trimRemembered } from "../lib/claimed-drops.js";
+import { HISTORY_KIND, addEntries, makeEntry } from "../lib/history.js";
 import { progressAdvanced } from "../lib/counted.js";
 import { mapLimited } from "../lib/concurrency.js";
 import * as gql from "./gql.js";
@@ -381,7 +382,28 @@ export async function syncClaimedDrops(campaigns) {
   const merged = mergeClaimed(ids, seeded, campaigns);
   await store.setClaimedDrops(trimRemembered(merged.ids));
 
-  if (merged.added.length) await store.bumpStat("drops", "", merged.added.length);
+  if (!merged.added.length) return 0;
+
+  // On retrouve le nom du palier et de sa campagne : un journal qui ne dirait
+  // que « un drop » ne vaudrait pas mieux qu'un compteur.
+  const nouveaux = new Set(merged.added);
+  const entrees = [];
+  for (const campaign of campaigns ?? []) {
+    for (const drop of campaign?.drops ?? []) {
+      if (!nouveaux.has(drop.id)) continue;
+      entrees.push(
+        makeEntry({
+          kind: HISTORY_KIND.DROP,
+          id: drop.id,
+          label: drop.name || drop.benefits?.[0]?.name || "",
+          campaign: campaign.name || campaign.gameName || "",
+        }),
+      );
+    }
+  }
+
+  await store.setHistory(addEntries(await store.getHistory(), entrees));
+  await store.bumpStat("drops", entrees[0]?.label ?? "", merged.added.length);
   return merged.added.length;
 }
 
@@ -460,6 +482,11 @@ export async function recordPointsClaim(channel) {
   }
 
   await store.setState({ lastPointsChannel: channel, lastPointsAt: now });
+  await store.setHistory(
+    addEntries(await store.getHistory(), [
+      makeEntry({ kind: HISTORY_KIND.POINTS, channel: channel ?? "" }, now),
+    ]),
+  );
   await store.bumpStat("points", channel ?? "");
   return true;
 }
