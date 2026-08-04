@@ -290,7 +290,7 @@
     "message": "Only on tabs opened by the extension."
   },
   "options_quality_160": {
-    "message": "160p (lowest bandwidth)"
+    "message": "160p (lowest with video)"
   },
   "options_quality_source": {
     "message": "Source"
@@ -546,5 +546,8 @@
   },
   "options_alert_after": {
     "message": "Delay before alerting (min)"
+  },
+  "options_quality_audio": {
+    "message": "Audio only (no video)"
   }
 }

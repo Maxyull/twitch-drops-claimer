@@ -290,7 +290,7 @@
     "message": "Uniquement sur les onglets ouverts par l'extension."
   },
   "options_quality_160": {
-    "message": "160p (le moins de bande passante)"
+    "message": "160p (le minimum avec image)"
   },
   "options_quality_source": {
     "message": "Source"
@@ -546,5 +546,8 @@
   },
   "options_alert_after": {
     "message": "Délai avant alerte (min)"
+  },
+  "options_quality_audio": {
+    "message": "Audio seul (aucune image)"
   }
 }

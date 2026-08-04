@@ -1,7 +1,9 @@
 // Réglages : valeurs par défaut + normalisation.
 // Module pur (aucune API chrome) pour rester testable sous Node.
 
-export const QUALITIES = ["160p30", "360p30", "480p30", "720p60", "source"];
+import { AUDIO_ONLY } from "./quality.js";
+
+export const QUALITIES = ["160p30", "360p30", "480p30", "720p60", "source", AUDIO_ONLY];
 
 export const PRIORITIES = ["endingSoon", "closestToDone", "order"];
 

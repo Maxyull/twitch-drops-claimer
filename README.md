@@ -107,7 +107,17 @@ le lecteur démarre, puis celui qui était devant revient. Une extension qui con
 l'onglet qu'on regardait ne vaut pas le gain. Un clic sur une ligne de la liste affiche
 l'onglet correspondant si vous voulez y aller vous-même, et là il y reste.
 
-La qualité est descendue à 160p pour la bande passante.
+La qualité est descendue à 160p pour la bande passante. Les réglages proposent aussi
+**audio seul**, quand la chaîne l'offre : plus rien n'est décodé en image, ce qui coûte
+nettement moins de bande passante et de processeur sur plusieurs onglets à la fois.
+
+Deux réserves, dites franchement :
+
+- Toutes les chaînes ne proposent pas l'audio seul. Si l'entrée n'existe pas dans le
+  menu du lecteur, l'extension **ne touche à rien** plutôt que de dégrader au hasard.
+- Un flux sans image reste un visionnage pour Twitch, mais l'extension ne le garantit
+  pas à sa place : le badge **« compté en viewer »** de la ligne est ce qui tranche.
+  S'il passe à « non compté » après le changement, revenez à 160p.
 
 ## Ce qu'il faut savoir
 
