@@ -1,13 +1,13 @@
-// Prévenir quand le farm ne tourne plus.
+// Warning when the farm stops running.
 //
-// Tout le diagnostic construit jusqu'ici ne sert qu'à celui qui ouvre le popup.
-// Un utilisateur lance le farm le soir, ne le rouvre pas, et perd sa nuit sans
-// jamais savoir qu'il l'a perdue.
+// All the diagnosis built so far only speaks to whoever opens the popup. A user
+// starts farming in the evening, does not reopen it, and loses the night without
+// ever knowing they lost it.
 //
-// Module pur.
+// Pure module.
 
 export const DEFAULT_ALERT_AFTER_MS = 15 * 60_000;
-/** Une panne qui dure ne doit pas produire une notification par cycle. */
+/** A lasting failure must not produce one notification per cycle. */
 export const REPEAT_AFTER_MS = 60 * 60_000;
 
 /**
@@ -23,9 +23,9 @@ export function evaluateAlert(etat, ctx = {}) {
     idleCode = "disabled",
   } = ctx;
 
-  // Rien à surveiller n'est pas une panne : sans chaîne favorite ni campagne
-  // en direct, l'extension n'a simplement rien à faire. Alerter là-dessus
-  // apprendrait à ignorer les alertes.
+  // Having nothing to watch is not a failure: with no favourite channel and no
+  // live campaign, the extension simply has nothing to do. Alerting on that
+  // would teach the user to ignore alerts.
   const auRepos = etat?.code === idleCode;
 
   if (etat?.green || auRepos) {
@@ -46,7 +46,7 @@ export function evaluateAlert(etat, ctx = {}) {
   return { brokenSince, alertedAt: now, notify: true, brokenFor };
 }
 
-/** Minutes écoulées, pour le texte de la notification. */
+/** Elapsed minutes, for the notification text. */
 export function minutesOf(ms) {
   return Math.max(1, Math.round(ms / 60_000));
 }

@@ -1,42 +1,42 @@
-// Choix d'une entrée dans le menu qualité du lecteur Twitch.
+// Picking an entry in the Twitch player's quality menu.
 //
-// Le menu est la seule voie fiable : `localStorage` n'est qu'une préférence que
-// le lecteur relit au chargement, et il ne la relit pas toujours.
+// The menu is the only reliable path: `localStorage` is just a preference the
+// player reads at load time, and it does not always read it.
 //
-// Module pur : il ne voit que des libellés, pas le DOM.
+// Pure module: it only ever sees labels, never the DOM.
 
 export const AUDIO_ONLY = "audio_only";
 
 /**
- * Twitch nomme l'entrée sans image « Audio Only », « Audio seulement »,
- * « Nur Audio »... Le mot commun est le même partout, et aucune autre entrée du
- * menu ne le contient : « Auto », « Source », « 720p60 ».
+ * Twitch names the image-less entry "Audio Only", "Audio seulement",
+ * "Nur Audio"... The shared word is the same everywhere, and no other menu
+ * entry contains it: "Auto", "Source", "720p60".
  */
 export function isAudioLabel(label) {
   return /audio/i.test(String(label ?? ""));
 }
 
 /**
- * Quelle entrée cliquer, par sa position dans le menu.
+ * Which entry to click, by its position in the menu.
  *
- * Attention : l'audio seul est le DERNIER de la liste. Choisir « la dernière »
- * pour économiser la bande passante revenait donc à couper l'image sans le
- * vouloir, sur les chaînes qui le proposent. D'où ce choix explicite.
+ * Careful: audio only is the LAST of the list. Picking "the last one" to save
+ * bandwidth therefore cut the image without meaning to, on every channel that
+ * offers it. Hence this explicit choice.
  *
- * @param {string[]} labels  libellés du menu, dans l'ordre d'affichage
- * @param {string}   wanted  qualité demandée
- * @returns {number} index à cliquer, -1 s'il n'y a rien de sensé à cliquer
+ * @param {string[]} labels  menu labels, in display order
+ * @param {string}   wanted  requested quality
+ * @returns {number} index to click, -1 when there is nothing sensible to click
  */
 export function chooseQualityIndex(labels, wanted) {
   const list = Array.isArray(labels) ? labels.map((l) => String(l ?? "")) : [];
   if (!list.length) return -1;
 
   const audio = list.findIndex(isAudioLabel);
-  // Demandé mais pas proposé par la chaîne : on ne touche à rien plutôt que de
-  // dégrader au hasard.
+  // Requested but not offered by the channel: touch nothing rather than
+  // degrading at random.
   if (wanted === AUDIO_ONLY) return audio;
 
-  // Sinon la plus basse qui garde une image, donc celle juste avant l'audio seul.
+  // Otherwise the lowest one that keeps an image, so the one just before audio only.
   const derniere = audio === -1 ? list.length - 1 : audio - 1;
   return derniere >= 0 ? derniere : -1;
 }

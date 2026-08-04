@@ -1,19 +1,19 @@
-// Journal des réclamations.
+// The claim log.
 //
-// Les compteurs disent combien, jamais quoi ni quand. Un compteur à zéro ne
-// permet même pas de distinguer « rien n'a été réclamé » de « l'information
-// a été perdue » : c'est exactement la question qui a motivé ce fichier.
+// Counters say how many, never what or when. A counter at zero does not even
+// let you tell "nothing was claimed" from "the information was lost": that is
+// exactly the question that prompted this file.
 //
-// Module pur.
+// Pure module.
 
 export const HISTORY_KIND = { DROP: "drop", POINTS: "points" };
 
-/** Assez pour couvrir plusieurs jours de farm, sans faire enfler le stockage. */
+/** Enough to cover several days of farming, without bloating storage. */
 export const MAX_HISTORY = 200;
 
 /**
  * @param {object} entry { kind, label, campaign, channel }
- * @param {number} at horodatage
+ * @param {number} at timestamp
  */
 export function makeEntry(entry, at = Date.now()) {
   const kind = entry?.kind === HISTORY_KIND.POINTS ? HISTORY_KIND.POINTS : HISTORY_KIND.DROP;
@@ -28,9 +28,9 @@ export function makeEntry(entry, at = Date.now()) {
 }
 
 /**
- * Ajoute des entrées, les plus récentes en tête.
- * Les drops portent un identifiant : on ne les inscrit qu'une fois, sinon un
- * relevé rejoué gonflerait le journal de doublons.
+ * Adds entries, most recent first.
+ * Drops carry an id: they are written once only, otherwise a replayed reading
+ * would fill the log with duplicates.
  */
 export function addEntries(list, entries, max = MAX_HISTORY) {
   const current = Array.isArray(list) ? list : [];
@@ -46,12 +46,12 @@ export function addEntries(list, entries, max = MAX_HISTORY) {
 
   if (!nouvelles.length) return current;
 
-  // Tri décroissant : la dernière réclamation se lit sans faire défiler.
+  // Descending: the latest claim reads without scrolling.
   const fusion = [...nouvelles, ...current].sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
   return fusion.slice(0, max);
 }
 
-/** Compte les entrées d'un type, pour recouper avec les compteurs. */
+/** Counts entries of one kind, to cross-check against the counters. */
 export function countKind(list, kind) {
   return (Array.isArray(list) ? list : []).filter((e) => e?.kind === kind).length;
 }

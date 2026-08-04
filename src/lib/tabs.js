@@ -1,24 +1,25 @@
-// Navigation par onglets du popup.
+// Tab navigation for the popup.
 //
-// La logique est ici, pure, parce qu'un clavier qui tourne mal dans une barre
-// d'onglets est le genre de défaut qu'on ne voit jamais à la main : il faut
-// tester les bords (première et dernière), et le bouclage.
+// The logic lives here, pure, because a keyboard that misbehaves in a tab bar is
+// exactly the kind of defect nobody catches by hand: you have to test the edges
+// (first and last) and the wrap-around.
 //
-// Le motif est celui d'ARIA : flèches pour changer d'onglet, Origine et Fin
-// pour aller aux extrémités, et un seul onglet atteignable par Tab.
+// The pattern is the ARIA one: arrows move between tabs, Home and End jump to the
+// ends, and only one tab is reachable with Tab.
 
 export const TABS = ["live", "history", "campaigns"];
 
 export const DEFAULT_TAB = "live";
 
-/** Une valeur venue du stockage n'est pas de confiance. */
+/** A value coming from storage is not trusted. */
 export function normalizeTab(value, fallback = DEFAULT_TAB) {
   return TABS.includes(value) ? value : fallback;
 }
 
 /**
- * Onglet visé par une touche, ou `null` si la touche ne nous concerne pas.
- * Le bouclage est voulu : arrivé au dernier, la flèche droite revient au premier.
+ * The tab a key targets, or `null` when the key is none of our business.
+ * Wrapping around is intentional: at the last tab, the right arrow returns to
+ * the first.
  */
 export function tabForKey(current, key, tabs = TABS) {
   const i = tabs.indexOf(current);
@@ -40,7 +41,7 @@ export function tabForKey(current, key, tabs = TABS) {
   }
 }
 
-// --- filtre du journal ----------------------------------------------------
+// --- claim log filter -----------------------------------------------------
 
 export const HISTORY_FILTERS = ["all", "drop", "points"];
 
@@ -49,9 +50,8 @@ export function normalizeFilter(value) {
 }
 
 /**
- * Le journal filtré. Un seul journal plutôt qu'un par type : la question qu'on
- * se pose le matin est « qu'est-ce qui s'est passé cette nuit », et elle
- * mélange les deux dans l'ordre du temps.
+ * The filtered log. One log rather than one per kind: the question you ask in
+ * the morning is "what happened overnight", and it mixes both in time order.
  */
 export function filterHistory(list, filter) {
   const entries = Array.isArray(list) ? list.filter(Boolean) : [];
