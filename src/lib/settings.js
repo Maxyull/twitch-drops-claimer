@@ -14,6 +14,9 @@ export const DEFAULT_SETTINGS = {
   claimPoints: true,
   watchFavorite: true,
   favoriteChannels: [],
+  // Aller chercher le bonus de série sur une favorite qui vient d'ouvrir,
+  // quitte à quitter celle en cours. Voir src/lib/streak.js.
+  watchStreak: true,
 
   // --- Drops ---
   farmDrops: true,
@@ -125,6 +128,7 @@ export function normalizeSettings(raw = {}) {
     claimPoints: bool(raw.claimPoints, d.claimPoints),
     watchFavorite: bool(raw.watchFavorite, d.watchFavorite),
     favoriteChannels: normalizeChannelList(raw.favoriteChannels),
+    watchStreak: bool(raw.watchStreak, d.watchStreak),
 
     farmDrops: bool(raw.farmDrops, d.farmDrops),
     autoDiscover: bool(raw.autoDiscover, d.autoDiscover),

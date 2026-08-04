@@ -14,6 +14,7 @@ import { buildPendingActions, linkedOverrides, pruneActions } from "../lib/actio
 import { mergeClaimed, trimRemembered } from "../lib/claimed-drops.js";
 import { HISTORY_KIND, addEntries, makeEntry } from "../lib/history.js";
 import { progressAdvanced } from "../lib/counted.js";
+import { rankForStreak, streakReachable } from "../lib/streak.js";
 import { mapLimited } from "../lib/concurrency.js";
 import * as gql from "./gql.js";
 import * as store from "../lib/storage.js";
@@ -717,7 +718,7 @@ export async function ensurePointsTab(settings) {
   // information qu'on n'a pas.
   let live = null;
   try {
-    live = await gql.liveLogins(settings.favoriteChannels);
+    live = await gql.liveChannels(settings.favoriteChannels);
   } catch {
     live = null;
   }
@@ -726,21 +727,61 @@ export async function ensurePointsTab(settings) {
     if (state.pointsChannel && (await tabExists(state.pointsTabId))) return state;
     const fallback = settings.favoriteChannels[0];
     const tabId = await ensureChannelTab(state.pointsTabId, fallback);
-    return store.setState({ pointsTabId: tabId, pointsChannel: fallback });
+    return store.setState({ pointsTabId: tabId, pointsChannel: fallback, pointsSince: Date.now() });
   }
 
   if (!live.length) {
     if (state.pointsTabId) await closeTab(state.pointsTabId);
-    return store.setState({ pointsTabId: null, pointsChannel: null });
+    return store.setState({ pointsTabId: null, pointsChannel: null, pointsSince: null });
   }
 
-  // On ne zappe pas une favorite qui marche pour une autre mieux classée.
-  const target = live.includes(state.pointsChannel)
-    ? state.pointsChannel
-    : settings.favoriteChannels.find((c) => live.includes(c));
+  const target = pickFavorite(settings, state, live);
+  const change = target !== state.pointsChannel;
 
   const tabId = await ensureChannelTab(state.pointsTabId, target);
-  return store.setState({ pointsTabId: tabId, pointsChannel: target });
+  return store.setState({
+    pointsTabId: tabId,
+    pointsChannel: target,
+    pointsSince: change ? Date.now() : (state.pointsSince ?? Date.now()),
+  });
+}
+
+/**
+ * Laquelle des favorites en direct regarder.
+ *
+ * Par défaut on ne zappe pas une favorite qui marche : changer d'onglet coûte
+ * un rechargement et repart de zéro. La seule raison d'en changer est un bonus
+ * de série encore atteignable ailleurs et plus atteignable ici, parce que celui
+ * là ne repassera pas : il se prend au début d'un flux ou pas du tout.
+ */
+function pickFavorite(settings, state, live) {
+  const logins = live.map((c) => c.login);
+  const courante = logins.includes(state.pointsChannel) ? state.pointsChannel : null;
+  const now = Date.now();
+
+  if (!settings.watchStreak) {
+    return courante ?? settings.favoriteChannels.find((c) => logins.includes(c));
+  }
+
+  const candidats = settings.favoriteChannels
+    .map((login) => live.find((c) => c.login === login))
+    .filter(Boolean)
+    .map((c) => ({
+      ...c,
+      watchedMs: c.login === state.pointsChannel ? now - (state.pointsSince ?? now) : 0,
+    }));
+
+  const ordre = rankForStreak(candidats, { now });
+  const meilleur = ordre[0] ?? null;
+  if (!courante) return meilleur ?? settings.favoriteChannels.find((c) => logins.includes(c));
+  if (meilleur === courante) return courante;
+
+  const parLogin = new Map(candidats.map((c) => [c.login, c]));
+  const gagne =
+    streakReachable(parLogin.get(meilleur), { now }) &&
+    !streakReachable(parLogin.get(courante), { now });
+
+  return gagne ? meilleur : courante;
 }
 
 /** Une entrée de farm est-elle encore valable ? */

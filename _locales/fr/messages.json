@@ -549,5 +549,11 @@
   },
   "options_quality_audio": {
     "message": "Audio seul (aucune image)"
+  },
+  "options_watch_streak": {
+    "message": "Aller chercher les bonus de série"
+  },
+  "options_watch_streak_hint": {
+    "message": "Quand une favorite vient d'ouvrir, la regarder six minutes rapporte un bonus de série qui ne repassera pas. L'extension quitte alors la chaîne en cours, mais seulement si celle-ci ne peut plus rien donner de tel."
   }
 }

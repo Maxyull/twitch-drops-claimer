@@ -181,6 +181,9 @@ export async function setLastError(message) {
 const EMPTY_STATE = {
   pointsTabId: null,
   pointsChannel: null,
+  // Depuis quand on regarde cette favorite : sert à savoir si le bonus de
+  // série y est encore atteignable.
+  pointsSince: null,
   // Un onglet de farm par campagne : { tabId, channel, campaignId, since }.
   dropTabs: [],
   inventoryTabId: null,
@@ -248,6 +251,7 @@ export async function setCapturedHeaders(captured) {
 const PERSISTENT_STATE_KEYS = new Set([
   "pointsTabId",
   "pointsChannel",
+  "pointsSince",
   "dropTabs",
   "inventoryTabId",
   "inventorySince",
