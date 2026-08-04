@@ -18,7 +18,7 @@ function beat(overrides = {}) {
   };
 }
 
-test("vert quand le lecteur avance", () => {
+test("green when the player is advancing", () => {
   const s = evaluateBeat(beat(), beat({ at: NOW - 5000, currentTime: 115 }), {
     now: NOW,
     expectedChannel: "zerator",
@@ -28,7 +28,7 @@ test("vert quand le lecteur avance", () => {
   assert.equal(s.channel, "zerator");
 });
 
-test("vert au tout premier battement, sans précédent", () => {
+test("green on the very first heartbeat, with no previous one", () => {
   const s = evaluateBeat(beat(), null, { now: NOW });
   assert.equal(s.code, STATUS.OK);
 });
@@ -39,20 +39,20 @@ test("rouge : lecteur en pause", () => {
   assert.equal(s.green, false);
 });
 
-test("RÉGRESSION : lecture refusée par le navigateur, distinguée d'une pause", () => {
-  // Même symptôme visible qu'une pause, mais ni la cause ni le remède : dire
-  // « en pause » envoyait chercher un problème là où il n'est pas.
+test("REGRESSION: playback refused by the browser, told apart from a pause", () => {
+  // Same visible symptom as a pause, but neither the cause nor the remedy:
+  // saying "paused" sent people looking for a problem where there is none.
   const s = evaluateBeat(beat({ paused: true, blocked: true }), null, { now: NOW });
   assert.equal(s.code, STATUS.BLOCKED);
   assert.equal(s.green, false);
 });
 
-test("un blocage ne masque pas une chaîne hors ligne", () => {
+test("a block does not mask an offline channel", () => {
   const s = evaluateBeat(beat({ blocked: true, offline: true }), null, { now: NOW });
   assert.equal(s.code, STATUS.OFFLINE);
 });
 
-test("rouge : flux figé (l'horloge de la vidéo n'avance plus)", () => {
+test("red: frozen stream (the video clock has stopped moving)", () => {
   const s = evaluateBeat(beat({ currentTime: 120 }), beat({ at: NOW - 5000, currentTime: 120 }), {
     now: NOW,
   });
@@ -60,13 +60,13 @@ test("rouge : flux figé (l'horloge de la vidéo n'avance plus)", () => {
   assert.equal(s.green, false);
 });
 
-test("rouge : plus de battement depuis trop longtemps", () => {
+test("red: no heartbeat for too long", () => {
   const s = evaluateBeat(beat({ at: NOW - BEAT_TIMEOUT_MS - 1 }), null, { now: NOW });
   assert.equal(s.code, STATUS.NO_BEAT);
   assert.equal(s.green, false);
 });
 
-test("rouge : onglet fermé, chaîne hors ligne, mauvaise chaîne", () => {
+test("red: tab closed, channel offline, wrong channel", () => {
   assert.equal(evaluateBeat(beat(), null, { now: NOW, tabExists: false }).code, STATUS.NO_TAB);
   assert.equal(evaluateBeat(beat({ offline: true }), null, { now: NOW }).code, STATUS.OFFLINE);
   assert.equal(
@@ -75,37 +75,37 @@ test("rouge : onglet fermé, chaîne hors ligne, mauvaise chaîne", () => {
   );
 });
 
-test("vert pendant une publicité : le temps continue de compter", () => {
+test("green during an ad: the time keeps counting", () => {
   const s = evaluateBeat(beat({ ads: true, paused: true }), null, { now: NOW });
   assert.equal(s.code, STATUS.ADS);
   assert.equal(s.green, true);
 });
 
-test("désactivé n'est ni vert ni une erreur à corriger", () => {
+test("disabled is neither green nor an error to fix", () => {
   const s = evaluateBeat(beat(), null, { now: NOW, enabled: false });
   assert.equal(s.code, STATUS.DISABLED);
   assert.equal(s.green, false);
 });
 
-test("aucun battement du tout", () => {
+test("no heartbeat at all", () => {
   assert.equal(evaluateBeat(null, null, { now: NOW }).code, STATUS.NO_BEAT);
 });
 
-test("isGreen distingue ce qui fait avancer le temps de visionnage", () => {
+test("isGreen tells apart what actually accrues watch time", () => {
   assert.equal(isGreen(STATUS.OK), true);
   assert.equal(isGreen(STATUS.ADS), true);
   assert.equal(isGreen(STATUS.STALLED), false);
   assert.equal(isGreen(STATUS.DISABLED), false);
 });
 
-test("RÉGRESSION : aucun libellé lisible ne sort de ce module", () => {
-  // Les textes d'interface vivent dans _locales, pas ici : un libellé en dur
-  // échapperait à la traduction et au test de couverture i18n.
+test("REGRESSION: no human-readable label comes out of this module", () => {
+  // Interface text lives in _locales, not here: a hardcoded label would escape
+  // both translation and the i18n coverage test.
   const state = evaluateBeat(beat(), null, { now: NOW });
   assert.deepEqual(Object.keys(state).sort(), ["age", "channel", "code", "green"]);
 });
 
-test("summarize remonte le premier problème", () => {
+test("summarize surfaces the first problem", () => {
   const ok = evaluateBeat(beat(), null, { now: NOW });
   const ko = evaluateBeat(beat({ paused: true }), null, { now: NOW });
   assert.equal(summarize([ok, ok]).green, true);
@@ -113,7 +113,7 @@ test("summarize remonte le premier problème", () => {
   assert.equal(summarize([ok, ko]).code, STATUS.PAUSED);
 });
 
-test("summarize ignore les voyants désactivés", () => {
+test("summarize ignores disabled indicators", () => {
   const off = evaluateBeat(beat(), null, { now: NOW, enabled: false });
   const ok = evaluateBeat(beat(), null, { now: NOW });
   assert.equal(summarize([off, ok]).green, true);

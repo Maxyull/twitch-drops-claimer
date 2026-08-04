@@ -13,13 +13,13 @@ import {
 const message = (topic, inner) =>
   JSON.stringify({ type: "MESSAGE", data: { topic, message: JSON.stringify(inner) } });
 
-test("un sujet de raid par chaîne regardée, sans doublon", () => {
+test("one raid topic per watched channel, no duplicates", () => {
   assert.deepEqual(channelTopics(["1", "2", "1"]), ["raid.1", "raid.2"]);
   assert.deepEqual(channelTopics([null, "", "  ", 3]), ["raid.3"]);
   assert.deepEqual(channelTopics(null), []);
 });
 
-test("un raid annoncé porte son identifiant et sa cible", () => {
+test("an announced raid carries its id and its target", () => {
   const evt = parseFrame(
     message("raid.999", {
       type: "raid_update_v2",
@@ -34,10 +34,9 @@ test("un raid annoncé porte son identifiant et sa cible", () => {
   });
 });
 
-test("RÉGRESSION : un raid sans identifiant n'est pas exploitable", () => {
-  // On ne peut pas rejoindre un raid sans son identifiant, et Twitch envoie
-  // aussi des formes intermédiaires. Les traiter comme un raid ferait partir
-  // une requête vide.
+test("REGRESSION: a raid without an id is unusable", () => {
+  // A raid cannot be joined without its id, and Twitch also sends intermediate
+  // shapes. Treating those as a raid would fire an empty request.
   const inutilisables = [
     message("raid.999", { type: "raid_update_v2", raid: {} }),
     message("raid.999", { type: "raid_update_v2" }),
@@ -47,21 +46,21 @@ test("RÉGRESSION : un raid sans identifiant n'est pas exploitable", () => {
   for (const raw of inutilisables) assert.equal(parseFrame(raw).kind, EVENT.UNKNOWN);
 });
 
-test("une cible absente ne devient pas une chaîne vide", () => {
+test("a missing target does not become an empty string", () => {
   const evt = parseFrame(message("raid.999", { type: "raid_update_v2", raid: { id: "r" } }));
   assert.equal(evt.kind, EVENT.RAID);
-  assert.equal(evt.targetLogin, null, "null, pas la chaîne vide");
+  assert.equal(evt.targetLogin, null, "null, not the empty string");
 });
 
-test("le delta n'envoie que les différences", () => {
+test("the delta only sends the differences", () => {
   const d = topicDelta(["a", "b"], ["b", "c"]);
   assert.deepEqual(d.listen, ["c"]);
   assert.deepEqual(d.unlisten, ["a"]);
 });
 
-test("RÉGRESSION : changer d'onglet ne coupe pas les sujets du compte", () => {
-  // Un désabonnement global suivi d'un réabonnement ferait perdre les coffres
-  // et les paliers à chaque rotation d'onglet.
+test("REGRESSION: changing tab does not cut the account's topics", () => {
+  // A global unsubscribe followed by a resubscribe would lose the chests and the
+  // tiers on every tab rotation.
   const compte = userTopics("42");
   const avant = [...compte, ...channelTopics(["1"])];
   const apres = [...compte, ...channelTopics(["2"])];
@@ -70,18 +69,18 @@ test("RÉGRESSION : changer d'onglet ne coupe pas les sujets du compte", () => {
   assert.deepEqual(d.listen, ["raid.2"]);
   assert.deepEqual(d.unlisten, ["raid.1"]);
   for (const sujet of compte) {
-    assert.equal(d.unlisten.includes(sujet), false, `${sujet} ne doit pas être coupé`);
+    assert.equal(d.unlisten.includes(sujet), false, `${sujet} must not be cut`);
   }
 });
 
-test("rien à changer n'envoie rien", () => {
+test("nothing to change sends nothing", () => {
   const d = topicDelta(["a", "b"], ["b", "a"]);
   assert.deepEqual(d.listen, []);
   assert.deepEqual(d.unlisten, []);
 });
 
-test("la trame de désabonnement ne porte pas de jeton", () => {
-  // Le jeton n'a rien à faire là : il n'est utile qu'à l'abonnement.
+test("the unsubscribe frame carries no token", () => {
+  // The token has no business there: it is only needed to subscribe.
   const frame = unlistenFrame(["raid.1"], "n2");
   assert.equal(frame.type, "UNLISTEN");
   assert.deepEqual(frame.data, { topics: ["raid.1"] });

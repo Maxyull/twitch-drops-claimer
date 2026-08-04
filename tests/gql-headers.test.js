@@ -12,7 +12,7 @@ import {
 
 const NOW = 1_800_000_000_000;
 
-/** En-têtes tels que webRequest les fournit pour une requête réelle de la page. */
+/** Headers as webRequest provides them for a real request from the page. */
 function realHeaders(overrides = []) {
   return [
     { name: "Authorization", value: "OAuth abcdef123456" },
@@ -31,7 +31,7 @@ function realHeaders(overrides = []) {
   ];
 }
 
-test("ne reprend que les en-têtes utiles à l'API", () => {
+test("only takes the headers the API needs", () => {
   const picked = pickForwardableHeaders(realHeaders());
   assert.deepEqual(Object.keys(picked).sort(), [
     "Accept-Language",
@@ -44,21 +44,21 @@ test("ne reprend que les en-têtes utiles à l'API", () => {
   ]);
 });
 
-test("RÉGRESSION : le cookie n'est jamais repris", () => {
-  // Le cookie porte la session complète et n'a rien à faire dans notre requête :
-  // le navigateur ne l'enverra pas, et le stocker serait une fuite inutile.
+test("REGRESSION: the cookie is never taken", () => {
+  // The cookie carries the whole session and has no business in our request:
+  // the browser will not send it, and storing it would be a pointless leak.
   const picked = pickForwardableHeaders(realHeaders());
   assert.equal("Cookie" in picked, false);
   assert.equal(JSON.stringify(picked).includes("auth-token=secret"), false);
   assert.equal(FORWARDED_HEADERS.has("cookie"), false);
 });
 
-test("le nom d'origine est conservé, la comparaison est insensible à la casse", () => {
+test("the original name is kept, the comparison is case-insensitive", () => {
   const picked = pickForwardableHeaders([{ name: "client-INTEGRITY", value: "jeton" }]);
   assert.deepEqual(picked, { "client-INTEGRITY": "jeton" });
 });
 
-test("les en-têtes vides ou mal formés sont ignorés", () => {
+test("empty or malformed headers are ignored", () => {
   const picked = pickForwardableHeaders([
     { name: "Client-Integrity", value: "" },
     { name: "Authorization", value: null },
@@ -69,12 +69,12 @@ test("les en-têtes vides ou mal formés sont ignorés", () => {
   assert.deepEqual(pickForwardableHeaders(undefined), {});
 });
 
-test("une capture n'est exploitable qu'avec intégrité ET autorisation", () => {
+test("a capture is only usable with integrity AND authorisation", () => {
   const complet = { headers: pickForwardableHeaders(realHeaders()), at: NOW };
   assert.equal(isUsable(complet), true);
 
   const sansIntegrite = { headers: { Authorization: "OAuth x" }, at: NOW };
-  assert.equal(isUsable(sansIntegrite), false, "c'est précisément ce qui manquait");
+  assert.equal(isUsable(sansIntegrite), false, "that is precisely what was missing");
 
   const sansAuth = { headers: { "Client-Integrity": "jeton" }, at: NOW };
   assert.equal(isUsable(sansAuth), false);
@@ -82,7 +82,7 @@ test("une capture n'est exploitable qu'avec intégrité ET autorisation", () => 
   assert.equal(isUsable({}), false);
 });
 
-test("une capture se périme", () => {
+test("a capture expires", () => {
   assert.equal(isStale({ at: NOW }, NOW), false);
   assert.equal(isStale({ at: NOW - HEADERS_MAX_AGE_MS + 1000 }, NOW), false);
   assert.equal(isStale({ at: NOW - HEADERS_MAX_AGE_MS - 1000 }, NOW), true);
@@ -90,7 +90,7 @@ test("une capture se périme", () => {
   assert.equal(isStale({}, NOW), true);
 });
 
-test("la requête sortante impose son propre Content-Type", () => {
+test("the outgoing request imposes its own Content-Type", () => {
   const captured = { headers: pickForwardableHeaders(realHeaders()), at: NOW };
   const headers = buildRequestHeaders(captured);
   assert.equal(headers["Content-Type"], "application/json");

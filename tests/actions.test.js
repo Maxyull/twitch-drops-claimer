@@ -15,10 +15,10 @@ import {
 import { parseCampaign } from "../src/lib/campaigns.js";
 import { campaignNode, unlinkedCampaignNode, DAY } from "./fixtures.js";
 
-// Les fixtures datent les campagnes par rapport à maintenant : on aligne.
+// The fixtures date the campaigns relative to now: we line up with them.
 const NOW = Date.now();
 
-test("buildPendingActions ne signale que les comptes non liés", () => {
+test("buildPendingActions only reports unlinked accounts", () => {
   const campaigns = [parseCampaign(campaignNode()), parseCampaign(unlinkedCampaignNode())];
   const { list, added } = buildPendingActions(campaigns, [], NOW);
   assert.equal(list.length, 1);
@@ -29,18 +29,18 @@ test("buildPendingActions ne signale que les comptes non liés", () => {
   assert.equal(list[0].done, false);
 });
 
-test("buildPendingActions ne perd jamais une case déjà cochée", () => {
+test("buildPendingActions never loses a box that was already ticked", () => {
   const campaigns = [parseCampaign(unlinkedCampaignNode())];
   const first = buildPendingActions(campaigns, [], NOW).list;
   const checked = setDone(first, first[0].id, true, NOW);
 
   const second = buildPendingActions(campaigns, checked, NOW + DAY);
   assert.equal(second.list.length, 1);
-  assert.equal(second.list[0].done, true, "la campagne réapparaît, la case reste cochée");
-  assert.equal(second.added.length, 0, "pas de nouvelle notification");
+  assert.equal(second.list[0].done, true, "the campaign comes back, the box stays ticked");
+  assert.equal(second.added.length, 0, "no new notification");
 });
 
-test("redeemAction n'existe que pour une campagne à site partenaire", () => {
+test("redeemAction only exists for a campaign with a partner site", () => {
   const withLink = parseCampaign(unlinkedCampaignNode());
   const plain = parseCampaign(campaignNode());
   const drop = withLink.drops[0];
@@ -52,7 +52,7 @@ test("redeemAction n'existe que pour une campagne à site partenaire", () => {
   assert.equal(redeemAction(null, drop, NOW), null);
 });
 
-test("addAction ignore les doublons", () => {
+test("addAction ignores duplicates", () => {
   const campaign = parseCampaign(unlinkedCampaignNode());
   const action = redeemAction(campaign, campaign.drops[0], NOW);
   const once = addAction([], action);
@@ -60,7 +60,7 @@ test("addAction ignore les doublons", () => {
   assert.equal(addAction(once, null).length, 1);
 });
 
-test("une action lien et une action récupération coexistent", () => {
+test("a link action and a redeem action coexist", () => {
   const campaign = parseCampaign(unlinkedCampaignNode());
   const { list } = buildPendingActions([campaign], [], NOW);
   const full = addAction(list, redeemAction(campaign, campaign.drops[0], NOW));
@@ -68,7 +68,7 @@ test("une action lien et une action récupération coexistent", () => {
   assert.equal(new Set(full.map((a) => a.id)).size, 2);
 });
 
-test("setDone bascule dans les deux sens et horodate", () => {
+test("setDone toggles both ways and timestamps", () => {
   const campaign = parseCampaign(unlinkedCampaignNode());
   const { list } = buildPendingActions([campaign], [], NOW);
   const done = setDone(list, list[0].id, true, NOW);
@@ -92,22 +92,22 @@ test("compteurs et surcharges de liaison", () => {
   assert.deepEqual(linkedOverrides(done), ["camp-non-liee"]);
 });
 
-test("linkedOverrides ignore les actions de type récupération", () => {
+test("linkedOverrides ignores redeem actions", () => {
   const campaign = parseCampaign(unlinkedCampaignNode());
   const redeem = redeemAction(campaign, campaign.drops[0], NOW);
   const list = setDone(addAction([], redeem), redeem.id, true, NOW);
   assert.deepEqual(linkedOverrides(list), []);
 });
 
-test("pruneActions nettoie le vieux et garde ce qui est à faire", () => {
+test("pruneActions clears out the old and keeps what is still to do", () => {
   const campaign = parseCampaign(unlinkedCampaignNode());
   const { list } = buildPendingActions([campaign], [], NOW);
   const done = setDone(list, list[0].id, true, NOW - 8 * DAY);
 
-  assert.equal(pruneActions(done, NOW).length, 0, "cochée depuis plus d'une semaine");
-  assert.equal(pruneActions(list, NOW).length, 1, "pas cochée, on garde");
+  assert.equal(pruneActions(done, NOW).length, 0, "ticked more than a week ago");
+  assert.equal(pruneActions(list, NOW).length, 1, "not ticked, keep it");
 
   const expired = [{ ...list[0], endAt: NOW - 3 * DAY }];
-  assert.equal(pruneActions(expired, NOW).length, 0, "campagne finie depuis longtemps");
+  assert.equal(pruneActions(expired, NOW).length, 0, "campaign ended long ago");
   assert.deepEqual(pruneActions([null, undefined], NOW), []);
 });

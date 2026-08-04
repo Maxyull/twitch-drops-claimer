@@ -15,19 +15,19 @@ const drop = (id, required, watched) => ({
 
 const campagne = (id, drops) => ({ id, name: id, gameName: "Jeu", channels: [], drops });
 
-test("la session en direct fait monter le palier concerné", () => {
+test("the live session pushes the relevant tier up", () => {
   const stockees = [campagne("c1", [drop("d1", 60, 12), drop("d2", 120, 12)])];
 
   const res = applyLiveSession(stockees, { dropID: "d1", watchedMinutes: 19 });
   assert.equal(res.changed, true);
   assert.equal(res.campaigns[0].drops[0].watchedMinutes, 19);
-  assert.equal(res.campaigns[0].drops[1].watchedMinutes, 12, "les autres paliers ne bougent pas");
+  assert.equal(res.campaigns[0].drops[1].watchedMinutes, 12, "the other tiers do not move");
 });
 
-test("RÉGRESSION : un compteur ne recule jamais", () => {
-  // L'inventaire et la session en direct ne se rafraîchissent pas au même
-  // rythme. Une valeur plus vieille qui arrive après une plus récente ferait
-  // redescendre la barre sous les yeux de l'utilisateur.
+test("REGRESSION: a counter never goes backwards", () => {
+  // The inventory and the live session do not refresh at the same rate. An older
+  // value arriving after a newer one would pull the bar back down in front of the
+  // user.
   const stockees = [campagne("c1", [drop("d1", 60, 40)])];
 
   const res = applyLiveSession(stockees, { dropID: "d1", watchedMinutes: 35 });
@@ -36,22 +36,22 @@ test("RÉGRESSION : un compteur ne recule jamais", () => {
   assert.equal(res.campaigns[0], stockees[0], "aucune copie non plus");
 });
 
-test("une valeur identique n'écrit rien", () => {
-  // L'appel tourne chaque minute alors que Twitch compte par minute entière :
-  // la plupart des passages ne changent rien.
+test("an identical value writes nothing", () => {
+  // The call runs every minute while Twitch counts in whole minutes: most passes
+  // change nothing.
   const stockees = [campagne("c1", [drop("d1", 60, 40)])];
   const res = applyLiveSession(stockees, { dropID: "d1", watchedMinutes: 40 });
   assert.equal(res.changed, false);
 });
 
-test("un palier inconnu ne crée rien", () => {
+test("an unknown tier creates nothing", () => {
   const stockees = [campagne("c1", [drop("d1", 60, 40)])];
   const res = applyLiveSession(stockees, { dropID: "inconnu", watchedMinutes: 99 });
   assert.equal(res.changed, false);
   assert.equal(res.campaigns[0].drops.length, 1);
 });
 
-test("une session vide ou illisible ne touche à rien", () => {
+test("an empty or unreadable session touches nothing", () => {
   const stockees = [campagne("c1", [drop("d1", 60, 40)])];
 
   for (const session of [null, undefined, {}, { dropID: "d1" }, { dropID: "d1", watchedMinutes: "x" }]) {
@@ -70,7 +70,7 @@ test("la barre suit vraiment", () => {
   assert.equal(campaignProgress(res.campaigns[0]).remainingMinutes, 30);
 });
 
-test("aucune campagne stockée : pas d'erreur", () => {
+test("no campaign stored: no error", () => {
   assert.deepEqual(applyLiveSession([], { dropID: "d1", watchedMinutes: 3 }), {
     campaigns: [],
     changed: false,

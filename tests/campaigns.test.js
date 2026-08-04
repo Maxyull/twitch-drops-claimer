@@ -18,7 +18,7 @@ import {
 } from "../src/lib/campaigns.js";
 import { campaignNode, restrictedCampaignNode, unlinkedCampaignNode, DAY, HOUR } from "./fixtures.js";
 
-test("parseCampaign lit les champs utiles et convertit les dates", () => {
+test("parseCampaign reads the useful fields and converts the dates", () => {
   const c = parseCampaign(campaignNode());
   assert.equal(c.id, "camp-1");
   assert.equal(c.gameSlug, "jeu-test");
@@ -38,13 +38,13 @@ test("parseCampaign survit aux champs absents", () => {
   assert.equal(c.isAccountConnected, null);
 });
 
-test("parseCampaign renvoie null sans identifiant", () => {
+test("parseCampaign returns null without an id", () => {
   assert.equal(parseCampaign(null), null);
   assert.equal(parseCampaign({}), null);
   assert.deepEqual(parseCampaigns([null, {}, campaignNode()]).length, 1);
 });
 
-test("dropState distingue les quatre situations", () => {
+test("dropState tells the four situations apart", () => {
   const c = parseCampaign(campaignNode());
   assert.equal(dropState(c.drops[0]), DROP_STATE.IN_PROGRESS);
   assert.equal(dropState(c.drops[1]), DROP_STATE.TODO);
@@ -56,7 +56,7 @@ test("dropState distingue les quatre situations", () => {
   );
 });
 
-test("campaignProgress agrège et plafonne le temps regardé", () => {
+test("campaignProgress aggregates and caps the watched time", () => {
   const c = parseCampaign(campaignNode());
   const p = campaignProgress(c);
   assert.equal(p.total, 2);
@@ -68,14 +68,14 @@ test("campaignProgress agrège et plafonne le temps regardé", () => {
   assert.equal(p.remainingMinutes, 30);
 });
 
-test("campaignProgress ne compte pas le temps au-delà du palier", () => {
+test("campaignProgress does not count time beyond the tier", () => {
   const node = campaignNode();
   node.timeBasedDrops[0].self.currentMinutesWatched = 500;
   const p = campaignProgress(parseCampaign(node));
   assert.equal(p.watched, 60);
 });
 
-test("campaignProgress détecte une campagne terminée", () => {
+test("campaignProgress detects a finished campaign", () => {
   const node = campaignNode();
   for (const d of node.timeBasedDrops) d.self.isClaimed = true;
   const p = campaignProgress(parseCampaign(node));
@@ -84,12 +84,12 @@ test("campaignProgress détecte une campagne terminée", () => {
   assert.equal(nextDrop(parseCampaign(node)), null);
 });
 
-test("nextDrop prend le palier restant le plus court", () => {
+test("nextDrop takes the shortest remaining tier", () => {
   const c = parseCampaign(campaignNode());
   assert.equal(nextDrop(c).id, "drop-1");
 });
 
-test("claimableDrops liste ce qui est prêt", () => {
+test("claimableDrops lists what is ready", () => {
   const node = campaignNode();
   node.timeBasedDrops[0].self.dropInstanceID = "inst-1";
   const c = parseCampaign(node);
@@ -97,14 +97,14 @@ test("claimableDrops liste ce qui est prêt", () => {
   assert.equal(claimableDrops(c)[0].dropInstanceID, "inst-1");
 });
 
-test("needsAccountLink ne se déclenche que si l'info est connue et négative", () => {
+test("needsAccountLink only fires when the information is known and negative", () => {
   assert.equal(needsAccountLink(parseCampaign(unlinkedCampaignNode())), true);
   assert.equal(needsAccountLink(parseCampaign(campaignNode())), false);
-  // Info absente (requête sans le champ self) : on ne bloque pas la campagne.
+  // Information absent (query without the self field): the campaign is not blocked.
   assert.equal(needsAccountLink(parseCampaign({ id: "z", accountLinkURL: "https://x" })), false);
 });
 
-test("isActive tient compte du statut et de la fenêtre de dates", () => {
+test("isActive takes the status and the date window into account", () => {
   const now = Date.now();
   assert.equal(isActive(parseCampaign(campaignNode()), now), true);
   assert.equal(isActive(parseCampaign(campaignNode({ status: "EXPIRED" })), now), false);
@@ -136,12 +136,12 @@ function make(id, { endInDays = 5, watched = 0, required = 60, status = "ACTIVE"
   );
 }
 
-test("rankCampaigns : par défaut, ce qui expire le plus tôt d'abord", () => {
+test("rankCampaigns: by default, whatever expires soonest comes first", () => {
   const ranked = rankCampaigns([make("tard", { endInDays: 10 }), make("tot", { endInDays: 1 })]);
   assert.deepEqual(ranked.map((c) => c.id), ["tot", "tard"]);
 });
 
-test("rankCampaigns : stratégie « le plus proche de la fin »", () => {
+test("rankCampaigns: the \"closest to done\" strategy", () => {
   const ranked = rankCampaigns(
     [make("loin", { watched: 5, endInDays: 1 }), make("proche", { watched: 55, endInDays: 9 })],
     { strategy: "closestToDone" },
@@ -149,14 +149,14 @@ test("rankCampaigns : stratégie « le plus proche de la fin »", () => {
   assert.deepEqual(ranked.map((c) => c.id), ["proche", "loin"]);
 });
 
-test("rankCampaigns : stratégie « ordre Twitch » conserve l'ordre d'entrée", () => {
+test("rankCampaigns: the \"Twitch order\" strategy keeps the input order", () => {
   const ranked = rankCampaigns([make("b", { endInDays: 9 }), make("a", { endInDays: 1 })], {
     strategy: "order",
   });
   assert.deepEqual(ranked.map((c) => c.id), ["b", "a"]);
 });
 
-test("rankCampaigns écarte terminées, expirées et liste noire", () => {
+test("rankCampaigns discards finished, expired and blacklisted campaigns", () => {
   const fini = parseCampaign(
     campaignNode({
       id: "fini",
@@ -177,11 +177,11 @@ test("rankCampaigns écarte terminées, expirées et liste noire", () => {
   assert.deepEqual(ranked.map((c) => c.id), ["ok"]);
 });
 
-test("rankCampaigns : compte non lié, écarté seulement si l'option est active", () => {
+test("rankCampaigns: unlinked account, discarded only when the option is on", () => {
   const nonLiee = parseCampaign(unlinkedCampaignNode());
   assert.equal(rankCampaigns([nonLiee]).length, 1);
   assert.equal(rankCampaigns([nonLiee], { onlyLinkedCampaigns: true }).length, 0);
-  // L'utilisateur a coché « c'est fait » dans le popup : la campagne repart.
+  // The user ticked "done" in the popup: the campaign comes back.
   assert.equal(
     rankCampaigns([nonLiee], { onlyLinkedCampaigns: true, linkedOverrides: ["camp-non-liee"] }).length,
     1,
@@ -190,7 +190,7 @@ test("rankCampaigns : compte non lié, écarté seulement si l'option est active
 
 // --- campagnes prioritaires -----------------------------------------------
 
-test("les campagnes prioritaires passent avant tout le reste", () => {
+test("focused campaigns come before everything else", () => {
   const ranked = rankCampaigns(
     [make("normale-urgente", { endInDays: 1 }), make("prioritaire", { endInDays: 30 })],
     { focus: ["prioritaire"] },
@@ -198,7 +198,7 @@ test("les campagnes prioritaires passent avant tout le reste", () => {
   assert.deepEqual(ranked.map((c) => c.id), ["prioritaire", "normale-urgente"]);
 });
 
-test("entre prioritaires, c'est celle qui expire le plus tôt", () => {
+test("among focused campaigns, the one expiring soonest wins", () => {
   const ranked = rankCampaigns(
     [
       make("p-tard", { endInDays: 20 }),
@@ -210,9 +210,9 @@ test("entre prioritaires, c'est celle qui expire le plus tôt", () => {
   assert.deepEqual(ranked.map((c) => c.id), ["p-tot", "p-tard", "normale"]);
 });
 
-test("une campagne prioritaire ET ignorée reste écartée", () => {
-  // Les deux réglages ne peuvent pas se contredire dans l'interface, mais le
-  // stockage peut porter les deux : l'exclusion l'emporte.
+test("a campaign both focused AND ignored stays discarded", () => {
+  // The two settings cannot contradict each other in the interface, but storage
+  // can carry both: exclusion wins.
   const ranked = rankCampaigns([make("a"), make("b")], {
     focus: ["a"],
     blacklist: ["a"],
@@ -220,8 +220,8 @@ test("une campagne prioritaire ET ignorée reste écartée", () => {
   assert.deepEqual(ranked.map((c) => c.id), ["b"]);
 });
 
-test("le reste part au hasard quand c'est demandé, les prioritaires jamais", () => {
-  // Tirage figé : la permutation est donc reproductible, le test aussi.
+test("the rest is shuffled when asked for, the focused ones never are", () => {
+  // Fixed draw: the permutation is reproducible, and so is the test.
   const suite = [0.9, 0.1, 0.5, 0.3];
   let i = 0;
   const random = () => suite[i++ % suite.length];
@@ -239,37 +239,37 @@ test("le reste part au hasard quand c'est demandé, les prioritaires jamais", ()
     random,
   });
 
-  assert.deepEqual(ranked.slice(0, 2).map((c) => c.id), ["p2", "p1"], "prioritaires dans l'ordre");
+  assert.deepEqual(ranked.slice(0, 2).map((c) => c.id), ["p2", "p1"], "focused ones in order");
   assert.deepEqual(
     ranked.slice(2).map((c) => c.id).sort(),
     ["a", "b", "c"],
-    "le reste est présent, dans un autre ordre",
+    "the rest is present, in a different order",
   );
 });
 
-test("shuffle garde tous les éléments et ne touche pas l'entrée", () => {
+test("shuffle keeps every item and does not touch the input", () => {
   const entree = ["a", "b", "c", "d"];
   const copie = [...entree];
   const melange = shuffle(entree, () => 0.42);
-  assert.deepEqual(entree, copie, "entrée intacte");
+  assert.deepEqual(entree, copie, "input untouched");
   assert.deepEqual(melange.slice().sort(), copie.slice().sort());
 });
 
-test("rankCampaigns ne renvoie jamais la liste d'entrée mutée", () => {
+test("rankCampaigns never returns the input list mutated", () => {
   const input = [make("b", { endInDays: 9 }), make("a", { endInDays: 1 })];
   const copy = [...input];
   rankCampaigns(input);
   assert.deepEqual(input, copy);
 });
 
-test("rankCampaigns tolère une entrée vide ou nulle", () => {
+test("rankCampaigns tolerates empty or null input", () => {
   assert.deepEqual(rankCampaigns(null), []);
   assert.deepEqual(rankCampaigns([null, undefined]), []);
 });
 
-// --- choix de la chaîne ---------------------------------------------------
+// --- picking the channel ------------------------------------------------------
 
-test("pickChannel prend la première chaîne autorisée en direct", () => {
+test("pickChannel takes the first allowed channel that is live", () => {
   const c = parseCampaign(restrictedCampaignNode(["alpha", "beta", "gamma"]));
   assert.equal(pickChannel(c, ["GAMMA", "beta"]), "beta");
   assert.equal(pickChannel(c, ["inconnue"]), null);
@@ -279,6 +279,6 @@ test("pickChannel prend la première chaîne autorisée en direct", () => {
 test("isCategoryWide distingue campagne ouverte et campagne restreinte", () => {
   assert.equal(isCategoryWide(parseCampaign(campaignNode())), true);
   assert.equal(isCategoryWide(parseCampaign(restrictedCampaignNode(["alpha"]))), false);
-  // Une campagne ouverte n'a pas de chaîne à choisir : l'appelant ira voir la catégorie.
+  // An open campaign has no channel to pick: the caller will look at the category.
   assert.equal(pickChannel(parseCampaign(campaignNode()), ["alpha"]), null);
 });

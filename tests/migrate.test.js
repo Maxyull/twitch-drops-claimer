@@ -1,13 +1,13 @@
-// `migrate()` touche à l'API chrome : on la teste avec un faux stockage minimal,
-// parce que c'est exactement la fonction qui peut effacer les réglages de
-// l'utilisateur sans bruit (issue #3).
+// `migrate()` touches the chrome API: it is tested against a minimal fake
+// storage, because it is precisely the function that can wipe the user's settings
+// without a sound (issue #3).
 
 import test from "node:test";
 import assert from "node:assert/strict";
 
 import { DEFAULT_SETTINGS } from "../src/lib/settings.js";
 
-/** Faux `chrome.storage` suffisant pour storage.js. */
+/** A fake `chrome.storage`, just enough for storage.js. */
 function fakeChrome(initialLocal = {}) {
   const local = { ...initialLocal };
   const session = {};
@@ -19,7 +19,7 @@ function fakeChrome(initialLocal = {}) {
       if (Array.isArray(keys)) {
         return Object.fromEntries(keys.filter((k) => k in bag).map((k) => [k, bag[k]]));
       }
-      // objet de valeurs par défaut
+      // object of default values
       return Object.fromEntries(Object.entries(keys).map(([k, v]) => [k, k in bag ? bag[k] : v]));
     },
     async set(values) {
@@ -38,7 +38,7 @@ async function freshStorageModule() {
   return import(`../src/lib/storage.js?v=${Math.random()}`);
 }
 
-test("migrate conserve TOUS les réglages déjà valides", async () => {
+test("migrate keeps EVERY setting that is already valid", async () => {
   const existant = {
     enabled: false,
     claimPoints: false,
@@ -63,7 +63,7 @@ test("migrate conserve TOUS les réglages déjà valides", async () => {
   }
 });
 
-test("migrate complète les manques par les valeurs par défaut", async () => {
+test("migrate fills the gaps with the default values", async () => {
   globalThis.chrome = fakeChrome({ favoriteChannels: ["zerator"] });
   const store = await freshStorageModule();
 
@@ -75,7 +75,7 @@ test("migrate complète les manques par les valeurs par défaut", async () => {
   assert.equal(settings.claimIntervalMin, DEFAULT_SETTINGS.claimIntervalMin);
 });
 
-test("migrate écrit la version et ne rejoue pas", async () => {
+test("migrate writes the version and does not replay", async () => {
   const chrome = fakeChrome({ favoriteChannels: ["zerator"] });
   globalThis.chrome = chrome;
   const store = await freshStorageModule();
@@ -83,14 +83,14 @@ test("migrate écrit la version et ne rejoue pas", async () => {
   assert.equal(await store.migrate(), store.STORAGE_VERSION);
   assert.equal(chrome._local.storageVersion, store.STORAGE_VERSION);
 
-  // Un réglage postérieur à la migration ne doit pas être balayé par un second passage.
+  // A setting written after the migration must not be swept away by a second pass.
   await store.setSettings({ quality: "720p60" });
   await store.migrate();
   assert.equal((await store.getSettings()).quality, "720p60");
 });
 
-test("RÉGRESSION : deux rechargements d'affilée ne remettent rien à zéro", async () => {
-  // Le vrai scénario de l'issue #3 : on recharge l'extension plusieurs fois.
+test("REGRESSION: two reloads in a row reset nothing", async () => {
+  // The real scenario from issue #3: the extension is reloaded several times.
   globalThis.chrome = fakeChrome({});
   const store = await freshStorageModule();
 
@@ -104,7 +104,7 @@ test("RÉGRESSION : deux rechargements d'affilée ne remettent rien à zéro", a
   assert.equal(settings.volumePercent, 15);
 });
 
-test("migrate garde les compteurs et les actions cochées", async () => {
+test("migrate keeps the counters and the ticked actions", async () => {
   globalThis.chrome = fakeChrome({
     stats: { drops: 12, points: 148, lastClaim: 1, lastClaimLabel: "Coffre" },
     actions: [{ id: "link:camp-1", kind: "link", done: true }],
