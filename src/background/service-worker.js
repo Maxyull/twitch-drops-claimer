@@ -446,7 +446,7 @@ function sortWeight(c) {
 }
 
 async function onGetState() {
-  const [settings, stats, actions, status, state, lastError, cached] = await Promise.all([
+  const [settings, stats, actions, status, state, lastError, cached, history] = await Promise.all([
     store.getSettings(),
     store.getStats(),
     store.getActions(),
@@ -454,6 +454,7 @@ async function onGetState() {
     store.getState(),
     store.getLastError(),
     store.getCampaigns(),
+    store.getHistory(),
   ]);
 
   // Le popup montre TOUTES les campagnes actives, pas seulement celles qu'on
@@ -494,6 +495,7 @@ async function onGetState() {
   return {
     settings,
     stats,
+    history,
     actions,
     status,
     watchers: await computeWatchers(status),

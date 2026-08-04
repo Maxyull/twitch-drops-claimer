@@ -29,6 +29,23 @@ export const FAKE_STATE = {
     lastClaim: Date.now() - 4 * 60_000,
     lastClaimLabel: "Coffre en fer",
   },
+  history: [
+    {
+      at: Date.now() - 4 * 60_000,
+      kind: "drop",
+      id: "d9",
+      label: "Coffre en fer",
+      campaign: "Sea of Thieves, Saison 14",
+    },
+    { at: Date.now() - 22 * 60_000, kind: "points", channel: "zerator" },
+    {
+      at: Date.now() - 95 * 60_000,
+      kind: "drop",
+      id: "d8",
+      label: "Coffre en bois",
+      campaign: "Sea of Thieves, Saison 14",
+    },
+  ],
   actions: [
     {
       id: "link:camp-2",

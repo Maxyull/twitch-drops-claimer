@@ -517,5 +517,11 @@
   },
   "options_farm_tabs_hint": {
     "message": "Un onglet par campagne, sur des chaînes différentes. Twitch ne fait probablement progresser qu'un flux à la fois : le badge de chaque ligne dit lequel avance vraiment."
+  },
+  "popup_history_empty": {
+    "message": "Aucune réclamation enregistrée pour le moment."
+  },
+  "popup_history_points": {
+    "message": "Bonus de points"
   }
 }

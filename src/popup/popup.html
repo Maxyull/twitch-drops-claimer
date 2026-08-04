@@ -13,11 +13,19 @@
 
   <div id="error" class="err" hidden></div>
 
-  <div class="stats">
-    <div class="stat"><b id="statDrops">0</b><small data-i18n="popup_stat_drops"></small></div>
-    <div class="stat"><b id="statPoints">0</b><small data-i18n="popup_stat_points"></small></div>
-  </div>
-  <div class="last" id="lastClaim"></div>
+  <div class="now" id="currentDrop" hidden></div>
+
+  <details id="historyBox">
+    <summary>
+      <div class="stats">
+        <div class="stat"><b id="statDrops">0</b><small data-i18n="popup_stat_drops"></small></div>
+        <div class="stat"><b id="statPoints">0</b><small data-i18n="popup_stat_points"></small></div>
+      </div>
+      <div class="last" id="lastClaim"></div>
+    </summary>
+    <ul id="history"></ul>
+    <p class="empty" id="historyEmpty" data-i18n="popup_history_empty"></p>
+  </details>
 
   <h2 data-i18n="popup_section_watch">Regardé en arrière-plan</h2>
   <ul id="watchers"></ul>
