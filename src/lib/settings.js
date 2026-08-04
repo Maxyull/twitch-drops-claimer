@@ -17,6 +17,8 @@ export const DEFAULT_SETTINGS = {
   // Aller chercher le bonus de série sur une favorite qui vient d'ouvrir,
   // quitte à quitter celle en cours. Voir src/lib/streak.js.
   watchStreak: true,
+  // Rejoindre les raids de la chaîne favorite : Twitch y verse un bonus.
+  joinRaids: true,
 
   // --- Drops ---
   farmDrops: true,
@@ -132,6 +134,7 @@ export function normalizeSettings(raw = {}) {
     watchFavorite: bool(raw.watchFavorite, d.watchFavorite),
     favoriteChannels: normalizeChannelList(raw.favoriteChannels),
     watchStreak: bool(raw.watchStreak, d.watchStreak),
+    joinRaids: bool(raw.joinRaids, d.joinRaids),
 
     farmDrops: bool(raw.farmDrops, d.farmDrops),
     autoDiscover: bool(raw.autoDiscover, d.autoDiscover),

@@ -7,6 +7,7 @@ const $ = (id) => document.getElementById(id);
 const CHECKS = [
   "watchFavorite",
   "watchStreak",
+  "joinRaids",
   "claimPoints",
   "farmDrops",
   "autoDiscover",

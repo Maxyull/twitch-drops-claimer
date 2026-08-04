@@ -22,6 +22,7 @@ export const EVENT = {
   POINTS_EARNED: "points-earned",
   DROP_PROGRESS: "drop-progress",
   DROP_CLAIM: "drop-claim",
+  RAID: "raid",
   UNKNOWN: "unknown",
 };
 
@@ -30,6 +31,20 @@ export function userTopics(userId) {
   const id = String(userId ?? "").trim();
   if (!id) return [];
   return [`community-points-user-v1.${id}`, `user-drop-events.${id}`];
+}
+
+/**
+ * Sujets liés aux chaînes regardées. Un raid n'est annoncé que là : il n'existe
+ * aucune trace fiable dans la page, et l'identifiant du raid, sans lequel on ne
+ * peut pas le rejoindre, ne vient que d'ici.
+ */
+export function channelTopics(channelIds) {
+  const vus = new Set();
+  for (const raw of channelIds || []) {
+    const id = String(raw ?? "").trim();
+    if (id) vus.add(`raid.${id}`);
+  }
+  return [...vus];
 }
 
 /**
@@ -42,6 +57,25 @@ export function listenFrame(topics, authToken, nonce) {
     type: "LISTEN",
     nonce: String(nonce ?? ""),
     data: { topics: [...topics], auth_token: String(authToken ?? "") },
+  };
+}
+
+/** Se désabonner d'une chaîne qu'on ne regarde plus. */
+export function unlistenFrame(topics, nonce) {
+  return { type: "UNLISTEN", nonce: String(nonce ?? ""), data: { topics: [...topics] } };
+}
+
+/**
+ * Ce qu'il faut envoyer pour passer de l'abonnement courant au voulu.
+ * Pas de désabonnement/réabonnement global : on ne touche qu'aux différences,
+ * sinon chaque changement d'onglet couperait aussi les sujets du compte.
+ */
+export function topicDelta(courants, voulus) {
+  const a = new Set(courants || []);
+  const b = new Set(voulus || []);
+  return {
+    listen: [...b].filter((t) => !a.has(t)),
+    unlisten: [...a].filter((t) => !b.has(t)),
   };
 }
 
@@ -124,6 +158,19 @@ export function parseFrame(raw) {
       };
     }
     return { kind: EVENT.UNKNOWN };
+  }
+
+  if (topic.startsWith("raid.")) {
+    // `raid_update_v2` est la seule forme qui porte l'identifiant du raid.
+    if (inner.type !== "raid_update_v2") return { kind: EVENT.UNKNOWN };
+    const raid = inner.raid ?? data.raid ?? {};
+    if (!raid.id) return { kind: EVENT.UNKNOWN };
+    return {
+      kind: EVENT.RAID,
+      raidID: String(raid.id),
+      sourceChannelId: topic.slice("raid.".length),
+      targetLogin: String(raid.target_login ?? "").toLowerCase() || null,
+    };
   }
 
   return { kind: EVENT.UNKNOWN };

@@ -561,5 +561,22 @@
   },
   "options_realtime_hint": {
     "message": "A chest or a drop tier is announced the second it happens, instead of being found on the next loop. This only speeds things up: everything still works without it."
+  },
+  "options_join_raids": {
+    "message": "Join raids from your favourite"
+  },
+  "options_join_raids_hint": {
+    "message": "Twitch pays a bonus to viewers who follow a raid. Without this the channel just goes offline and the bonus is lost. Farming tabs never follow a raid: the target does not carry the campaign."
+  },
+  "notif_raid_title": {
+    "message": "Raid joined"
+  },
+  "notif_raid_body": {
+    "message": "Bonus taken by following the raid to $CIBLE$",
+    "placeholders": {
+      "cible": {
+        "content": "$1"
+      }
+    }
   }
 }

@@ -231,6 +231,11 @@ mutation TdcClaimDrop($input: ClaimDropRewardsInput!) {
   claimDropRewards(input: $input) { status }
 }`;
 
+const M_JOIN_RAID = `
+mutation TdcJoinRaid($input: JoinRaidInput!) {
+  joinRaid(input: $input) { raidID }
+}`;
+
 export async function currentUser() {
   const data = await request("TdcCurrentUser", Q_CURRENT_USER);
   return data?.currentUser ?? null;
@@ -354,6 +359,19 @@ export async function claimCommunityPoints(channelId, claimId) {
   });
   const error = data?.claimCommunityPoints?.error?.code ?? null;
   return { ok: !error, error };
+}
+
+/**
+ * Rejoint un raid en cours.
+ *
+ * Twitch verse un bonus de points au spectateur qui suit le raid. Sans cet
+ * appel, la chaîne passe hors ligne et l'extension part chercher ailleurs :
+ * le bonus est simplement perdu.
+ */
+export async function joinRaid(raidID) {
+  if (!raidID) return { ok: false, error: "identifiant manquant" };
+  const data = await request("TdcJoinRaid", M_JOIN_RAID, { input: { raidID: String(raidID) } });
+  return { ok: Boolean(data?.joinRaid?.raidID), error: null };
 }
 
 /** Réclamation directe (mode rapide, désactivé par défaut). */
