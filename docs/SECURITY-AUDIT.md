@@ -159,6 +159,10 @@ the API. It opens one itself when that happens.
 - [x] **Actions pinned by commit SHA**, not by tag. A tag is mutable: whoever controls
       the action repository could repoint it at different code running with our token.
       Dependabot covers `github-actions` precisely because pinning freezes them.
+      The trailing comment carries the **full** version (`# v7.0.1`, not `# v4`): it is
+      the only human-readable trace of what a SHA is, and a bare major stays plausible
+      while the SHA moves under it. `tests/workflows.test.js` freezes both, plus the
+      rule that all `github/codeql-action` entry points share one SHA (see #73).
 - [x] **CodeQL** (`security-extended`) and **gitleaks** (working tree + full history) run
       on every push and pull request, plus weekly. `.gitleaks.toml` adds a rule for the
       Twitch OAuth session token, which the default rules do not cover.
@@ -219,3 +223,4 @@ returns something.
 |---|---|---|---|
 | 2026-08-03 | 1, 2, 3 | Claude | 2 fixes: `tabs` permission dropped (unnecessary), message allowlist bypass through `Object.prototype` closed. Left open: `package-lock.json`, store preparation. |
 | 2026-08-04 | 1, 2, 3 | Claude | Repository hardening: actions pinned by SHA, CodeQL, gitleaks, Dependabot. Corrected a stale claim in this file: no `Client-Id` is hardcoded, it is captured from the page. |
+| 2026-08-04 | 3 | Claude | Pin comments audited against the GitHub API: four of five were bare majors and one was wrong (`actions/checkout` read `# v4` while the SHA was v7.0.1). Full versions everywhere, `tests/workflows.test.js` added. See #73. |

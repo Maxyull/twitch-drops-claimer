@@ -179,6 +179,37 @@ badge on each row says which one is actually advancing.
 
 ---
 
+## CI
+
+### `codeql-action/init` and `codeql-action/analyze` are one release, not two actions
+
+They live in the same monorepo. `init` writes a configuration stamped with its own
+version, and `analyze` refuses to read a configuration from another one:
+`Loaded a configuration file for version '3.37.1', but running version '4.37.4'`.
+
+Dependabot does not know that: it opens a pull request per entry point, so it
+bumped `analyze` alone and left `init` three majors behind. The job failed as a
+*configuration error*, which reads like a broken config file rather than a version
+mismatch. See [#73](../../../issues/73).
+
+### Dependabot updates the SHA, not a bare version comment
+
+A pin reads `actions/checkout@3d3c42e5… # v4`. Dependabot rewrote the SHA and left
+the comment alone: that SHA is **v7.0.1**, and three workflows claimed v4 for a
+whole day without anything looking wrong.
+
+The comment is the only readable trace of what a SHA is, and
+`docs/SECURITY-AUDIT.md` leans on it to argue the supply-chain pin. A bare major
+cannot be seen to be stale, since it stays plausible across any bump. A full
+version can. `tests/workflows.test.js` requires the full form.
+
+What it does **not** do: check that the version matches the SHA, which needs the
+network. Doing that in CI would mean an API call that can rate-limit, and an
+intermittent check is worse than no check. The versions are resolved by hand when
+a pin moves, and written down in the pull request.
+
+---
+
 ## Principles that came out of these bugs
 
 ### Evidence always beats deduction
