@@ -6,9 +6,12 @@
 </head>
 <body>
   <!--
-    Ce qui est au-dessus de la barre d'onglets ne bouge jamais : la raison
-    d'ouvrir ce popup est « est-ce que ça tourne », et cette réponse ne doit
-    pas être derrière un clic.
+    Whatever sits above the tab bar never moves: the reason to open this popup is
+    "is it running", and that answer must not be behind a click.
+
+    The French text inside the elements below is the fallback shown before the
+    catalogue is applied; `data-i18n` replaces it at runtime, and `default_locale`
+    is fr. It is user interface, not untranslated code.
   -->
   <div class="pinned">
     <header>
@@ -64,8 +67,8 @@
         <button id="farmDrops" class="toggle" data-i18n-label="popup_toggle_farm"></button>
       </div>
 
-      <!-- Une réparation, pas une action courante : elle vit à côté de ce
-           qu'elle répare, en bas, et pas dans la barre du bas. -->
+      <!-- A repair, not an everyday action: it lives next to what it repairs, at
+           the bottom, and not in the toolbar. -->
       <button class="act wide ghost" id="rebuildWindow" data-i18n="popup_btn_rebuild_window"
               data-i18n-title="popup_btn_rebuild_window_hint"></button>
     </section>
@@ -94,7 +97,7 @@
     </section>
   </main>
 
-  <!-- Les boutons sont des actions, pas du contenu : ils ne changent pas d'onglet. -->
+  <!-- The buttons are actions, not content: they do not change tab. -->
   <footer class="toolbar">
     <button class="act primary" id="refresh" data-i18n="popup_btn_refresh"></button>
     <button class="act" id="switch" data-i18n="popup_btn_switch"></button>

@@ -42,9 +42,9 @@ section h2 {
 .field > label { display: block; font-weight: 600; margin-bottom: 3px; }
 .field .hint { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
 
-/* Portée volontairement limitée à `.field` : appliquée globalement, elle donnait
-   toute la largeur à n'importe quel contrôle posé dans une liste, et le texte
-   voisin se repliait caractère par caractère. */
+/* Scope deliberately limited to `.field`: applied globally, it gave the full
+   width to any control placed inside a list, and the neighbouring text wrapped one
+   character at a time. */
 .field input[type="text"],
 .field input[type="number"],
 .field textarea,
@@ -94,7 +94,7 @@ ul { list-style: none; }
 .camp.focused b { color: var(--purple-soft); }
 .camp.ignored { opacity: 0.5; }
 
-/* Étoile de mise en avant : largeur fixe, elle ne mange jamais le texte. */
+/* The focus star: fixed width, so it never eats into the text. */
 .camp .star {
   flex: none;
   width: 28px;

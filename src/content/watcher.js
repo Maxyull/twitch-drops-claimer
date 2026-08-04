@@ -1,7 +1,10 @@
-// Script de contenu : pilote le lecteur, réclame, et envoie un battement de coeur
-// qui sert de preuve de visionnage (voyant vert / rouge du popup).
-// Il n'injecte aucun DOM ni aucun style dans la page : rien à préfixer, rien à
-// nettoyer, aucune collision possible avec Twitch.
+// Content script: drives the player, claims, and sends a heartbeat that serves as
+// proof of viewing (the popup's green / red indicator).
+// It injects no DOM and no style into the page: nothing to prefix, nothing to
+// clean up, no possible collision with Twitch.
+//
+// The `log()` calls keep their French text: they are developer-facing strings and
+// move with the same block as the rest of them in #72.
 
 import { isDropClaimButton, isPointsBonusButton, isDismissOverlayButton } from "../lib/dom-rules.js";
 import { MSG, CLAIM_KIND, ROLE } from "../lib/messaging.js";
@@ -51,7 +54,7 @@ function send(type, payload) {
   try {
     return chrome.runtime.sendMessage({ type, payload }).catch(() => null);
   } catch {
-    return Promise.resolve(null); // contexte d'extension invalidé (rechargement)
+    return Promise.resolve(null); // extension context invalidated (reload)
   }
 }
 
@@ -63,7 +66,7 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// --- lecture du DOM -------------------------------------------------------
+// --- reading the DOM ----------------------------------------------------------
 
 function currentChannel() {
   const seg = location.pathname.split("/").filter(Boolean)[0]?.toLowerCase() ?? "";
@@ -79,9 +82,9 @@ function isVisible(el) {
 }
 
 /**
- * Contexte d'un bouton : on ne remonte que les attributs et classes des parents,
- * jamais leur texte, sinon une phrase quelconque de la page ferait basculer la
- * décision (« Prime » écrit ailleurs bloquerait un vrai bouton de drop).
+ * A button's context: only the parents' attributes and classes are collected,
+ * never their text, otherwise any sentence on the page could swing the decision
+ * ("Prime" written elsewhere would block a genuine drop button).
  */
 function contextOf(el) {
   const parts = [location.pathname];
@@ -99,9 +102,9 @@ function contextOf(el) {
 }
 
 /**
- * Marqueurs portés par les enfants du bouton. Twitch met souvent la classe qui
- * identifie vraiment un contrôle sur une icône interne, pas sur le bouton ni sur
- * ses ancêtres : sans ça, le coffre de points est indiscernable du solde.
+ * Markers carried by the button's children. Twitch often puts the class that
+ * really identifies a control on an inner icon, not on the button nor on its
+ * ancestors: without this, the points chest is indistinguishable from the balance.
  */
 function innerMarkersOf(btn) {
   const parts = [];
@@ -110,7 +113,7 @@ function innerMarkersOf(btn) {
     if (cls) parts.push(cls);
     const sel = node.getAttribute?.("data-test-selector");
     if (sel) parts.push(sel);
-    if (parts.length >= 20) break; // un bouton n'a pas besoin de plus pour être reconnu
+    if (parts.length >= 20) break; // a button needs no more than that to be recognised
   }
   return parts.join(" ");
 }
@@ -134,13 +137,13 @@ function allButtons() {
   return [...document.querySelectorAll('button, [role="button"]')];
 }
 
-/** Nom lisible de la récompense associée à un bouton (au mieux). */
+/** Readable name of the reward tied to a button (best effort). */
 function labelNear(btn) {
   const card = btn.closest("[data-test-selector], article, section, div");
   return (card?.querySelector("h1, h2, h3, h4, p")?.textContent || "").trim().slice(0, 80);
 }
 
-// --- lecteur --------------------------------------------------------------
+// --- player -------------------------------------------------------------------
 
 function applyStoredPrefs() {
   if (!config.forcePlayer) return;
@@ -150,21 +153,21 @@ function applyStoredPrefs() {
     localStorage.setItem("video-muted", JSON.stringify({ default: Boolean(config.muteTabs) }));
     localStorage.setItem("mature", "true");
   } catch {
-    /* stockage refusé, sans conséquence */
+    /* storage refused, of no consequence */
   }
 }
 
 /**
- * Twitch laisse plusieurs `<video>` dans la page : aperçus de la barre latérale,
- * bandeau de recommandation, publicité. `querySelector("video")` renvoyait le
- * premier venu, souvent à l'arrêt, et tout le diagnostic partait de là : lecteur
- * dit en pause alors que le vrai flux tourne.
- * On prend celui qui joue, et à défaut le plus grand.
+ * Twitch leaves several `<video>` elements in the page: sidebar previews, the
+ * recommendation banner, ads. `querySelector("video")` returned whichever came
+ * first, often a stopped one, and the whole diagnosis started from there: a player
+ * reported as paused while the real stream is running.
+ * We take the one that is playing, and failing that the biggest.
  *
- * On ne filtre PAS sur `videoWidth > 0` : en qualité audio seul, le flux n'a
- * aucune image et cette condition écartait précisément le lecteur à suivre.
- * `!paused && readyState >= 2` suffit à écarter les aperçus à l'arrêt, qui
- * étaient le vrai problème.
+ * We do NOT filter on `videoWidth > 0`: in audio-only quality the stream has no
+ * image at all, and that condition discarded precisely the player to follow.
+ * `!paused && readyState >= 2` is enough to discard the stopped previews, which
+ * were the real problem.
  */
 function videoEl() {
   const videos = [...document.querySelectorAll("video")];
@@ -184,10 +187,9 @@ function enforcePlayer() {
   const video = videoEl();
   if (!video) return;
 
-  // Chrome refuse la lecture automatique avec du son sans geste de
-  // l'utilisateur : dans un onglet d'arrière-plan, un lecteur non coupé ne
-  // démarre jamais. La sourdine est donc ce qui fait fonctionner le farm, pas
-  // seulement un confort.
+  // Chrome refuses autoplay with sound without a user gesture: in a background
+  // tab, an unmuted player never starts. Muting is therefore what makes farming
+  // work, not merely a comfort.
   if (config.muteTabs) {
     if (!video.muted) video.muted = true;
   } else {
@@ -206,15 +208,15 @@ function enforcePlayer() {
       autoplayBlocked = false;
     },
     (err) => {
-      // On ne l'avale plus : sans ça, le popup dit « en pause » sans expliquer
-      // que c'est le navigateur qui refuse, et personne ne sait quoi corriger.
+      // No longer swallowed: without this the popup says "paused" without
+      // explaining that the browser is refusing, and nobody knows what to fix.
       autoplayBlocked = err?.name === "NotAllowedError";
       if (autoplayBlocked) log("lecture automatique refusée par le navigateur");
     },
   );
 }
 
-/** Libellé affiché d'une entrée du menu qualité. */
+/** Displayed label of an entry in the quality menu. */
 function labelOfOption(radio) {
   const wrapper = radio.closest("label");
   const pointe = radio.id ? document.querySelector(`label[for="${CSS.escape(radio.id)}"]`) : null;
@@ -222,11 +224,11 @@ function labelOfOption(radio) {
 }
 
 /**
- * Repli quand `localStorage` n'a pas été pris en compte : on règle la qualité
- * par le menu du lecteur. Deux tentatives maximum, on n'insiste pas.
+ * Fallback when `localStorage` was not taken into account: set the quality through
+ * the player's menu. Two attempts at most, we do not insist.
  *
- * C'est aussi le seul chemin fiable pour l'audio seul : la valeur écrite dans
- * `localStorage` n'est qu'une préférence que le lecteur relit au chargement.
+ * It is also the only reliable path for audio-only: the value written to
+ * `localStorage` is merely a preference the player reads back on load.
  */
 async function setQualityViaMenu() {
   if (qualityMenuTries >= 2) return;
@@ -281,13 +283,13 @@ function playerFlags() {
   };
 }
 
-// --- réclamations ---------------------------------------------------------
+// --- claims -------------------------------------------------------------------
 
 function clickOnce(btn) {
   if (clicked.has(btn)) return false;
   clicked.add(btn);
   btn.click();
-  // Twitch recrée souvent le bouton : on oublie au bout d'un moment.
+  // Twitch often recreates the button: we forget after a while.
   setTimeout(() => clicked.delete(btn), CLICK_MEMORY_MS);
   return true;
 }
@@ -321,14 +323,14 @@ async function scan() {
         claimed += 1;
         log("drop réclamé", label);
         send(MSG.CLAIMED, { kind: CLAIM_KIND.DROP, label, dropName: label });
-        await wait(600); // on laisse Twitch respirer entre deux clics
+        await wait(600); // let Twitch breathe between two clicks
       }
     }
     if (claimed && location.pathname.startsWith("/drops")) send(MSG.INVENTORY_DONE, { claimed });
   }
 }
 
-// --- battement de coeur ---------------------------------------------------
+// --- heartbeat ----------------------------------------------------------------
 
 function beat() {
   const flags = playerFlags();
@@ -339,16 +341,16 @@ function beat() {
     ...flags,
   });
 
-  // En audio seul, la moindre image prouve que le réglage n'a pas pris. Sinon on
-  // ne s'en mêle qu'au-delà de 480p. Jamais pendant une publicité : elle a sa
-  // propre image, et le menu ne la concerne pas.
+  // In audio-only, any image at all proves the setting did not take. Otherwise we
+  // only step in above 480p. Never during an ad: it has its own picture, and the
+  // menu does not apply to it.
   const seuil = config.quality === AUDIO_ONLY ? 0 : 480;
   if (config.forcePlayer && !flags.ads && !flags.paused && flags.videoHeight > seuil) {
     void setQualityViaMenu();
   }
 }
 
-// --- cycle de vie ---------------------------------------------------------
+// --- lifecycle ----------------------------------------------------------------
 
 async function refreshConfig() {
   const res = await send(MSG.HELLO, { url: location.href });
@@ -358,25 +360,25 @@ async function refreshConfig() {
   }
 }
 
-/** Marqueur des onglets de l'extension, à garder identique côté service worker. */
+/** Marker for the extension's tabs, to be kept identical on the service worker side. */
 const TAB_MARK = "#tdc";
 
 /**
- * Twitch réécrit l'URL à chaque navigation interne et efface le fragment. Sans
- * lui, l'extension ne saurait plus reconnaître ses propres onglets après un
- * rechargement, et en rouvrirait à côté. On le remet en place.
+ * Twitch rewrites the URL on every internal navigation and wipes the fragment.
+ * Without it the extension could no longer recognise its own tabs after a reload,
+ * and would open more alongside them. We put it back.
  */
 function keepTabMark() {
   if (!config.owned || location.hash === TAB_MARK) return;
   try {
     history.replaceState(null, "", `${location.pathname}${location.search}${TAB_MARK}`);
   } catch {
-    /* navigation refusée, sans conséquence */
+    /* navigation refused, of no consequence */
   }
 }
 
 function watchSpaNavigation() {
-  // Twitch est une SPA : l'URL change sans rechargement de page.
+  // Twitch is a single-page application: the URL changes with no page reload.
   setInterval(() => {
     if (location.href === lastHref) return;
     lastHref = location.href;
@@ -385,8 +387,8 @@ function watchSpaNavigation() {
   }, 2_000);
 }
 
-// On ne se resynchronise que sur un vrai changement de réglage : les compteurs
-// s'écrivent à chaque réclamation et réveilleraient tous les onglets pour rien.
+// We only resynchronise on a genuine settings change: the counters are written on
+// every claim and would wake every tab for nothing.
 const WATCHED_KEYS = new Set(["enabled", "claimPoints", "farmDrops", "quality", "volumePercent"]);
 chrome.storage.local.onChanged?.addListener((changes) => {
   if (Object.keys(changes).some((k) => WATCHED_KEYS.has(k))) void refreshConfig();
@@ -404,7 +406,7 @@ async function start() {
   setInterval(() => void scan(), SCAN_MS);
   watchSpaNavigation();
 
-  // Premier passage rapide, une fois la page posée.
+  // A quick first pass, once the page has settled.
   setTimeout(() => {
     enforcePlayer();
     void scan();

@@ -36,8 +36,8 @@ let blacklist = new Set();
 let focus = new Set();
 
 /**
- * Un envoi qui échoue ne doit jamais passer pour un succès : on renvoie toujours
- * un objet, avec `ok: false` et la raison si le service worker n'a pas voulu.
+ * A send that fails must never pass for a success: an object is always returned,
+ * with `ok: false` and the reason when the service worker refused.
  */
 async function send(type, payload) {
   try {
@@ -53,8 +53,8 @@ function showError(reason) {
   box.hidden = !reason;
   if (reason) {
     box.textContent = t("options_save_failed", [String(reason)]);
-    // Un « Enregistré » d'un essai précédent qui traîne à côté d'une erreur
-    // envoie exactement le mauvais message.
+    // A "Saved" left over from an earlier attempt, sitting next to an error,
+    // sends exactly the wrong message.
     $("saved").classList.remove("show");
   }
 }
@@ -78,23 +78,23 @@ function collect() {
   return patch;
 }
 
-/** Prioritaires d'abord, puis les normales, puis les écartées. */
+/** Focused first, then the normal ones, then the discarded ones. */
 function campaignOrder(id) {
   if (focus.has(id)) return 0;
   return blacklist.has(id) ? 2 : 1;
 }
 
 /**
- * La liste de base, avec une étoile pour mettre une campagne en avant et une
- * case pour l'écarter. Les prioritaires remontent en tête : le choix se fait au
- * début, comme l'ordre réel de la rotation.
+ * The base list, with a star to push a campaign to the front and a checkbox to
+ * discard it. The focused ones rise to the top: the choice is made at the start,
+ * mirroring the rotation's real order.
  */
 function renderCampaigns(campaigns) {
   const list = $("campaigns");
   list.replaceChildren();
 
-  // On réaffiche aussi les campagnes écartées : on ne peut pas remettre en
-  // rotation ce qui a disparu de l'écran.
+  // The discarded campaigns are shown again too: you cannot put back into the
+  // rotation something that has vanished from the screen.
   const known = new Map(campaigns.map((c) => [c.id, c]));
   for (const id of [...blacklist, ...focus]) {
     if (!known.has(id)) known.set(id, { id, name: id, game: "", progress: null });
@@ -122,7 +122,7 @@ function renderCampaigns(campaigns) {
       star.setAttribute("aria-pressed", String(prioritaire));
       star.title = t(prioritaire ? "options_focus_on" : "options_focus_off");
       box.checked = ecartee;
-      // Une campagne écartée ne peut pas être prioritaire : les deux se contrediraient.
+      // A discarded campaign cannot be focused: the two would contradict each other.
       star.disabled = ecartee;
     };
 
@@ -159,10 +159,10 @@ function renderCampaigns(campaigns) {
 }
 
 /**
- * Tant que les réglages n'ont pas été lus, les champs sont vides. Enregistrer à
- * ce moment-là écrirait ce vide par-dessus les vrais réglages : une liste de
- * chaînes favorites effacée pour avoir cliqué trop tôt. Les boutons ne sont donc
- * actifs qu'une fois le chargement réussi.
+ * Until the settings have been read, the fields are empty. Saving at that moment
+ * would write that emptiness over the real settings: a list of favourite channels
+ * wiped for having clicked too early. The buttons are therefore only enabled once
+ * the load has succeeded.
  */
 function setReady(pret) {
   $("save").disabled = !pret;
@@ -195,8 +195,8 @@ setReady(false);
 $("save").addEventListener("click", async () => {
   const res = await send(MSG.SET_SETTINGS, collect());
 
-  // « Enregistré » ne s'affiche que si ça l'est vraiment. Un refus silencieux
-  // est ce qui rend ce genre de panne impossible à diagnostiquer.
+  // "Saved" is only shown when it really is. A silent refusal is what makes this
+  // kind of failure impossible to diagnose.
   if (!res.ok || !res.settings) {
     showError(res.error ?? "refusé");
     return;
@@ -208,8 +208,8 @@ $("save").addEventListener("click", async () => {
   await initI18n(res.settings.language);
   localizeDocument();
   fill(res.settings);
-  // On relit ce qui a été réellement enregistré : les prioritaires remontent
-  // alors en tête, ce qui rend le classement visible plutôt que théorique.
+  // What was actually saved is read back: the focused ones then rise to the top,
+  // which makes the ranking visible rather than theoretical.
   void load();
   $("saved").classList.add("show");
   setTimeout(() => $("saved").classList.remove("show"), 1_600);

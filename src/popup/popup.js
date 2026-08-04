@@ -1,6 +1,6 @@
-// Popup : lecture de l'état du service worker + quelques bascules.
-// Tout est posé en textContent, jamais d'injection HTML : les noms de campagnes
-// viennent de Twitch et ne sont pas de confiance (docs/SECURITY-AUDIT.md, passe 1).
+// Popup: reads the service worker's state, plus a few toggles.
+// Everything is placed through textContent, never HTML injection: campaign names
+// come from Twitch and are not trusted (docs/SECURITY-AUDIT.md, pass 1).
 
 import { MSG, ROLE, CAMPAIGN_PRIORITY } from "../lib/messaging.js";
 import { ACTION_KIND } from "../lib/actions.js";
@@ -51,11 +51,11 @@ function fmtMinutes(min) {
   return t("popup_left_hours", [String(Math.floor(min / 60)), String(min % 60)]);
 }
 
-// --- rendu ----------------------------------------------------------------
+// --- rendering ----------------------------------------------------------------
 
 const statusText = (code) => t(`status_${code}`);
 
-/** Classe du badge de comptage : vert prouvé, orange probable, rouge non compté. */
+/** Class of the counting badge: green proven, orange likely, red not counted. */
 function countedTone(code) {
   if (code === COUNTED.CONFIRMED) return "counted";
   if (code === COUNTED.STREAMING) return "partial";
@@ -71,15 +71,15 @@ function fmtElapsed(since) {
   return t("popup_elapsed_hours", [String(Math.floor(min / 60)), String(min % 60)]);
 }
 
-/** La liste des chaînes que l'extension regarde vraiment, en arrière-plan. */
+/** The list of channels the extension is really watching, in the background. */
 function renderWatchers(state) {
   const { status, settings } = state;
 
   setDot($("globalDot"), status.global.green, statusText(status.global.code));
   $("globalReason").textContent = statusText(status.global.code);
   setDot($("pointsDot"), status.points.green, statusText(status.points.code));
-  // Plusieurs onglets de farm : le voyant reprend le pire des leurs, sinon il
-  // afficherait vert alors qu'un des deux est en panne.
+  // Several farming tabs: the indicator takes the worst of theirs, otherwise it
+  // would show green while one of the two is broken.
   const pireDrops = status.drops.find((s) => !s.green) ?? status.drops[0] ?? null;
   setDot($("dropsDot"), Boolean(pireDrops?.green), pireDrops ? statusText(pireDrops.code) : "");
 
@@ -111,7 +111,7 @@ function renderWatchers(state) {
     );
     const tone = countedTone(w.counted.code);
     const badge = el("span", `tag ${tone}`.trim(), t(`counted_${w.counted.code}`));
-    // « Non compté » sans explication renvoie chercher au hasard.
+    // "Not counted" with no explanation sends you looking at random.
     if (w.counted.reason) badge.title = t(`reason_${w.counted.reason}`);
     line1.append(badge);
     body.append(line1);
@@ -120,8 +120,8 @@ function renderWatchers(state) {
       statusText(w.status.code),
       w.counted.reason ? t(`reason_${w.counted.reason}`) : null,
       w.campaignName,
-      // Le solde de points dit ce que le visionnage rapporte vraiment, là où un
-      // compteur de coffres cliqués ne dit rien.
+      // The points balance says what the viewing really earns, where a counter of
+      // clicked chests says nothing.
       typeof w.points === "number"
         ? t("popup_points_balance", [w.points.toLocaleString()])
         : null,
@@ -144,7 +144,7 @@ function renderStats(stats) {
     : t("popup_no_claim");
 }
 
-/** Le drop en cours de farm, en tête : progression, palier suivant, échéance. */
+/** The drop currently being farmed, at the top: progress, next tier, deadline. */
 function renderCurrentDrop(campaigns) {
   const box = $("currentDrop");
   const courante = campaigns.find((c) => c.current);
@@ -172,12 +172,12 @@ function renderCurrentDrop(campaigns) {
 }
 
 /**
- * Le journal : ce qui a été réclamé, et à quelle heure.
+ * The log: what was claimed, and at what time.
  *
- * Une seule frise pour les drops et les points, dans l'ordre du temps. La
- * question qu'on se pose le matin est « qu'est-ce qui s'est passé cette nuit »,
- * et elle mêle les deux ; le filtre est là pour les cas où on cherche un type
- * précis, pas l'inverse.
+ * A single timeline for drops and points, in time order. The question you ask in
+ * the morning is "what happened overnight", and it mixes the two; the filter is
+ * there for the cases where you are after one specific kind, not the other way
+ * round.
  */
 function renderHistory(history) {
   const list = $("history");
@@ -198,7 +198,7 @@ function renderHistory(history) {
     const date = new Date(entry.at);
     heure.dateTime = date.toISOString();
     heure.textContent = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    // L'heure exacte au survol : la frise reste compacte, l'information est là.
+    // The exact time on hover: the timeline stays compact, the information is there.
     heure.title = date.toLocaleString();
 
     const what = el("div", "what");
@@ -223,8 +223,8 @@ function renderActions(actions) {
   const open = sorted.filter((a) => !a.done).length;
   $("actionsEmpty").hidden = sorted.length > 0;
 
-  // La pastille sur l'onglet : ce qui attend l'utilisateur ne doit pas pouvoir
-  // se cacher derrière un onglet fermé.
+  // The badge on the tab: whatever is waiting for the user must not be able to
+  // hide behind a closed tab.
   const badge = $("liveBadge");
   badge.hidden = open === 0;
   badge.textContent = String(open);
@@ -267,9 +267,9 @@ function renderActions(actions) {
 }
 
 /**
- * Toutes les campagnes actives, cochables. Décocher une campagne la sort de la
- * rotation : on ne peut pas choisir ce qu'on ne voit pas, donc on montre tout,
- * y compris ce qui est déjà écarté.
+ * Every active campaign, with a checkbox. Unticking a campaign takes it out of
+ * the rotation: you cannot choose what you cannot see, so everything is shown,
+ * including what is already discarded.
  */
 function renderCampaigns(campaigns) {
   const list = $("campaigns");
@@ -295,8 +295,8 @@ function renderCampaigns(campaigns) {
     box.checked = c.selected;
     box.title = t("popup_campaign_include");
     box.addEventListener("change", async () => {
-      // Décocher écarte la campagne ; recocher la remet là où elle était,
-      // prioritaire comprise.
+      // Unticking discards the campaign; ticking it again puts it back where it
+      // was, focused status included.
       const priority = box.checked
         ? c.focus
           ? CAMPAIGN_PRIORITY.FOCUS
@@ -346,10 +346,10 @@ function renderCampaigns(campaigns) {
   }
 }
 
-// --- onglets --------------------------------------------------------------
+// --- tabs ---------------------------------------------------------------------
 
-// L'onglet ouvert et le filtre du journal sont des préférences d'affichage,
-// pas des réglages de fonctionnement : ils restent locaux à la page du popup.
+// The open tab and the log filter are display preferences, not operating
+// settings: they stay local to the popup's page.
 const TAB_KEY = "tdc.tab";
 const FILTER_KEY = "tdc.historyFilter";
 
@@ -359,9 +359,9 @@ const currentFilter = () => normalizeFilter(localStorage.getItem(FILTER_KEY));
 let activeTab = normalizeTab(localStorage.getItem(TAB_KEY));
 
 /**
- * Le trait sous l'onglet actif, positionné par `transform`.
- * Il est large de 100 px dans la feuille de style et remis à l'échelle ici :
- * animer `width` ou `left` referait la mise en page à chaque image.
+ * The underline beneath the active tab, positioned through `transform`.
+ * It is 100 px wide in the stylesheet and rescaled here: animating `width` or
+ * `left` would redo the layout on every frame.
  */
 function moveUnderline() {
   const btn = tabBtn(activeTab);
@@ -383,8 +383,8 @@ function showTab(id, { focus = false } = {}) {
 
     const actif = nom === activeTab;
     btn.setAttribute("aria-selected", String(actif));
-    // Un seul onglet atteignable par Tab : c'est le motif ARIA, il évite de
-    // devoir traverser toute la barre pour atteindre le contenu.
+    // Only one tab reachable with Tab: that is the ARIA pattern, and it saves
+    // having to walk the whole bar to reach the content.
     btn.tabIndex = actif ? 0 : -1;
     panel.hidden = !actif;
   }
@@ -404,14 +404,14 @@ function setupTabs() {
 
   barre.addEventListener("keydown", (ev) => {
     const suivant = tabForKey(activeTab, ev.key);
-    if (!suivant) return; // les autres touches restent au navigateur
+    if (!suivant) return; // the other keys are left to the browser
     ev.preventDefault();
     showTab(suivant, { focus: true });
   });
 
   showTab(activeTab);
-  // La largeur des onglets dépend des libellés traduits, qui sont posés juste
-  // avant : on repositionne une fois la mise en page faite.
+  // The tabs' width depends on the translated labels, which are placed just
+  // before: reposition once the layout is done.
   requestAnimationFrame(moveUnderline);
 }
 
@@ -461,8 +461,8 @@ async function load() {
   renderCampaigns(state.campaigns);
   renderError(state.lastError);
 
-  // Les pastilles changent la largeur des onglets : le trait se recale après le
-  // rendu, sinon il reste décalé jusqu'au prochain clic.
+  // The badges change the tabs' width: the underline realigns after the render,
+  // otherwise it stays offset until the next click.
   moveUnderline();
 }
 
@@ -484,8 +484,8 @@ for (const key of TOGGLES) {
 
     const res = await send(MSG.SET_SETTINGS, { [key]: on });
     if (!res.ok) {
-      // Une bascule qui reste allumée alors que rien n'a été enregistré ment
-      // à l'utilisateur : on la remet où elle était et on affiche la raison.
+      // A toggle that stays lit while nothing was saved lies to the user: put it
+      // back where it was and show the reason.
       $(key).classList.toggle("on", before);
       renderError({ message: res.error ?? "réglage refusé", at: Date.now() });
       return;
@@ -517,8 +517,8 @@ $("rebuildWindow").addEventListener("click", async () => {
 });
 
 $("inventory").addEventListener("click", () => {
-  // `active: true` explicite : c'est le défaut de Chrome, mais l'écrire dit que
-  // cet onglet-là est voulu au premier plan, contrairement à ceux de l'extension.
+  // `active: true` spelled out: it is Chrome's default, but writing it says this
+  // particular tab is meant to be in front, unlike the extension's own.
   chrome.tabs.create({ url: "https://www.twitch.tv/drops/inventory", active: true });
 });
 
