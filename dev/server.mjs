@@ -1,5 +1,5 @@
-// Petit serveur statique, uniquement pour prévisualiser popup.html et
-// options.html hors de Chrome. Ne fait pas partie de l'extension livrée.
+// A small static server, purely to preview popup.html and options.html outside
+// Chrome. Not part of the shipped extension.
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import path from "node:path";

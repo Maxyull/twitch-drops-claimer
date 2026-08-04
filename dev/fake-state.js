@@ -1,5 +1,8 @@
-// État factice + bouchon de l'API chrome, pour prévisualiser les vues sans
-// Chrome ni compte Twitch. Ne fait pas partie de l'extension livrée.
+// Fake state plus a stub of the chrome API, to preview the views without Chrome
+// and without a Twitch account. Not part of the shipped extension.
+//
+// The sample campaign names below stay in French: they are display data for a
+// preview whose catalogue is the French one, not prose to translate.
 import { MSG } from "../src/lib/messaging.js";
 
 const DAY = 86_400_000;
@@ -185,15 +188,15 @@ function buildI18n(dict) {
   };
 }
 
-/** Remplace l'API chrome par un bouchon qui répond FAKE_STATE. */
+/** Replaces the chrome API with a stub that answers FAKE_STATE. */
 export async function installChromeStub(state = FAKE_STATE) {
   const current = structuredClone(state);
   const dict = await (await fetch("/_locales/fr/messages.json")).json();
 
   globalThis.chrome = {
     i18n: { ...buildI18n(dict), getUILanguage: () => "fr-FR" },
-    // Les pages lisent maintenant leur catalogue elles-mêmes : le bouchon doit
-    // donc résoudre une URL de paquet et servir `language` comme le stockage.
+    // The pages now read their catalogue themselves: the stub therefore has to
+    // resolve a package URL and serve `language` the way storage does.
     storage: {
       local: {
         async get(keys) {
@@ -231,8 +234,8 @@ export async function installChromeStub(state = FAKE_STATE) {
 }
 
 /**
- * Charge une page de l'extension dans la page courante : on récupère son corps
- * et sa feuille de style, puis on importe son script une fois le bouchon posé.
+ * Loads one of the extension's pages into the current page: its body and its
+ * stylesheet are fetched, then its script is imported once the stub is in place.
  */
 export async function mountExtensionPage(htmlPath, scriptPath) {
   const html = await (await fetch(htmlPath)).text();
@@ -245,8 +248,8 @@ export async function mountExtensionPage(htmlPath, scriptPath) {
     document.head.append(clone);
   }
 
-  // On retire la balise script de la page d'origine : c'est nous qui importons
-  // le module, une fois le bouchon chrome en place.
+  // The original page's script tag is removed: we are the ones importing the
+  // module, once the chrome stub is in place.
   document.body.replaceChildren(
     ...[...parsed.body.children].filter((el) => el.tagName !== "SCRIPT"),
   );
