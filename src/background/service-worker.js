@@ -405,10 +405,9 @@ async function computeWatchers(status) {
       since: row.since ?? null,
       campaignName: campaigns.find((c) => c.id === row.campaignId)?.name ?? null,
       status: { code: row.status.code, green: row.status.green },
-      points:
-        row.role === ROLE.POINTS && state.pointsBalance?.channel === row.channel
-          ? state.pointsBalance.balance
-          : null,
+      // Le solde de CHAQUE chaîne regardée, pas seulement de la favorite : les
+      // coffres sont désormais réclamés partout, la ligne doit pouvoir le montrer.
+      points: state.pointsByChannel?.[row.channel]?.balance ?? null,
       counted: evaluateCounted(
         {
           ...state.counted[row.tabId],

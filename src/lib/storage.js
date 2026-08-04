@@ -199,8 +199,13 @@ const EMPTY_STATE = {
   rotationIndex: -1,
   // { channel, balance, hasBonus, at } : solde de points de la chaîne suivie.
   pointsBalance: null,
-  // Dernier coffre réclamé, pour ne pas le réclamer deux fois.
-  claimedBonusId: null,
+  // chaîne -> { balance, hasBonus, at } : solde de CHAQUE chaîne regardée, pas
+  // seulement de la favorite. Une chaîne de farm distribue des coffres aussi.
+  pointsByChannel: {},
+  // chaîne -> dernier coffre réclamé, pour ne pas le réclamer deux fois. Par
+  // chaîne : un identifiant global ferait perdre le coffre d'une chaîne dès
+  // qu'une autre en réclame un.
+  claimedBonusIds: {},
   // tabId -> chaîne demandée. Évite de relire l'adresse de l'onglet, donc évite
   // la permission "tabs".
   tabChannels: {},

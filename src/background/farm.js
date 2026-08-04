@@ -729,24 +729,54 @@ export async function recordPointsClaim(channel) {
   return true;
 }
 
+/**
+ * Toutes les chaînes que l'extension regarde en ce moment : la favorite ET les
+ * chaînes de farm.
+ *
+ * Une chaîne de farm est un direct comme un autre : elle distribue des coffres
+ * de points. Jusqu'ici seul le clic dans le DOM les prenait, et ce clic dépend
+ * d'une classe CSS de Twitch : le jour où elle change, plus rien n'est réclamé
+ * et rien ne le signale. L'API, elle, dit explicitement qu'un coffre attend.
+ */
+function watchedChannels(state) {
+  return [
+    ...new Set([state.pointsChannel, ...(state.dropTabs ?? []).map((e) => e.channel)].filter(Boolean)),
+  ];
+}
+
 export async function refreshPoints(settings, { force = false } = {}) {
   const state = await store.getState();
-  const channel = state.pointsChannel;
-  if (!channel) return null;
+  const chaines = watchedChannels(state);
+  if (!chaines.length) return null;
+
+  let principale = null;
+  for (const channel of chaines) {
+    const res = await claimPointsOn(channel, settings, { force });
+    // La favorite reste celle que le popup affiche : c'est celle que
+    // l'utilisateur a choisie, les autres ne sont qu'un bonus de passage.
+    if (channel === state.pointsChannel) principale = res;
+  }
+  return principale;
+}
+
+/** Solde et coffre en attente d'une seule chaîne. Ne jette jamais. */
+async function claimPointsOn(channel, settings, { force = false } = {}) {
+  const state = await store.getState();
+  const vus = state.pointsByChannel ?? {};
+  const cached = vus[channel] ?? null;
 
   // `force` sert au canal temps réel : Twitch vient d'annoncer un coffre, la
   // valeur en cache est périmée par définition et attendre sa péremption ferait
   // perdre l'intérêt de l'annonce.
-  const cached = state.pointsBalance;
-  if (!force && cached?.channel === channel && Date.now() - cached.at < POINTS_TTL_MS) return cached;
+  if (!force && cached && Date.now() - cached.at < POINTS_TTL_MS) return cached;
 
   let points;
   try {
     points = await gql.channelPoints(channel);
   } catch {
-    return cached ?? null; // API muette : on garde la dernière valeur connue
+    return cached; // API muette : on garde la dernière valeur connue
   }
-  if (!points) return cached ?? null;
+  if (!points) return cached;
 
   const fresh = {
     channel,
@@ -754,11 +784,16 @@ export async function refreshPoints(settings, { force = false } = {}) {
     hasBonus: Boolean(points.claimId),
     at: Date.now(),
   };
-  await store.setState({ pointsBalance: fresh });
+  const patch = { pointsByChannel: { ...vus, [channel]: fresh } };
+  if (channel === state.pointsChannel) patch.pointsBalance = fresh;
+  await store.setState(patch);
 
   if (!settings?.claimPoints || !points.claimId) return fresh;
-  // Le même coffre ne se réclame qu'une fois, même si on repasse dessus.
-  if (state.claimedBonusId === points.claimId) return fresh;
+  // Le même coffre ne se réclame qu'une fois, même si on repasse dessus. La
+  // mémoire est par chaîne : un seul identifiant global ferait perdre le coffre
+  // d'une chaîne dès qu'une autre en réclame un.
+  const dejaPris = state.claimedBonusIds ?? {};
+  if (dejaPris[channel] === points.claimId) return fresh;
 
   try {
     const res = await gql.claimCommunityPoints(points.channelId, points.claimId);
@@ -767,7 +802,7 @@ export async function refreshPoints(settings, { force = false } = {}) {
     return fresh;
   }
 
-  await store.setState({ claimedBonusId: points.claimId });
+  await store.setState({ claimedBonusIds: { ...dejaPris, [channel]: points.claimId } });
   const compte = await recordPointsClaim(channel);
   return { ...fresh, claimed: compte, channel };
 }
