@@ -1,4 +1,8 @@
-// Orchestrateur : quelles campagnes farmer, quelle chaîne regarder, quels onglets ouvrir.
+// Orchestrator: which campaigns to farm, which channel to watch, which tabs to open.
+//
+// The French identifiers here (`marques`, `orphelins`, `voulus`, `aChercher`, ...)
+// are kept on purpose: #72 settled that renaming them is churn with regression
+// risk, for no gain the comments do not already provide.
 
 import {
   parseCampaign,
@@ -22,30 +26,30 @@ import * as store from "../lib/storage.js";
 
 const TWITCH_TABS = "https://www.twitch.tv/*";
 /**
- * Marqueur des onglets ouverts par l'extension. Un fragment d'URL n'est jamais
- * envoyé au serveur, Twitch l'ignore, et surtout il survit au rechargement de
- * l'extension : c'est le seul indice qui reste quand `storage.session` est vidé.
+ * Marker for the tabs the extension opens. A URL fragment is never sent to the
+ * server, Twitch ignores it, and above all it survives an extension reload: it is
+ * the only clue left once `storage.session` has been cleared.
  */
 export const TAB_MARK = "#tdc";
 
 const INVENTORY_URL = `https://www.twitch.tv/drops/inventory${TAB_MARK}`;
 const DETAILS_TTL_MS = 6 * 60 * 60 * 1000;
-/** Requêtes de détail en vol simultanément. Assez pour être rapide, pas assez pour agacer Twitch. */
+/** Detail requests in flight at once. Enough to be fast, not enough to annoy Twitch. */
 const DETAILS_CONCURRENCY = 6;
-/** Garde-fou : un compte ne voit jamais autant de campagnes, mais on ne boucle pas à l'infini. */
+/** Guard rail: an account never sees that many campaigns, but we do not loop forever. */
 const MAX_DETAILS = 200;
 
-// --- onglets --------------------------------------------------------------
+// --- tabs ---------------------------------------------------------------------
 
 async function normalWindows() {
-  // On filtre en JS plutôt que par `windowTypes`, déprécié dans getAll().
+  // Filtered in JS rather than through `windowTypes`, deprecated in getAll().
   return (await chrome.windows.getAll()).filter((w) => w.type === "normal");
 }
 
 /**
- * Fenêtre qui porte déjà des onglets marqués par l'extension.
- * C'est le seul moyen de la retrouver après un rechargement, `state.windowId`
- * étant perdu avec `storage.session`.
+ * The window that already carries tabs marked by the extension.
+ * It is the only way to find it again after a reload, `state.windowId` being lost
+ * along with `storage.session`.
  */
 async function findOwnWindow() {
   try {
@@ -56,7 +60,7 @@ async function findOwnWindow() {
   }
 }
 
-/** Combien d'onglets portent encore notre marqueur, et où. */
+/** How many tabs still carry our marker, and where. */
 async function countMarkedTabs() {
   try {
     const tabs = await chrome.tabs.query({ url: TWITCH_TABS });
@@ -68,20 +72,20 @@ async function countMarkedTabs() {
 }
 
 /**
- * Garde-fou contre l'emballement : une condition mal évaluée ne doit pas
- * pouvoir produire une fenêtre par cycle. Passé ce délai sans succès, on
- * préfère réutiliser une fenêtre existante et le dire.
+ * Guard rail against runaway creation: a badly evaluated condition must not be
+ * able to produce one window per cycle. Past this delay without success, we
+ * prefer to reuse an existing window and say so.
  */
 const WINDOW_COOLDOWN_MS = 5 * 60_000;
 
 /**
- * Toute création de fenêtre laisse une trace lisible après coup.
+ * Every window creation leaves a trace that can be read afterwards.
  *
- * Cinq signalements de « fenêtre en trop » ont donné cinq causes différentes,
- * chacune corrigée à l'aveugle. Sans savoir POURQUOI l'extension a jugé qu'elle
- * n'en avait pas, on ne fait que boucher des chemins.
+ * Five "extra window" reports gave five different causes, each fixed blind.
+ * Without knowing WHY the extension concluded it had no window, all we do is
+ * block off paths.
  *
- * À lire dans la console du service worker :
+ * To read it from the service worker console:
  *   chrome.storage.local.get("windowLog").then(console.log)
  */
 const WINDOW_LOG_MAX = 20;
@@ -100,20 +104,20 @@ async function createDedicatedWindow(windows, contexte = {}) {
   const state = await store.getState();
 
   if (Date.now() - (state.windowCreatedAt ?? 0) < WINDOW_COOLDOWN_MS) {
-    // On vient d'en créer une et on n'arrive pas à la retrouver : quelque chose
-    // ne tourne pas rond, en ouvrir une de plus ne réglerait rien.
+    // We have just created one and cannot find it again: something is off, and
+    // opening yet another would fix nothing.
     await traceWindow({ action: "refusee-delai", ...contexte });
     await store.setLastError("Fenêtre dédiée introuvable, réutilisation d'une fenêtre existante.");
     return windows.at(-1)?.id ?? null;
   }
 
-  // Créer puis réduire, en deux temps : `state` et `focused` se recouvrent dans
-  // le même appel et Chrome ne garantit pas le résultat.
+  // Create then minimise, in two steps: `state` and `focused` overlap within the
+  // same call and Chrome does not guarantee the result.
   const created = await chrome.windows.create({ focused: false });
   try {
     await chrome.windows.update(created.id, { state: "minimized" });
   } catch {
-    /* pas réduite, tant pis, elle reste en arrière-plan */
+    /* not minimised, never mind, it stays in the background */
   }
 
   await store.setState({ windowId: created.id, windowCreatedAt: Date.now() });
@@ -129,16 +133,16 @@ async function targetWindowId(settings, appelant = "?") {
     const state = await store.getState();
     if (existe(state.windowId)) return state.windowId;
 
-    // Avant d'en créer une : l'extension en avait peut-être déjà une, dont elle
-    // a perdu la trace au rechargement. Ses onglets marqués la trahissent.
+    // Before creating one: the extension may already have had a window and lost
+    // track of it on reload. Its marked tabs give it away.
     const retrouvee = await findOwnWindow();
     if (existe(retrouvee)) {
       await store.setState({ windowId: retrouvee });
       return retrouvee;
     }
 
-    // Le contexte dit pourquoi on a conclu qu'il n'y avait pas de fenêtre :
-    // c'est cette information qui manquait aux cinq corrections précédentes.
+    // The context says why we concluded there was no window: that is precisely
+    // the information the five previous fixes were missing.
     return createDedicatedWindow(windows, {
       appelant,
       fenetresNormales: windows.length,
@@ -149,14 +153,14 @@ async function targetWindowId(settings, appelant = "?") {
     });
   }
 
-  // Hors mode dédié, `windows[0]` est la première de la liste de Chrome, pas
-  // celle où l'utilisateur travaille. Avec une seule fenêtre ça ne se voyait
-  // pas ; avec plusieurs, les onglets atterrissaient n'importe où.
+  // Outside the dedicated mode, `windows[0]` is the first in Chrome's list, not
+  // the one the user is working in. With a single window it did not show; with
+  // several, tabs landed anywhere.
   try {
     const derniere = await chrome.windows.getLastFocused();
     if (derniere?.type === "normal") return derniere.id;
   } catch {
-    /* aucune fenêtre active, on retombe plus bas */
+    /* no active window, we fall through below */
   }
 
   if (windows.length) return windows.at(-1).id;
@@ -164,18 +168,17 @@ async function targetWindowId(settings, appelant = "?") {
 }
 
 /**
- * Sourdine au niveau de l'onglet, en plus de celle posée sur le lecteur par le
- * script de contenu. Ceinture et bretelles volontaires : si le script de contenu
- * ne se charge pas, Twitch démarre au volume enregistré par l'utilisateur et
- * l'onglet se met à parler tout seul.
- * Muter un onglet ne demande pas la permission "tabs", seule la lecture de son
- * URL la demanderait.
+ * Muting at the tab level, on top of the one the content script applies to the
+ * player. Belt and braces on purpose: if the content script fails to load, Twitch
+ * starts at the volume the user saved and the tab starts talking on its own.
+ * Muting a tab does not require the "tabs" permission; only reading its URL
+ * would.
  */
 async function applyTabMute(tabId, settings) {
   try {
     await chrome.tabs.update(tabId, { muted: Boolean(settings?.muteTabs) });
   } catch {
-    /* pas de sourdine possible : le script de contenu coupe déjà le lecteur */
+    /* no muting available: the content script already silences the player */
   }
 }
 
@@ -184,10 +187,10 @@ async function openBackgroundTab(url, { pinned = true } = {}) {
   const windowId = await targetWindowId(settings, "ouverture-onglet");
   const tab = await chrome.tabs.create({ url, active: false, pinned, windowId });
   try {
-    // Empêche Chrome de mettre l'onglet en veille : un onglet déchargé ne regarde plus rien.
+    // Stops Chrome putting the tab to sleep: a discarded tab watches nothing.
     await chrome.tabs.update(tab.id, { autoDiscardable: false });
   } catch {
-    /* option indisponible selon la version, sans conséquence */
+    /* option missing on some versions, of no consequence */
   }
   await applyTabMute(tab.id, settings);
   return tab.id;
@@ -208,11 +211,11 @@ async function closeTab(tabId) {
   try {
     await chrome.tabs.remove(tabId);
   } catch {
-    /* déjà fermé */
+    /* already closed */
   }
 }
 
-/** Tous les onglets dont l'extension a la trace. */
+/** Every tab the extension still has a record of. */
 async function ownTabIds(state) {
   return new Set(
     [
@@ -224,16 +227,16 @@ async function ownTabIds(state) {
 }
 
 /**
- * Ferme les onglets marqués par l'extension dont elle n'a plus la trace.
+ * Closes the tabs marked by the extension that it no longer has a record of.
  *
- * `storage.session` est vidé à chaque rechargement de l'extension : sans ce
- * ménage, elle rouvre des onglets pendant que les précédents tournent encore, et
- * une fenêtre réduite de plus apparaît à chaque fois. Les scripts de contenu
- * déjà injectés étant invalidés par le rechargement, on ne peut pas attendre
- * qu'ils se signalent : il faut aller les chercher.
+ * `storage.session` is cleared on every extension reload: without this cleanup it
+ * reopens tabs while the previous ones are still running, and one more minimised
+ * window appears every time. The already injected content scripts are invalidated
+ * by the reload, so we cannot wait for them to announce themselves: they have to
+ * be hunted down.
  *
- * Le filtre par URL de `tabs.query` ne demande pas la permission `tabs`, la
- * permission d'hôte sur `www.twitch.tv` suffit.
+ * The URL filter on `tabs.query` does not require the `tabs` permission; the host
+ * permission on `www.twitch.tv` is enough.
  */
 export async function closeOrphanTabs() {
   let tabs;
@@ -248,17 +251,17 @@ export async function closeOrphanTabs() {
   const orphelins = tabs.filter((tab) => (tab.url ?? "").includes(TAB_MARK) && !miens.has(tab.id));
   if (!orphelins.length) return 0;
 
-  // On reprend la fenêtre avant de vider ses onglets : une fois qu'ils sont
-  // fermés, plus rien ne permet de la reconnaître, et on en ouvrirait une
-  // seconde juste à côté de celles de l'utilisateur.
+  // Reclaim the window before emptying its tabs: once they are closed nothing
+  // identifies it any more, and we would open a second one right next to the
+  // user's.
   if (!state.windowId) await store.setState({ windowId: orphelins[0].windowId });
 
   for (const tab of orphelins) await closeTab(tab.id);
-  // La fenêtre qui les portait se ferme d'elle-même avec son dernier onglet.
+  // The window that carried them closes by itself with its last tab.
   return orphelins.length;
 }
 
-/** Reste-t-il au moins un onglet de farm vivant ? */
+/** Is there still at least one farming tab alive? */
 async function anyDropTabAlive(state) {
   for (const entry of state.dropTabs ?? []) {
     if (await tabExists(entry.tabId)) return true;
@@ -266,17 +269,7 @@ async function anyDropTabAlive(state) {
   return false;
 }
 
-/**
- * Ouvre ou recycle un onglet d'arrière-plan pointant sur une chaîne.
- * On mémorise la chaîne demandée plutôt que de relire l'adresse de l'onglet :
- * ça évite la permission "tabs" (cf. docs/SECURITY-AUDIT.md).
- */
-/**
- * Onglet marqué déjà ouvert sur cette chaîne. Après un rechargement de
- * l'extension, `storage.session` est vide et elle rouvrirait ce qui existe
- * déjà, chaque ouverture pouvant entraîner une fenêtre avec elle.
- */
-/** N'importe quel onglet Twitch, marqué ou non : le script de contenu y tourne. */
+/** Any Twitch tab, marked or not: the content script runs in it. */
 async function anyTwitchTab() {
   try {
     return (await chrome.tabs.query({ url: TWITCH_TABS }))[0] ?? null;
@@ -285,6 +278,11 @@ async function anyTwitchTab() {
   }
 }
 
+/**
+ * A marked tab already open on this channel. After an extension reload,
+ * `storage.session` is empty and it would reopen what already exists, each
+ * opening potentially dragging a window along with it.
+ */
 async function findMarkedTab(channel) {
   const prefixe = `https://www.twitch.tv/${channel}`;
   try {
@@ -300,6 +298,11 @@ async function findMarkedTab(channel) {
   }
 }
 
+/**
+ * Opens or recycles a background tab pointing at a channel.
+ * The requested channel is remembered rather than read back from the tab's
+ * address: that is what avoids the "tabs" permission (see docs/SECURITY-AUDIT.md).
+ */
 async function ensureChannelTab(tabId, channel) {
   const url = `https://www.twitch.tv/${channel}${TAB_MARK}`;
   const state = await store.getState();
@@ -313,7 +316,7 @@ async function ensureChannelTab(tabId, channel) {
     return tabId;
   }
 
-  // On reprend un onglet déjà en place plutôt que d'en ouvrir un doublon.
+  // Reclaim a tab already in place rather than opening a duplicate.
   const dejaLa = await findMarkedTab(channel);
   const id = dejaLa?.id ?? (await openBackgroundTab(url));
   if (dejaLa) await applyTabMute(id, await store.getSettings());
@@ -322,7 +325,7 @@ async function ensureChannelTab(tabId, channel) {
   return id;
 }
 
-// --- campagnes ------------------------------------------------------------
+// --- campaigns ----------------------------------------------------------------
 
 async function getLogin() {
   const { twitchLogin } = await chrome.storage.local.get("twitchLogin");
@@ -334,9 +337,9 @@ async function getLogin() {
 }
 
 /**
- * Identifiant numérique du compte, exigé par les sujets du canal temps réel.
- * Renvoie `null` plutôt que de jeter : sans lui on n'ouvre simplement pas la
- * connexion, et rien d'autre ne change.
+ * The account's numeric id, required by the real-time channel's topics.
+ * Returns `null` rather than throwing: without it we simply do not open the
+ * connection, and nothing else changes.
  */
 export async function getUserId() {
   const { twitchUserId } = await chrome.storage.local.get("twitchUserId");
@@ -352,18 +355,10 @@ export async function getUserId() {
 }
 
 /**
- * Recharge la liste des campagnes, en entier et en un seul passage.
- *
- * L'inventaire donne la progression exacte des campagnes entamées. La liste
- * générale donne toutes les autres, dont il faut aller chercher le détail
- * (paliers et chaînes autorisées) une par une : ce sont ces requêtes qu'on
- * parallélise, sinon la liste se remplirait sur plusieurs cycles.
- */
-/**
- * La structure d'une campagne ne bouge pas : noms des paliers, minutes requises,
- * chaînes autorisées. Sa progression, si. Servir `isClaimed` depuis un cache de
- * six heures rendait invisible tout drop réclamé entre-temps, et le compteur
- * restait à zéro. Le cache garde donc la structure, jamais l'avancement.
+ * A campaign's structure does not move: tier names, required minutes, allowed
+ * channels. Its progress does. Serving `isClaimed` from a six-hour cache made any
+ * drop claimed in the meantime invisible, and the counter stayed at zero. So the
+ * cache keeps the structure, never the progress.
  */
 function forgetProgress(drops) {
   return (drops || []).map((d) => ({
@@ -374,11 +369,19 @@ function forgetProgress(drops) {
   }));
 }
 
-/** Campagnes entamées, avec leur progression réelle. Une seule requête. */
+/** Campaigns already started, with their real progress. One request. */
 export async function inventoryCampaigns() {
   return (await gql.inventory()).map(parseCampaign).filter(Boolean);
 }
 
+/**
+ * Reloads the campaign list, in full and in a single pass.
+ *
+ * The inventory gives the exact progress of the campaigns already started. The
+ * general list gives all the others, whose details (tiers and allowed channels)
+ * have to be fetched one by one: those are the requests we parallelise, otherwise
+ * the list would fill up over several cycles.
+ */
 export async function refreshCampaigns() {
   const now = Date.now();
   const byId = new Map();
@@ -417,11 +420,11 @@ export async function refreshCampaigns() {
       const detail = details[i];
       if (detail) {
         byId.set(detail.id, detail);
-        // On ne met en cache que la structure : stocker un avancement qu'on
-        // s'interdit de relire ne ferait qu'occuper du quota.
+        // Only the structure is cached: storing progress we forbid ourselves from
+        // reading back would just take up quota.
         cache[detail.id] = { at: now, campaign: { ...detail, drops: forgetProgress(detail.drops) } };
       } else {
-        // Détail indisponible : la campagne reste visible, sans ses paliers.
+        // Details unavailable: the campaign stays visible, without its tiers.
         byId.set(shallow.id, shallow);
       }
     });
@@ -440,8 +443,8 @@ export async function refreshCampaigns() {
 }
 
 /**
- * Compte les drops réellement obtenus, d'après l'inventaire et non d'après nos
- * clics : Twitch peut créditer un palier sans nous, et un clic peut échouer.
+ * Counts the drops actually obtained, from the inventory rather than from our
+ * clicks: Twitch can credit a tier without us, and a click can fail.
  */
 export async function syncClaimedDrops(campaigns) {
   const { ids, seeded } = await store.getClaimedDrops();
@@ -450,8 +453,8 @@ export async function syncClaimedDrops(campaigns) {
 
   if (!merged.added.length) return 0;
 
-  // On retrouve le nom du palier et de sa campagne : un journal qui ne dirait
-  // que « un drop » ne vaudrait pas mieux qu'un compteur.
+  // The tier's name and its campaign's are looked up: a log that only said "a
+  // drop" would be worth no more than a counter.
   const nouveaux = new Set(merged.added);
   const entrees = [];
   for (const campaign of campaigns ?? []) {
@@ -474,9 +477,9 @@ export async function syncClaimedDrops(campaigns) {
 }
 
 /**
- * Preuve de comptage par la progression : les minutes accumulées sur la campagne
- * suivie et le solde de points de la chaîne favorite. C'est le signal le plus
- * lent à venir, et le seul qui ne puisse pas se tromper.
+ * Proof of counting through progress: the minutes accumulated on the campaign
+ * being followed, and the favourite channel's points balance. It is the slowest
+ * signal to arrive, and the only one that cannot be wrong.
  */
 const PROOF_TTL_MS = 5 * 60_000;
 
@@ -488,8 +491,8 @@ export async function refreshWatchProof() {
   const marks = { ...(state.marks ?? {}) };
   const proof = { ...(state.proof ?? {}) };
 
-  // Une seule requête pour toutes les campagnes farmées : la preuve vaut par
-  // onglet, mais l'inventaire les porte toutes.
+  // One request for every farmed campaign: the proof is per tab, but the
+  // inventory carries them all.
   if ((state.dropTabs ?? []).length) {
     try {
       const inventaire = await inventoryCampaigns();
@@ -506,14 +509,14 @@ export async function refreshWatchProof() {
       }
       marks.dropsMinutes = minutes;
 
-      // La même réponse sert à faire avancer ce que le popup affiche. Sans ça,
-      // la barre de progression restait sur les minutes de la dernière
-      // découverte, vieilles d'une demi-heure. Voir #49.
+      // The same response is used to advance what the popup displays. Without it
+      // the progress bar stayed on the minutes from the last discovery, half an
+      // hour old. See #49.
       const { campaigns } = await store.getCampaigns();
       const fusion = mergeProgress(campaigns, inventaire);
       if (fusion.changed) await store.setCampaigns(fusion.campaigns, { touchDate: false });
     } catch {
-      /* API muette : on retentera au prochain passage */
+      /* API silent: we will try again on the next pass */
     }
   }
 
@@ -529,11 +532,11 @@ export async function refreshWatchProof() {
 }
 
 /**
- * Progression annoncée par le canal temps réel, pour un palier précis.
+ * Progress announced by the real-time channel, for one specific tier.
  *
- * Même écriture que la progression interrogée, mais sans attendre le prochain
- * passage : c'est la seule différence. Les mêmes garde-fous s'appliquent, dont
- * celui qui interdit à un compteur de reculer.
+ * The same write as polled progress, but without waiting for the next pass: that
+ * is the only difference. The same guard rails apply, including the one that
+ * forbids a counter from going backwards.
  */
 export async function applyRealtimeDrop({ dropID, watchedMinutes }) {
   const { campaigns } = await store.getCampaigns();
@@ -542,7 +545,7 @@ export async function applyRealtimeDrop({ dropID, watchedMinutes }) {
 
   await store.setCampaigns(res.campaigns, { touchDate: false });
 
-  // Une minute qui monte est la preuve que Twitch comptabilise ce visionnage.
+  // A minute going up is proof Twitch is counting this viewing.
   const campagne = res.campaigns.find((c) => (c.drops || []).some((d) => d.id === dropID));
   if (!campagne) return res;
 
@@ -554,11 +557,11 @@ export async function applyRealtimeDrop({ dropID, watchedMinutes }) {
 }
 
 /**
- * Identifiants numériques des chaînes actuellement regardées, retenus une fois
- * pour toutes. Ils servent à deux choses : la progression en direct, et
- * l'abonnement aux raids, qui ne s'annoncent que par identifiant de chaîne.
+ * Numeric ids of the channels currently being watched, kept once and for all.
+ * They serve two purposes: live progress, and subscribing to raids, which only
+ * announce themselves by channel id.
  *
- * Ne jette jamais : sans identifiant, on perd une accélération, pas le farm.
+ * Never throws: without an id we lose an acceleration, not the farming.
  */
 export async function refreshChannelIds() {
   const state = await store.getState();
@@ -575,27 +578,27 @@ export async function refreshChannelIds() {
       for (const chaine of await gql.liveChannels(manquants)) ids[chaine.login] = chaine.id;
       await store.setState({ channelIds: ids });
     } catch {
-      /* API muette : on retentera au prochain passage */
+      /* API silent: we will try again on the next pass */
     }
   }
 
-  // On ne rend que les chaînes encore regardées : garder les anciennes ferait
-  // écouter des raids sur des chaînes qu'on a quittées.
+  // Only the channels still being watched are returned: keeping the old ones
+  // would make us listen for raids on channels we have left.
   return Object.fromEntries(voulus.filter((login) => ids[login]).map((l) => [l, ids[l]]));
 }
 
 /**
- * Un raid part de l'une des chaînes regardées.
+ * A raid leaves one of the watched channels.
  *
- * Deux choses, et il ne faut pas les confondre :
+ * Two things, and they must not be confused:
  *
- * 1. Le bonus. Twitch le verse au spectateur qui suit le raid. Il n'a de sens
- *    que sur la chaîne favorite, celle que l'utilisateur a choisie ; le prendre
- *    sur un onglet de farm reviendrait à récolter chez un inconnu.
- * 2. La dérive. Twitch redirige l'onglet vers la cible du raid. Sur un onglet
- *    de farm, cette cible ne porte presque jamais la campagne : le visionnage
- *    ne compte plus, et sans ça l'extension ne s'en apercevait qu'au passage
- *    suivant, une minute plus tard, par un voyant « mauvaise chaîne ».
+ * 1. The bonus. Twitch pays it to the viewer who follows the raid. It only makes
+ *    sense on the favourite channel, the one the user chose; taking it on a
+ *    farming tab would mean harvesting at a stranger's.
+ * 2. The drift. Twitch redirects the tab to the raid's target. On a farming tab
+ *    that target almost never carries the campaign: the viewing stops counting,
+ *    and without this the extension only noticed on the next pass, a minute
+ *    later, through a "wrong channel" indicator.
  *
  * @returns {{joined: boolean, redirected: boolean}}
  */
@@ -611,35 +614,35 @@ export async function handleRaid({ raidID, sourceChannelId }, settings) {
     try {
       joined = (await gql.joinRaid(raidID)).ok;
     } catch {
-      /* raid déjà fini ou refusé : rien à réparer */
+      /* raid already over or refused: nothing to repair */
     }
   }
 
-  // La chaîne de farm part : on la remplace tout de suite plutôt que d'attendre
-  // que le voyant le constate.
+  // The farming channel is leaving: replace it straight away rather than wait for
+  // the indicator to notice.
   const surFarm = (state.dropTabs ?? []).some((entry) => entry.channel === source);
   if (surFarm) await ensureDropsTabs(settings, { force: true });
 
   return { joined, redirected: surFarm };
 }
 
-/** Des points viennent d'être crédités : c'est une preuve de comptage. */
+/** Points have just been credited: that is proof of counting. */
 export async function noteRealtimePoints() {
   const state = await store.getState();
   return store.setState({ proof: { ...(state.proof ?? {}), pointsAt: Date.now() } });
 }
 
 /**
- * Progression en direct, chaque minute, sur les chaînes farmées.
+ * Live progress, every minute, on the farmed channels.
  *
- * L'inventaire complet est trop lourd pour être demandé si souvent : on ne le
- * touche que toutes les cinq minutes. `DropCurrentSessionContext` ne renvoie
- * qu'un palier et ses minutes, c'est ce que font les deux miners de référence,
- * et c'est assez léger pour suivre le compteur en direct.
+ * The full inventory is too heavy to request that often: it is touched only every
+ * five minutes. `DropCurrentSessionContext` returns one tier and its minutes,
+ * which is what the two reference miners do, and it is light enough to follow the
+ * counter live.
  *
- * Deuxième bénéfice, moins visible : une minute qui monte est la preuve la plus
- * sûre que Twitch compte bien ce visionnage. Le badge « compté en viewer »
- * l'obtient donc en une minute au lieu de cinq.
+ * Second, less visible benefit: a minute going up is the surest proof Twitch is
+ * counting this viewing. The "counted as a viewer" badge therefore gets it in one
+ * minute instead of five.
  */
 const LIVE_TTL_MS = 60_000;
 
@@ -647,8 +650,8 @@ export async function refreshLiveProgress() {
   const state = await store.getState();
   const now = Date.now();
   if (now - (state.liveCheckedAt ?? 0) < LIVE_TTL_MS) return state;
-  // Empreinte retirée par Twitch : inutile de la redemander chaque minute.
-  // L'inventaire, lui, continue de tourner : on perd la fraîcheur, pas la mesure.
+  // Fingerprint retired by Twitch: no point asking for it again every minute.
+  // The inventory keeps running: we lose freshness, not the measurement.
   if (state.livePersistedGone) return state;
 
   const tabs = (state.dropTabs ?? []).filter((entry) => entry.channel);
@@ -685,7 +688,7 @@ export async function refreshLiveProgress() {
       console.warn("[TDC] progression en direct indisponible :", err.message);
       return store.setState({ liveCheckedAt: now, livePersistedGone: true });
     }
-    // Réseau ou session : on retentera au prochain passage, sans rien casser.
+    // Network or session: we will try again on the next pass, breaking nothing.
     return store.setState({ liveCheckedAt: now });
   }
 
@@ -694,20 +697,20 @@ export async function refreshLiveProgress() {
 }
 
 /**
- * Solde de la chaîne suivie, et surtout réclamation du coffre en attente.
+ * The followed channel's balance, and above all claiming the pending chest.
  *
- * Le clic dans le DOM reste en place pour les onglets que l'utilisateur ouvre
- * lui-même, mais il dépend d'une classe CSS de Twitch : le jour où elle change,
- * plus rien ne se réclame et rien ne le signale. L'API, elle, dit explicitement
- * qu'un bonus attend et confirme qu'il a été pris.
+ * The DOM click stays in place for the tabs the user opens themselves, but it
+ * depends on a Twitch CSS class: the day it changes, nothing gets claimed any
+ * more and nothing reports it. The API explicitly says a bonus is waiting and
+ * confirms it was taken.
  */
 const POINTS_TTL_MS = 60_000;
 
 /**
- * Deux chemins réclament le même coffre : l'API et le clic dans le DOM. Sans
- * garde, le compteur compterait deux fois, ce qui est exactement le défaut qu'on
- * cherche à corriger. Un coffre apparaît toutes les quinze minutes environ :
- * une minute de fenêtre ne peut pas fusionner deux bonus légitimes.
+ * Two paths claim the same chest: the API and the DOM click. Without a guard the
+ * counter would count twice, which is exactly the defect we are trying to fix. A
+ * chest appears roughly every fifteen minutes: a one-minute window cannot merge
+ * two legitimate bonuses.
  */
 const POINTS_DEDUPE_MS = 60_000;
 
@@ -730,13 +733,13 @@ export async function recordPointsClaim(channel) {
 }
 
 /**
- * Toutes les chaînes que l'extension regarde en ce moment : la favorite ET les
- * chaînes de farm.
+ * Every channel the extension is watching right now: the favourite AND the
+ * farming channels.
  *
- * Une chaîne de farm est un direct comme un autre : elle distribue des coffres
- * de points. Jusqu'ici seul le clic dans le DOM les prenait, et ce clic dépend
- * d'une classe CSS de Twitch : le jour où elle change, plus rien n'est réclamé
- * et rien ne le signale. L'API, elle, dit explicitement qu'un coffre attend.
+ * A farming channel is a live stream like any other: it hands out points chests.
+ * Until now only the DOM click took them, and that click depends on a Twitch CSS
+ * class: the day it changes, nothing gets claimed and nothing reports it. The API
+ * explicitly says a chest is waiting.
  */
 function watchedChannels(state) {
   return [
@@ -752,29 +755,29 @@ export async function refreshPoints(settings, { force = false } = {}) {
   let principale = null;
   for (const channel of chaines) {
     const res = await claimPointsOn(channel, settings, { force });
-    // La favorite reste celle que le popup affiche : c'est celle que
-    // l'utilisateur a choisie, les autres ne sont qu'un bonus de passage.
+    // The favourite stays the one the popup displays: it is the one the user
+    // chose, the others are only a bonus picked up along the way.
     if (channel === state.pointsChannel) principale = res;
   }
   return principale;
 }
 
-/** Solde et coffre en attente d'une seule chaîne. Ne jette jamais. */
+/** Balance and pending chest for a single channel. Never throws. */
 async function claimPointsOn(channel, settings, { force = false } = {}) {
   const state = await store.getState();
   const vus = state.pointsByChannel ?? {};
   const cached = vus[channel] ?? null;
 
-  // `force` sert au canal temps réel : Twitch vient d'annoncer un coffre, la
-  // valeur en cache est périmée par définition et attendre sa péremption ferait
-  // perdre l'intérêt de l'annonce.
+  // `force` is for the real-time channel: Twitch has just announced a chest, so
+  // the cached value is stale by definition and waiting for it to expire would
+  // waste the whole point of the announcement.
   if (!force && cached && Date.now() - cached.at < POINTS_TTL_MS) return cached;
 
   let points;
   try {
     points = await gql.channelPoints(channel);
   } catch {
-    return cached; // API muette : on garde la dernière valeur connue
+    return cached; // API silent: keep the last known value
   }
   if (!points) return cached;
 
@@ -789,9 +792,9 @@ async function claimPointsOn(channel, settings, { force = false } = {}) {
   await store.setState(patch);
 
   if (!settings?.claimPoints || !points.claimId) return fresh;
-  // Le même coffre ne se réclame qu'une fois, même si on repasse dessus. La
-  // mémoire est par chaîne : un seul identifiant global ferait perdre le coffre
-  // d'une chaîne dès qu'une autre en réclame un.
+  // The same chest is claimed once, even if we come back to it. The memory is per
+  // channel: one global id would lose a channel's chest as soon as another
+  // channel claimed one.
   const dejaPris = state.claimedBonusIds ?? {};
   if (dejaPris[channel] === points.claimId) return fresh;
 
@@ -807,7 +810,7 @@ async function claimPointsOn(channel, settings, { force = false } = {}) {
   return { ...fresh, claimed: compte, channel };
 }
 
-/** Met à jour la liste « actions requises » et renvoie les nouvelles. */
+/** Updates the "required actions" list and returns the new ones. */
 export async function syncActions(campaigns, now = Date.now()) {
   const existing = pruneActions(await store.getActions(), now);
   const { list, added } = buildPendingActions(campaigns, existing, now);
@@ -816,7 +819,7 @@ export async function syncActions(campaigns, now = Date.now()) {
 }
 
 /**
- * Choisit quoi farmer : la campagne la mieux classée dont une chaîne est en direct.
+ * Picks what to farm: the highest-ranked campaign that has a channel live.
  * @returns {{campaign: object, channel: string}|null}
  */
 export async function pickTarget(campaigns, settings, exclude = {}) {
@@ -852,11 +855,11 @@ export async function pickTarget(campaigns, settings, exclude = {}) {
   return null;
 }
 
-// --- boucles d'entretien --------------------------------------------------
+// --- maintenance loops --------------------------------------------------------
 
 /**
- * Onglet dédié aux points de chaîne, sur la première chaîne favorite en direct.
- * Aucune favorite en direct : l'onglet ne sert plus à rien, on le ferme.
+ * The tab dedicated to channel points, on the first favourite channel that is
+ * live. No favourite live: the tab is of no further use, so it gets closed.
  */
 export async function ensurePointsTab(settings) {
   const state = await store.getState();
@@ -866,9 +869,8 @@ export async function ensurePointsTab(settings) {
     return store.setState({ pointsTabId: null, pointsChannel: null });
   }
 
-  // `null` et `[]` ne veulent pas dire la même chose : l'un est une absence
-  // d'information, l'autre une réponse. On ne ferme jamais un onglet sur une
-  // information qu'on n'a pas.
+  // `null` and `[]` do not mean the same thing: one is an absence of information,
+  // the other is an answer. We never close a tab on information we do not have.
   let live = null;
   try {
     live = await gql.liveChannels(settings.favoriteChannels);
@@ -900,12 +902,12 @@ export async function ensurePointsTab(settings) {
 }
 
 /**
- * Laquelle des favorites en direct regarder.
+ * Which of the live favourites to watch.
  *
- * Par défaut on ne zappe pas une favorite qui marche : changer d'onglet coûte
- * un rechargement et repart de zéro. La seule raison d'en changer est un bonus
- * de série encore atteignable ailleurs et plus atteignable ici, parce que celui
- * là ne repassera pas : il se prend au début d'un flux ou pas du tout.
+ * By default we do not zap away from a favourite that works: switching tabs costs
+ * a reload and starts from zero. The only reason to switch is a streak bonus
+ * still reachable elsewhere and no longer reachable here, because that one does
+ * not come round again: it is taken at the start of a stream or not at all.
  */
 function pickFavorite(settings, state, live) {
   const logins = live.map((c) => c.login);
@@ -937,13 +939,12 @@ function pickFavorite(settings, state, live) {
   return gagne ? meilleur : courante;
 }
 
-/** Une entrée de farm est-elle encore valable ? */
+/** Is a farming entry still worth keeping? */
 async function stillWorth(entry, campaigns, state) {
   if (!(await tabExists(entry.tabId))) return false;
 
-  // Un onglet qui ne répond plus est mort : les trois conditions ci-dessous
-  // resteraient vraies indéfiniment et la campagne garderait sa place pour
-  // toujours. Voir #68.
+  // A tab that stops answering is dead: the three conditions below would stay
+  // true indefinitely and the campaign would keep its slot forever. See #68.
   if (isTabDead(entry, { beatAt: state?.beats?.[entry.tabId]?.at ?? null })) return false;
 
   const campaign = campaigns.find((c) => c.id === entry.campaignId);
@@ -952,16 +953,16 @@ async function stillWorth(entry, campaigns, state) {
   try {
     return (await gql.liveLogins([entry.channel])).includes(entry.channel);
   } catch {
-    return true; // API muette : on laisse tourner plutôt que de fermer à tort
+    return true; // API silent: let it run rather than close it by mistake
   }
 }
 
 /**
- * Onglets de farm, un par campagne, chacun sur une chaîne différente.
+ * Farming tabs, one per campaign, each on a different channel.
  *
- * Twitch ne fait probablement progresser qu'un flux à la fois. On ne tranche pas
- * à sa place : le badge « compté en viewer » de chaque ligne dit lequel avance
- * réellement, ce qui vaut mieux qu'une affirmation.
+ * Twitch probably advances only one stream at a time. We do not settle that on
+ * their behalf: the "counted as a viewer" badge on each row says which one is
+ * really moving, which is worth more than an assertion.
  */
 export async function ensureDropsTabs(settings, { force = false } = {}) {
   const state = await store.getState();
@@ -991,10 +992,10 @@ export async function ensureDropsTabs(settings, { force = false } = {}) {
     await closeTab(entry.tabId);
   }
 
-  // Deux onglets sur la même campagne ou la même chaîne ne serviraient à rien.
+  // Two tabs on the same campaign or the same channel would serve no purpose.
   const campagnesPrises = new Set(gardes.map((g) => g.campaignId));
-  // Les chaînes qu'on vient de lâcher sont exclues du même passage : sans ça,
-  // la rotation revient se coller sur l'onglet mort qu'elle vient de fermer.
+  // The channels we have just dropped are excluded from the same pass: without
+  // that, the rotation comes straight back to the dead tab it just closed.
   const chainesPrises = new Set([...gardes.map((g) => g.channel), ...abandonnees]);
   const suite = [...gardes];
 
@@ -1020,8 +1021,8 @@ export async function ensureDropsTabs(settings, { force = false } = {}) {
 }
 
 /**
- * Passe de réclamation : ouvre (ou recharge) l'inventaire, le script de contenu
- * fait les clics et rapporte. En mode rapide, on réclame directement par l'API.
+ * Claim sweep: opens (or reloads) the inventory, the content script does the
+ * clicking and reports back. In fast mode, we claim directly through the API.
  */
 export async function runClaimSweep(settings) {
   if (!settings.enabled) return { mode: "off", claimed: 0 };
@@ -1036,7 +1037,7 @@ export async function runClaimSweep(settings) {
           await gql.claimDrop(drop.dropInstanceID);
           claimed += 1;
         } catch {
-          /* on retentera au prochain passage */
+          /* we will try again on the next pass */
         }
       }
     }
@@ -1050,8 +1051,8 @@ export async function runClaimSweep(settings) {
     return { mode: "dom", claimed: 0, tabId: state.inventoryTabId };
   }
 
-  // Un onglet d'inventaire marqué peut trainer d'une session précédente : on le
-  // reprend plutôt que d'en ouvrir un second sur la même page.
+  // A marked inventory tab may be lying around from a previous session: reclaim
+  // it rather than open a second one on the same page.
   const dejaLa = await findMarkedTab("drops/inventory");
   const tabId = dejaLa?.id ?? (await openBackgroundTab(INVENTORY_URL));
   if (dejaLa) await chrome.tabs.reload(tabId);
@@ -1060,13 +1061,13 @@ export async function runClaimSweep(settings) {
   return { mode: "dom", claimed: 0, tabId };
 }
 
-/** Durée laissée à la page d'inventaire pour charger et cliquer avant fermeture. */
+/** Time given to the inventory page to load and click before it is closed. */
 const INVENTORY_GRACE_MS = 90_000;
 
 /**
- * L'inventaire n'a pas à rester ouvert entre deux passages. On ne le garde que
- * s'il est le seul onglet Twitch : il sert alors aussi à reprendre le jeton
- * d'intégrité, sans lequel plus rien ne fonctionne.
+ * The inventory has no business staying open between two passes. It is only kept
+ * when it is the sole Twitch tab: it then also serves to pick the integrity token
+ * back up, without which nothing works at all.
  */
 export async function closeInventoryIfRedundant() {
   const state = await store.getState();
@@ -1092,9 +1093,9 @@ export async function reloadTab(tabId) {
 }
 
 /**
- * Ouvre un onglet Twitch quand il n'y en a aucun, uniquement pour que l'extension
- * puisse reprendre le jeton d'intégrité au passage. L'inventaire est le meilleur
- * candidat : c'est de toute façon la page dont on a besoin pour réclamer.
+ * Opens a Twitch tab when there is none, purely so the extension can pick the
+ * integrity token back up along the way. The inventory is the best candidate: it
+ * is the page needed for claiming anyway.
  */
 export async function ensureHarvestTab() {
   const state = await store.getState();
@@ -1102,10 +1103,10 @@ export async function ensureHarvestTab() {
   if (await tabExists(state.pointsTabId)) return state;
   if (await anyDropTabAlive(state)) return state;
 
-  // Cet onglet ne sert qu'à reprendre le jeton d'intégrité, et le script de
-  // contenu tourne sur TOUS les onglets Twitch : celui que l'utilisateur a déjà
-  // ouvert fait aussi bien l'affaire. En ouvrir un de plus, et donc une fenêtre,
-  // pour une page qu'on a déjà sous la main n'a aucun sens.
+  // This tab only serves to pick the integrity token back up, and the content
+  // script runs on ALL Twitch tabs: the one the user already has open does just
+  // as well. Opening one more, and therefore a window, for a page we already have
+  // to hand makes no sense.
   if (await anyTwitchTab()) return state;
 
   const tabId = await openBackgroundTab(INVENTORY_URL);
@@ -1113,9 +1114,9 @@ export async function ensureHarvestTab() {
 }
 
 /**
- * Reprend la fenêtre de la session précédente. Appelé au démarrage, avant que
- * quoi que ce soit ouvre un onglet : sinon la première ouverture en crée une
- * autre à côté de celle qui existait déjà.
+ * Reclaims the previous session's window. Called at startup, before anything
+ * opens a tab: otherwise the first opening creates another one next to the one
+ * that already existed.
  */
 export async function adoptExistingWindow() {
   const state = await store.getState();
@@ -1126,25 +1127,25 @@ export async function adoptExistingWindow() {
   return retrouvee;
 }
 
-/**
- * Réveille un onglet dont le lecteur reste bloqué : on l'active dans SA fenêtre.
- * Si la fenêtre dédiée est utilisée, l'utilisateur ne voit rien passer, seule la
- * fenêtre réduite de l'extension change d'onglet actif.
- */
-/** Temps laissé au lecteur pour démarrer avant de rendre la place. */
+/** Time given to the player to start before the place is handed back. */
 const WAKE_VISIBLE_MS = 5_000;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Wakes a tab whose player is stuck: it is activated inside ITS window. When the
+ * dedicated window is in use the user sees nothing go by, only the extension's
+ * minimised window changes its active tab.
+ */
 export async function wakeTab(tabId) {
   if (!(await tabExists(tabId))) return false;
 
   let precedent = null;
   try {
     const tab = await chrome.tabs.get(tabId);
-    if (tab.active) return true; // déjà devant, rien à voler ni à rendre
+    if (tab.active) return true; // already in front, nothing to steal or hand back
 
-    // On note qui occupait la place avant de la prendre.
+    // Note who held the place before taking it.
     const [actif] = await chrome.tabs.query({ active: true, windowId: tab.windowId });
     if (actif && actif.id !== tabId) precedent = actif.id;
 
@@ -1155,20 +1156,20 @@ export async function wakeTab(tabId) {
 
   if (precedent === null) return true;
 
-  // Quelques secondes au premier plan suffisent à débloquer un lecteur. Rester
-  // devant plus longtemps reviendrait à confisquer l'onglet que l'utilisateur
-  // regardait, ce qui ne vaut jamais le gain.
+  // A few seconds in the foreground are enough to unstick a player. Staying in
+  // front any longer would mean confiscating the tab the user was looking at,
+  // which is never worth the gain.
   await wait(WAKE_VISIBLE_MS);
   try {
     await chrome.tabs.update(precedent, { active: true });
   } catch {
-    /* l'onglet précédent a été fermé entre-temps */
+    /* the previous tab was closed in the meantime */
   }
   return true;
 }
 
 /**
- * Rassemble les onglets de l'extension dans la fenêtre cible.
+ * Gathers the extension's tabs into the target window.
  * @returns {{windowId: number, placed: number}}
  */
 export async function regroupTabs(settings) {
@@ -1183,8 +1184,8 @@ export async function regroupTabs(settings) {
     if (await tabExists(tabId)) vivants.push(tabId);
   }
 
-  // Rien à déplacer : surtout ne pas créer une fenêtre pour l'y mettre. C'est
-  // ce qui en ouvrait une à chaque cycle quand l'extension n'avait aucun onglet.
+  // Nothing to move: above all do not create a window to put it in. That is what
+  // opened one every cycle back when the extension had no tabs at all.
   if (!vivants.length) return { windowId: state.windowId ?? null, placed: 0 };
 
   const windowId = await targetWindowId(settings, "regroupement");
@@ -1197,23 +1198,23 @@ export async function regroupTabs(settings) {
       if (tab.windowId !== windowId) await chrome.tabs.move(tabId, { windowId, index: -1 });
       placed += 1;
     } catch {
-      /* onglet disparu entre-temps */
+      /* tab gone in the meantime */
     }
   }
   return { windowId, placed };
 }
 
 /**
- * Repart d'une fenêtre neuve pour l'extension et y rapatrie ses onglets.
- * Utile quand la fenêtre dédiée a été fermée, ou que les onglets ont fini
- * éparpillés dans les fenêtres de l'utilisateur.
+ * Starts again from a fresh window for the extension and brings its tabs back
+ * into it. Useful when the dedicated window has been closed, or when the tabs
+ * have ended up scattered across the user's windows.
  */
 export async function rebuildWindow(settings) {
   const created = await chrome.windows.create({ focused: false });
   try {
     await chrome.windows.update(created.id, { state: "minimized" });
   } catch {
-    /* pas réduite, elle reste en arrière-plan */
+    /* not minimised, it stays in the background */
   }
   await traceWindow({ action: "creee", appelant: "bouton-refaire", windowId: created.id });
   const blank = created.tabs?.[0]?.id ?? null;
@@ -1221,8 +1222,8 @@ export async function rebuildWindow(settings) {
 
   const { placed } = await regroupTabs({ ...settings, dedicatedWindow: true });
 
-  // L'onglet vide créé avec la fenêtre n'est fermé que si un autre l'a remplacé :
-  // fermer le dernier onglet fermerait la fenêtre qu'on vient de faire.
+  // The blank tab created with the window is only closed once another has
+  // replaced it: closing the last tab would close the window we just made.
   if (blank && placed > 0) await closeTab(blank);
 
   return { windowId: created.id, placed };
@@ -1244,7 +1245,7 @@ export async function closeAllTabs() {
   });
 }
 
-/** Réapplique la sourdine à tous les onglets gérés, après un changement de réglage. */
+/** Reapplies muting to every managed tab, after a setting has changed. */
 export async function refreshTabMute(settings) {
   const state = await store.getState();
   const tousLesOnglets = [
@@ -1257,7 +1258,7 @@ export async function refreshTabMute(settings) {
   }
 }
 
-// `openBackgroundTab` reste privée : chacun des trois chemins qui l'appellent
-// vérifie d'abord qu'un onglet n'existe pas déjà. L'exporter ouvrirait une porte
-// où cette vérification pourrait être oubliée.
+// `openBackgroundTab` stays private: each of the three paths that call it first
+// checks a tab does not already exist. Exporting it would open a door where that
+// check could be forgotten.
 export { tabExists, closeTab };
