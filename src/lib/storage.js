@@ -145,8 +145,13 @@ export async function getCampaigns() {
   return { campaigns: Array.isArray(campaigns) ? campaigns : [], campaignsAt };
 }
 
-export async function setCampaigns(campaigns) {
-  await write("local", { campaigns, campaignsAt: Date.now() });
+/**
+ * `campaignsAt` date la dernière DÉCOUVERTE, pas le dernier rafraîchissement.
+ * Un simple report d'avancement passe donc `touchDate: false` : sinon l'écran
+ * dirait qu'il vient de chercher des campagnes alors qu'il n'a rien cherché.
+ */
+export async function setCampaigns(campaigns, { touchDate = true } = {}) {
+  await write("local", touchDate ? { campaigns, campaignsAt: Date.now() } : { campaigns });
 }
 
 export async function getDetailsCache() {

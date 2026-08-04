@@ -62,6 +62,58 @@ export function parseCampaigns(nodes) {
   return (nodes || []).map(parseCampaign).filter(Boolean);
 }
 
+/**
+ * Reporte l'avancement d'un inventaire frais sur des campagnes déjà stockées,
+ * sans toucher à leur structure.
+ *
+ * La structure (paliers, récompenses, chaînes autorisées) coûte cher à obtenir
+ * et ne bouge pas. L'avancement bouge en permanence et vient d'une requête que
+ * `refreshWatchProof` fait déjà. Séparer les deux évite de re-découvrir tout
+ * l'univers des campagnes juste pour faire monter un pourcentage.
+ *
+ * Une campagne absente de l'inventaire garde ce qu'elle avait : l'inventaire ne
+ * liste que ce à quoi le compte participe, une absence n'est pas une remise à zéro.
+ */
+export function mergeProgress(campaigns, fresh) {
+  const parId = new Map((fresh || []).filter(Boolean).map((c) => [c.id, c]));
+  if (!parId.size) return { campaigns: campaigns || [], changed: false };
+
+  let changed = false;
+
+  const fusionnees = (campaigns || []).map((campaign) => {
+    const frais = parId.get(campaign?.id);
+    if (!frais) return campaign;
+
+    const parDrop = new Map((frais.drops || []).map((d) => [d.id, d]));
+    let bouge = false;
+
+    const drops = (campaign.drops || []).map((drop) => {
+      const source = parDrop.get(drop.id);
+      if (!source) return drop;
+      if (
+        source.watchedMinutes === drop.watchedMinutes &&
+        source.isClaimed === drop.isClaimed &&
+        source.dropInstanceID === drop.dropInstanceID
+      ) {
+        return drop;
+      }
+      bouge = true;
+      return {
+        ...drop,
+        watchedMinutes: source.watchedMinutes,
+        isClaimed: source.isClaimed,
+        dropInstanceID: source.dropInstanceID,
+      };
+    });
+
+    if (!bouge) return campaign;
+    changed = true;
+    return { ...campaign, drops };
+  });
+
+  return { campaigns: changed ? fusionnees : campaigns || [], changed };
+}
+
 export function dropState(drop) {
   if (!drop) return DROP_STATE.TODO;
   if (drop.isClaimed) return DROP_STATE.CLAIMED;
