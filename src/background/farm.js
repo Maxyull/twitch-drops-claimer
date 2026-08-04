@@ -7,6 +7,7 @@ import {
   isCategoryWide,
   campaignProgress,
   isActive,
+  mergeProgress,
 } from "../lib/campaigns.js";
 import { buildPendingActions, linkedOverrides, pruneActions } from "../lib/actions.js";
 import { mergeClaimed, trimRemembered } from "../lib/claimed-drops.js";
@@ -483,6 +484,13 @@ export async function refreshWatchProof() {
         minutes[entry.campaignId] = watched;
       }
       marks.dropsMinutes = minutes;
+
+      // La même réponse sert à faire avancer ce que le popup affiche. Sans ça,
+      // la barre de progression restait sur les minutes de la dernière
+      // découverte, vieilles d'une demi-heure. Voir #49.
+      const { campaigns } = await store.getCampaigns();
+      const fusion = mergeProgress(campaigns, inventaire);
+      if (fusion.changed) await store.setCampaigns(fusion.campaigns, { touchDate: false });
     } catch {
       /* API muette : on retentera au prochain passage */
     }
