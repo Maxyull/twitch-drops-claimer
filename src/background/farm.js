@@ -552,6 +552,76 @@ export async function applyRealtimeDrop({ dropID, watchedMinutes }) {
   return res;
 }
 
+/**
+ * Identifiants numériques des chaînes actuellement regardées, retenus une fois
+ * pour toutes. Ils servent à deux choses : la progression en direct, et
+ * l'abonnement aux raids, qui ne s'annoncent que par identifiant de chaîne.
+ *
+ * Ne jette jamais : sans identifiant, on perd une accélération, pas le farm.
+ */
+export async function refreshChannelIds() {
+  const state = await store.getState();
+  const voulus = [
+    state.pointsChannel,
+    ...(state.dropTabs ?? []).map((entry) => entry.channel),
+  ].filter(Boolean);
+
+  const ids = { ...(state.channelIds ?? {}) };
+  const manquants = [...new Set(voulus.filter((login) => !ids[login]))];
+
+  if (manquants.length) {
+    try {
+      for (const chaine of await gql.liveChannels(manquants)) ids[chaine.login] = chaine.id;
+      await store.setState({ channelIds: ids });
+    } catch {
+      /* API muette : on retentera au prochain passage */
+    }
+  }
+
+  // On ne rend que les chaînes encore regardées : garder les anciennes ferait
+  // écouter des raids sur des chaînes qu'on a quittées.
+  return Object.fromEntries(voulus.filter((login) => ids[login]).map((l) => [l, ids[l]]));
+}
+
+/**
+ * Un raid part de l'une des chaînes regardées.
+ *
+ * Deux choses, et il ne faut pas les confondre :
+ *
+ * 1. Le bonus. Twitch le verse au spectateur qui suit le raid. Il n'a de sens
+ *    que sur la chaîne favorite, celle que l'utilisateur a choisie ; le prendre
+ *    sur un onglet de farm reviendrait à récolter chez un inconnu.
+ * 2. La dérive. Twitch redirige l'onglet vers la cible du raid. Sur un onglet
+ *    de farm, cette cible ne porte presque jamais la campagne : le visionnage
+ *    ne compte plus, et sans ça l'extension ne s'en apercevait qu'au passage
+ *    suivant, une minute plus tard, par un voyant « mauvaise chaîne ».
+ *
+ * @returns {{joined: boolean, redirected: boolean}}
+ */
+export async function handleRaid({ raidID, sourceChannelId }, settings) {
+  const state = await store.getState();
+  const ids = state.channelIds ?? {};
+  const source = Object.keys(ids).find((login) => String(ids[login]) === String(sourceChannelId));
+
+  const surFavorite = Boolean(source) && source === state.pointsChannel;
+  let joined = false;
+
+  if (settings.joinRaids && surFavorite) {
+    try {
+      joined = (await gql.joinRaid(raidID)).ok;
+    } catch {
+      /* raid déjà fini ou refusé : rien à réparer */
+    }
+  }
+
+  // La chaîne de farm part : on la remplace tout de suite plutôt que d'attendre
+  // que le voyant le constate.
+  const surFarm = (state.dropTabs ?? []).some((entry) => entry.channel === source);
+  if (surFarm) await ensureDropsTabs(settings, { force: true });
+
+  return { joined, redirected: surFarm };
+}
+
 /** Des points viennent d'être crédités : c'est une preuve de comptage. */
 export async function noteRealtimePoints() {
   const state = await store.getState();
@@ -583,18 +653,13 @@ export async function refreshLiveProgress() {
   const tabs = (state.dropTabs ?? []).filter((entry) => entry.channel);
   if (!tabs.length) return store.setState({ liveCheckedAt: now });
 
-  const ids = { ...(state.channelIds ?? {}) };
+  const ids = await refreshChannelIds();
   const proof = { ...(state.proof ?? {}) };
   const marks = { ...(state.marks ?? {}) };
   let campaigns = (await store.getCampaigns()).campaigns;
   let ecrire = false;
 
   try {
-    const manquants = tabs.map((e) => e.channel).filter((login) => !ids[login]);
-    if (manquants.length) {
-      for (const chaine of await gql.liveChannels(manquants)) ids[chaine.login] = chaine.id;
-    }
-
     const minutes = { ...(marks.liveMinutes ?? {}) };
 
     for (const entry of tabs) {
@@ -624,7 +689,7 @@ export async function refreshLiveProgress() {
   }
 
   if (ecrire) await store.setCampaigns(campaigns, { touchDate: false });
-  return store.setState({ liveCheckedAt: now, channelIds: ids, proof, marks });
+  return store.setState({ liveCheckedAt: now, proof, marks });
 }
 
 /**

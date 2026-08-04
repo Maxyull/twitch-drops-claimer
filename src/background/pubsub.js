@@ -18,8 +18,11 @@ import {
   PING_FRAME,
   PUBSUB_URL,
   bareToken,
+  channelTopics,
   listenFrame,
   parseFrame,
+  topicDelta,
+  unlistenFrame,
   userTopics,
 } from "../lib/pubsub-messages.js";
 import { getUsableHeaders } from "./header-capture.js";
@@ -35,6 +38,11 @@ let socket = null;
 let keepalive = null;
 let lastAttempt = 0;
 let lastError = null;
+let nonce = 0;
+/** Sujets réellement demandés à Twitch sur la connexion en cours. */
+let abonnes = [];
+/** Le jeton sert aussi aux abonnements ajoutés en cours de route. */
+let jeton = "";
 
 export function isConnected() {
   return socket?.readyState === WebSocket.OPEN;
@@ -53,6 +61,29 @@ export function disconnect() {
     /* déjà fermée */
   }
   socket = null;
+  abonnes = [];
+  jeton = "";
+}
+
+/** Sujets voulus : ceux du compte, plus un sujet de raid par chaîne regardée. */
+function wantedTopics(userId, channelIds) {
+  const compte = userTopics(userId);
+  if (!compte.length) return [];
+  return [...compte, ...channelTopics(channelIds)];
+}
+
+/**
+ * Aligne les abonnements sur les chaînes actuellement regardées.
+ *
+ * On n'envoie que les différences. Se désabonner de tout pour se réabonner
+ * ferait perdre les coffres et les paliers à chaque rotation d'onglet, alors
+ * que seule la liste des chaînes a bougé.
+ */
+function syncTopics(voulus) {
+  const { listen, unlisten } = topicDelta(abonnes, voulus);
+  if (unlisten.length) envoyer(unlistenFrame(unlisten, `tdc-u${++nonce}`));
+  if (listen.length) envoyer(listenFrame(listen, jeton, `tdc-l${++nonce}`));
+  if (listen.length || unlisten.length) abonnes = [...voulus];
 }
 
 /**
@@ -61,15 +92,20 @@ export function disconnect() {
  * @param {object} opts { userId, onEvent }
  * @returns {Promise<boolean>} connectée ou non
  */
-export async function ensureConnected({ userId, onEvent }) {
-  if (isConnected()) return true;
+export async function ensureConnected({ userId, channelIds = [], onEvent }) {
+  const topics = wantedTopics(userId, channelIds);
+
+  if (isConnected()) {
+    // Connexion déjà là : seule la liste des chaînes regardées a pu changer.
+    if (topics.length) syncTopics(topics);
+    return true;
+  }
   if (socket) return false; // en cours d'ouverture
 
   const now = Date.now();
   if (now - lastAttempt < RETRY_MS) return false;
   lastAttempt = now;
 
-  const topics = userTopics(userId);
   if (!topics.length) {
     lastError = "compte inconnu";
     return false;
@@ -81,6 +117,7 @@ export async function ensureConnected({ userId, onEvent }) {
     lastError = "jeton indisponible, un onglet Twitch doit être ouvert";
     return false;
   }
+  jeton = token;
 
   try {
     socket = new WebSocket(PUBSUB_URL);
@@ -92,7 +129,8 @@ export async function ensureConnected({ userId, onEvent }) {
 
   socket.addEventListener("open", () => {
     lastError = null;
-    envoyer(listenFrame(topics, token, `tdc-${now}`));
+    envoyer(listenFrame(topics, token, `tdc-l${++nonce}`));
+    abonnes = [...topics];
     // Le battement sert deux choses à la fois : tenir la connexion ouverte côté
     // Twitch, et tenir le service worker éveillé côté Chrome.
     keepalive = setInterval(() => envoyer(PING_FRAME), KEEPALIVE_MS);
@@ -125,6 +163,7 @@ export async function ensureConnected({ userId, onEvent }) {
     if (keepalive) clearInterval(keepalive);
     keepalive = null;
     socket = null;
+    abonnes = [];
   });
 
   socket.addEventListener("error", () => {

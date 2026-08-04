@@ -47,6 +47,14 @@ export function notifyActionRequired(action) {
   );
 }
 
+/** Un raid a été rejoint sur la chaîne favorite : c'est un bonus de points. */
+export function notifyRaidJoined(target) {
+  return create(`raid:${Date.now()}`, {
+    title: t("notif_raid_title"),
+    message: target ? t("notif_raid_body", [target]) : "",
+  });
+}
+
 /** Le farm est à l'arrêt depuis assez longtemps pour que ça mérite un signal. */
 export function notifyStalled(raison, minutes) {
   return create(`stalled:${Date.now()}`, {

@@ -118,6 +118,22 @@ Le choix se fait maintenant sur le libellé, dans `src/lib/quality.js` : module
 pur, testé sur les menus réels en français et en anglais. Le mot « audio » n'est
 porté par aucune autre entrée, et surtout pas par « Auto ».
 
+### Un raid n'existe nulle part ailleurs que dans PubSub
+
+Il n'y a aucune trace fiable d'un raid dans la page, et surtout pas son
+identifiant, sans lequel on ne peut pas le rejoindre. Il ne vient que du sujet
+`raid.<id de chaîne>`, message `raid_update_v2`. Les formes voisines
+(`raid_go_v2`, `raid_cancel_v2`) ne le portent pas.
+
+Deux conséquences que rien ne laisse deviner :
+
+- **Un raid déplace l'onglet.** Twitch redirige le spectateur vers la cible.
+  Sur un onglet de farm, cette cible ne porte presque jamais la campagne : le
+  visionnage cesse de compter, et le voyant ne le dit qu'au passage suivant.
+- **Le bonus et la dérive ne se traitent pas pareil.** Le bonus n'a de sens que
+  sur la chaîne favorite, celle qu'on a choisie. Le prendre sur un onglet de
+  farm reviendrait à récolter chez un inconnu.
+
 ### `community-points-summary` n'est pas le coffre
 
 C'est le conteneur du **solde**, toujours présent à côté du chat. S'en contenter

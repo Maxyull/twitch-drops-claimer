@@ -132,6 +132,9 @@ async function keepRealtime(settings) {
   }
   await pubsub.ensureConnected({
     userId: await farm.getUserId(),
+    // Les raids ne s'annoncent que par identifiant de chaîne, et la liste des
+    // chaînes regardées change : les abonnements la suivent.
+    channelIds: Object.values(await farm.refreshChannelIds()),
     onEvent: (evt) => onRealtimeEvent(evt, settings),
   });
 }
@@ -158,6 +161,12 @@ async function onRealtimeEvent(evt, settings) {
     case EVENT.POINTS_EARNED:
       await farm.noteRealtimePoints();
       break;
+
+    case EVENT.RAID: {
+      const res = await farm.handleRaid(evt, settings);
+      if (res.joined && settings.notifyDrops) notify.notifyRaidJoined(evt.targetLogin);
+      break;
+    }
 
     default:
       break;

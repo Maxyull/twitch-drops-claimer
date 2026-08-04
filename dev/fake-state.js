@@ -25,6 +25,7 @@ export const FAKE_STATE = {
     notifyProblems: true,
     alertAfterMin: 15,
     watchStreak: true,
+    joinRaids: true,
     realtime: true,
   },
   stats: {

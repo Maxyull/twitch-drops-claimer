@@ -561,5 +561,22 @@
   },
   "options_realtime_hint": {
     "message": "Un coffre ou un palier est signalé à la seconde, au lieu d'être découvert au prochain passage de la boucle. Ce n'est qu'une accélération : tout continue de fonctionner sans."
+  },
+  "options_join_raids": {
+    "message": "Rejoindre les raids de la favorite"
+  },
+  "options_join_raids_hint": {
+    "message": "Twitch verse un bonus au spectateur qui suit un raid. Sans ça, la chaîne passe hors ligne et le bonus est perdu. Les onglets de farm, eux, ne suivent jamais un raid : la cible ne porte pas la campagne."
+  },
+  "notif_raid_title": {
+    "message": "Raid rejoint"
+  },
+  "notif_raid_body": {
+    "message": "Bonus pris en suivant le raid vers $CIBLE$",
+    "placeholders": {
+      "cible": {
+        "content": "$1"
+      }
+    }
   }
 }
