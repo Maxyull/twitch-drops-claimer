@@ -549,5 +549,11 @@
   },
   "options_quality_audio": {
     "message": "Audio only (no video)"
+  },
+  "options_watch_streak": {
+    "message": "Chase watch streak bonuses"
+  },
+  "options_watch_streak_hint": {
+    "message": "When a favourite has just gone live, six minutes of watching earns a streak bonus that will not come round again. The extension leaves the current channel for it, but only when that channel can no longer earn one."
   }
 }

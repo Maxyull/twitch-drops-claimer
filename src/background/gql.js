@@ -187,7 +187,7 @@ query TdcLive($logins: [String!]) {
     id
     login
     displayName
-    stream { id viewersCount game { id slug } }
+    stream { id viewersCount createdAt game { id slug } }
   }
 }`;
 
@@ -264,7 +264,13 @@ export async function liveChannels(logins) {
   const data = await request("TdcLive", Q_LIVE, { logins: list });
   return (data?.users ?? [])
     .filter((u) => u?.stream?.id && u?.login)
-    .map((u) => ({ login: u.login.toLowerCase(), id: u.id ?? null }));
+    .map((u) => ({
+      login: u.login.toLowerCase(),
+      id: u.id ?? null,
+      // Depuis quand le flux est ouvert : c'est ce qui dit si le bonus de série
+      // est encore atteignable. `null` = information absente, pas « ancien ».
+      startedAt: Date.parse(u.stream?.createdAt ?? "") || null,
+    }));
 }
 
 /** Sous-ensemble des logins réellement en direct. */
