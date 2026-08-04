@@ -1,3 +1,3 @@
-# Fins de ligne en LF partout : la CI tourne sous Linux, le paquet livré aussi.
+# LF line endings everywhere: CI runs on Linux, and so does the shipped package.
 * text=auto eol=lf
 *.png binary

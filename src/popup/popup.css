@@ -15,9 +15,9 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 /*
-  Trois zones : l'état épinglé en haut, le panneau qui défile, la barre
-  d'actions en bas. Seul le panneau bouge, pour que le voyant et le drop en
-  cours restent lisibles quoi qu'il arrive.
+  Three areas: the pinned state at the top, the scrolling panel, the action bar at
+  the bottom. Only the panel moves, so the indicator and the current drop stay
+  readable whatever happens.
 */
 body {
   width: 340px;
@@ -65,7 +65,7 @@ header {
 }
 header .head { flex: 1; min-width: 0; }
 header h1 { font-size: 14px; font-weight: 700; }
-/* La raison du voyant, en clair : un point rouge sans explication n'aide personne. */
+/* The reason behind the indicator, spelled out: a red dot with no explanation helps nobody. */
 header small {
   display: block;
   color: var(--muted);
@@ -103,8 +103,8 @@ header small {
 .tab:hover { color: var(--text); }
 .tab[aria-selected="true"] { color: var(--text); }
 
-/* Un seul trait qui glisse, en `transform` : animer `left` ferait recalculer
-   la mise en page à chaque image. */
+/* A single underline that slides, through `transform`: animating `left` would
+   recompute the layout on every frame. */
 .tab-underline {
   position: absolute;
   left: 0;
@@ -130,7 +130,7 @@ header small {
 }
 .badge.quiet { background: #322b45; color: var(--purple-soft); }
 
-/* --- filtre segmenté ---------------------------------------------------- */
+/* --- segmented filter ---------------------------------------------------- */
 
 .seg {
   display: flex;
@@ -156,9 +156,9 @@ header small {
 .seg-btn:hover { color: var(--text); }
 .seg-btn.on { background: var(--panel-hi); color: var(--text); }
 
-/* --- accessibilité ------------------------------------------------------ */
+/* --- accessibility ------------------------------------------------------- */
 
-/* Un anneau de focus visible partout : sans lui, le clavier navigue à l'aveugle. */
+/* A focus ring visible everywhere: without it, the keyboard navigates blind. */
 :focus-visible {
   outline: 2px solid var(--purple-soft);
   outline-offset: 2px;
@@ -210,7 +210,7 @@ h2, summary {
   margin: 14px 0 6px;
 }
 
-/* Section repliable : le marqueur natif est remplacé par un chevron discret. */
+/* Collapsible section: the native marker is replaced by a discreet chevron. */
 details > summary {
   cursor: pointer;
   list-style: none;
@@ -287,7 +287,7 @@ details > summary:hover { color: var(--text); }
 .tag.partial { background: #3d3312; color: var(--orange); }
 .tag.uncounted { background: #3d1717; color: var(--red); }
 
-/* Le drop en cours, tout en haut : c'est ce qu'on vient voir. */
+/* The current drop, right at the top: it is what you came to see. */
 .now {
   background: var(--panel-hi);
   border-left: 3px solid var(--purple);
@@ -308,7 +308,7 @@ details > summary:hover { color: var(--text); }
 }
 .event:last-child { border-bottom: none; }
 .event time { color: var(--muted); font-size: 11px; flex: none; font-variant-numeric: tabular-nums; }
-/* Une pastille de type, pour que la frise mêlée reste lisible d'un coup d'oeil. */
+/* A kind marker, so the mixed timeline stays readable at a glance. */
 .event .kind {
   flex: none;
   width: 3px;
@@ -376,7 +376,7 @@ ul { list-style: none; }
   margin-bottom: 8px;
 }
 
-/* Deux par ligne : au-delà, les libellés se tronquent ou débordent de la barre. */
+/* Two per row: beyond that, the labels truncate or overflow the bar. */
 button.act {
   flex: 1 1 calc(50% - 3px);
   min-width: 0;
