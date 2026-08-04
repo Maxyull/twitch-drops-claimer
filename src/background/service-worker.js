@@ -13,6 +13,7 @@ import * as store from "../lib/storage.js";
 import * as farm from "./farm.js";
 import * as notify from "./notify.js";
 import * as pubsub from "./pubsub.js";
+import { t, initI18n } from "../lib/i18n.js";
 import { EVENT } from "../lib/pubsub-messages.js";
 import { registerHeaderCapture } from "./header-capture.js";
 import { registerWatchCounter, forgetCountedTab, flushWatchCounter } from "./watch-counter.js";
@@ -56,8 +57,18 @@ const migrated = store.migrate().catch((err) => {
   console.error("[TDC] migration impossible :", err);
 });
 
+// Le catalogue de traduction se charge au démarrage du module, pour la même
+// raison que la migration : le service worker peut se réveiller sur une alarme
+// sans jamais voir `onInstalled` ni `onStartup`. Sans ça, le titre du badge et
+// les notifications sortiraient en clés brutes.
+let i18nReady = migrated
+  .then(() => store.getSettings())
+  .then((settings) => initI18n(settings.language))
+  .catch((err) => console.warn("[TDC] traductions indisponibles :", err));
+
 async function boot() {
   await migrated;
+  await i18nReady;
   // Avant toute alarme, donc avant que quoi que ce soit ouvre un onglet : la
   // session précédente a peut-être laissé une fenêtre, et on ne veut surtout pas
   // en ouvrir une seconde à côté.
@@ -79,6 +90,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // --- boucles --------------------------------------------------------------
 
 async function tick() {
+  await i18nReady;
   const settings = await store.getSettings();
   if (!settings.enabled) {
     await updateBadge();
@@ -231,7 +243,7 @@ async function checkAlert(settings, status) {
 
   if (res.notify) {
     notify.notifyStalled(
-      chrome.i18n.getMessage(`status_${status.global.code}`),
+      t(`status_${status.global.code}`),
       minutesOf(res.brokenFor),
     );
   }
@@ -418,14 +430,14 @@ async function updateBadge() {
   if (open > 0) {
     await chrome.action.setBadgeText({ text: String(open) });
     await chrome.action.setBadgeBackgroundColor({ color: COLOR_ORANGE });
-    await chrome.action.setTitle({ title: chrome.i18n.getMessage("badge_actions", [String(open)]) });
+    await chrome.action.setTitle({ title: t("badge_actions", [String(open)]) });
     return;
   }
 
   const settings = await store.getSettings();
   if (!settings.enabled) {
     await chrome.action.setBadgeText({ text: "" });
-    await chrome.action.setTitle({ title: chrome.i18n.getMessage("badge_disabled") });
+    await chrome.action.setTitle({ title: t("badge_disabled") });
     return;
   }
 
@@ -436,9 +448,9 @@ async function updateBadge() {
   });
   await chrome.action.setTitle({
     title: status.global.green
-      ? chrome.i18n.getMessage("badge_watching")
-      : chrome.i18n.getMessage("badge_problem", [
-          chrome.i18n.getMessage(`status_${status.global.code}`),
+      ? t("badge_watching")
+      : t("badge_problem", [
+          t(`status_${status.global.code}`),
         ]),
   });
 }
@@ -616,6 +628,12 @@ async function onSetSettings(payload) {
     await installAlarms();
   }
   if (before.muteTabs !== settings.muteTabs) await farm.refreshTabMute(settings);
+  // Le badge et les notifications sortent d'ici : ils doivent changer de langue
+  // en même temps que les pages, pas au prochain redémarrage du navigateur.
+  if (before.language !== settings.language) {
+    i18nReady = initI18n(settings.language);
+    await i18nReady;
+  }
 
   if (!settings.enabled) {
     await farm.closeAllTabs();

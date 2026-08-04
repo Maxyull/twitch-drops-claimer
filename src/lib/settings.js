@@ -2,6 +2,9 @@
 // Module pur (aucune API chrome) pour rester testable sous Node.
 
 import { AUDIO_ONLY } from "./quality.js";
+import { LANGUAGES } from "./messages.js";
+
+export { LANGUAGES };
 
 export const QUALITIES = ["160p30", "360p30", "480p30", "720p60", "source", AUDIO_ONLY];
 
@@ -9,6 +12,9 @@ export const PRIORITIES = ["endingSoon", "closestToDone", "order"];
 
 export const DEFAULT_SETTINGS = {
   enabled: true,
+  // Langue de l'interface : "auto" suit le navigateur. `chrome.i18n` ne sait pas
+  // faire ce choix, d'où le catalogue chargé nous-mêmes (src/lib/messages.js).
+  language: "auto",
 
   // --- Points de chaîne ---
   claimPoints: true,
@@ -129,6 +135,7 @@ export function normalizeSettings(raw = {}) {
   const d = DEFAULT_SETTINGS;
   return {
     enabled: bool(raw.enabled, d.enabled),
+    language: LANGUAGES.includes(raw.language) ? raw.language : d.language,
 
     claimPoints: bool(raw.claimPoints, d.claimPoints),
     watchFavorite: bool(raw.watchFavorite, d.watchFavorite),

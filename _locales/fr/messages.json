@@ -602,5 +602,17 @@
   },
   "popup_history_empty_filter": {
     "message": "Rien de ce type pour l'instant. Le filtre « Tout » montre le reste."
+  },
+  "options_section_language": {
+    "message": "Langue"
+  },
+  "options_language": {
+    "message": "Langue de l'interface"
+  },
+  "options_language_hint": {
+    "message": "S'applique tout de suite, sans recharger l'extension. Chrome ne sait pas offrir ce choix : le catalogue est lu directement dans le paquet."
+  },
+  "options_language_auto": {
+    "message": "Automatique (langue du navigateur)"
   }
 }

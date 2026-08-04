@@ -5,7 +5,7 @@
 import { MSG, ROLE, CAMPAIGN_PRIORITY } from "../lib/messaging.js";
 import { ACTION_KIND } from "../lib/actions.js";
 import { COUNTED } from "../lib/counted.js";
-import { t, localizeDocument } from "../lib/i18n.js";
+import { t, initI18n, localizeDocument } from "../lib/i18n.js";
 import { TABS, filterHistory, normalizeFilter, normalizeTab, tabForKey } from "../lib/tabs.js";
 
 const $ = (id) => document.getElementById(id);
@@ -465,6 +465,12 @@ async function load() {
   // rendu, sinon il reste décalé jusqu'au prochain clic.
   moveUnderline();
 }
+
+// Read straight from storage rather than through the service worker: the popup
+// must be painted in the right language on its very first frame, and a message
+// round-trip would show raw keys until it comes back.
+const { language = "auto" } = await chrome.storage.local.get("language");
+await initI18n(language);
 
 localizeDocument();
 setupTabs();
