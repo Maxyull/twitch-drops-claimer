@@ -2,9 +2,9 @@
 // la vraie liste à cocher vit dans le popup.
 
 import { ACTION_KIND } from "../lib/actions.js";
+import { t } from "../lib/i18n.js";
 
 const ICON = "assets/icons/icon128.png";
-const t = (key, subs) => chrome.i18n.getMessage(key, subs);
 
 // notificationId -> { actionId, url }
 const routes = new Map();

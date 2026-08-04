@@ -602,5 +602,17 @@
   },
   "popup_history_empty_filter": {
     "message": "Nothing of this kind yet. The “All” filter shows the rest."
+  },
+  "options_section_language": {
+    "message": "Language"
+  },
+  "options_language": {
+    "message": "Interface language"
+  },
+  "options_language_hint": {
+    "message": "Applies right away, no reload needed. Chrome cannot offer this choice, so the catalogue is read straight from the package."
+  },
+  "options_language_auto": {
+    "message": "Automatic (browser language)"
   }
 }

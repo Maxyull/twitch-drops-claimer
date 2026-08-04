@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS, normalizeChannelList } from "../lib/settings.js";
 import { MSG } from "../lib/messaging.js";
-import { t, localizeDocument } from "../lib/i18n.js";
+import { t, initI18n, localizeDocument } from "../lib/i18n.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -30,7 +30,7 @@ const NUMBERS = [
   "farmTabs",
   "volumePercent",
 ];
-const SELECTS = ["priority", "quality"];
+const SELECTS = ["priority", "quality", "language"];
 
 let blacklist = new Set();
 let focus = new Set();
@@ -184,6 +184,11 @@ async function load() {
   setReady(true);
 }
 
+// The catalogue is read from the package, so the language is a setting rather
+// than whatever the browser happens to be in. It has to be loaded before the
+// first paint, otherwise the page shows raw keys for a frame.
+const { language = "auto" } = await chrome.storage.local.get("language");
+await initI18n(language);
 localizeDocument();
 setReady(false);
 
@@ -198,6 +203,10 @@ $("save").addEventListener("click", async () => {
   }
 
   showError(null);
+  // Changing the language must be visible immediately: asking the user to
+  // reopen the page to see their own choice applied is not an answer.
+  await initI18n(res.settings.language);
+  localizeDocument();
   fill(res.settings);
   // On relit ce qui a été réellement enregistré : les prioritaires remontent
   // alors en tête, ce qui rend le classement visible plutôt que théorique.

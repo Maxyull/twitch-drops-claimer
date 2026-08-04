@@ -229,12 +229,20 @@ test("tout le réseau sortant reste sur Twitch, en HTTPS", () => {
 
 test("RÉGRESSION : un seul point de sortie réseau, l'API GraphQL de Twitch", () => {
   // Les domaines observés ne doivent jamais devenir des destinations.
+  //
+  // `chrome.runtime.getURL` ne sort pas de la machine : c'est une lecture d'un
+  // fichier du paquet, comme le catalogue de traductions. Elle est nommée ici
+  // explicitement pour que toute AUTRE forme de fetch reste refusée.
+  const AUTORISES = new Set(["GQL_URL", "chrome.runtime.getURL"]);
+
   for (const file of SRC_JS) {
-    for (const m of read(file).matchAll(/fetch\(\s*([A-Za-z_$][\w$]*|"[^"]+")/g)) {
-      assert.ok(
-        m[1] === "GQL_URL",
-        `${file} appelle fetch sur ${m[1]}, seul GQL_URL est autorisé`,
-      );
+    const code = read(file);
+    for (const m of code.matchAll(/fetch\(\s*([A-Za-z_$][\w$.]*|"[^"]+")/g)) {
+      assert.ok(AUTORISES.has(m[1]), `${file} appelle fetch sur ${m[1]}, non autorisé`);
+    }
+    // Une lecture du paquet ne doit jamais viser autre chose que `_locales`.
+    for (const m of code.matchAll(/chrome\.runtime\.getURL\(\s*`([^`]*)`/g)) {
+      assert.match(m[1], /^_locales\//, `${file} lit ${m[1]} hors de _locales`);
     }
   }
 });

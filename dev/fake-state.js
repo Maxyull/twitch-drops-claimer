@@ -27,6 +27,7 @@ export const FAKE_STATE = {
     watchStreak: true,
     joinRaids: true,
     realtime: true,
+    language: "auto",
   },
   stats: {
     drops: 12,
@@ -190,9 +191,23 @@ export async function installChromeStub(state = FAKE_STATE) {
   const dict = await (await fetch("/_locales/fr/messages.json")).json();
 
   globalThis.chrome = {
-    i18n: buildI18n(dict),
+    i18n: { ...buildI18n(dict), getUILanguage: () => "fr-FR" },
+    // Les pages lisent maintenant leur catalogue elles-mêmes : le bouchon doit
+    // donc résoudre une URL de paquet et servir `language` comme le stockage.
+    storage: {
+      local: {
+        async get(keys) {
+          const wanted = typeof keys === "string" ? [keys] : Object.keys(keys ?? {});
+          return Object.fromEntries(
+            wanted.filter((k) => k in current.settings).map((k) => [k, current.settings[k]]),
+          );
+        },
+        async set() {},
+      },
+    },
     runtime: {
       id: "preview",
+      getURL: (path) => `/${String(path).replace(/^\//, "")}`,
       async sendMessage(msg) {
         if (msg.type === MSG.GET_STATE) return current;
         if (msg.type === MSG.SET_ACTION_DONE) {
