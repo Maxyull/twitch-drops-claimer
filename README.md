@@ -72,7 +72,12 @@ chiffre** quand des actions vous attendent hors de Twitch.
 
 ### D'où vient la progression affichée
 
-Deux sources, à deux rythmes :
+Trois sources, à trois rythmes :
+
+- **À la seconde**, le canal temps réel de Twitch (PubSub) : il annonce un coffre
+  disponible ou un palier qui tombe au moment où ça arrive. C'est ce que le site de
+  Twitch utilise pour lui-même. Pure accélération : la connexion peut sauter à tout
+  moment, tout ce qui suit continue de tourner et la rouvre à la minute suivante.
 
 - **Chaque minute**, `DropCurrentSessionContext` : le palier que Twitch fait avancer en ce
   moment sur la chaîne regardée, et ses minutes. C'est léger, c'est la requête faite pour ça,

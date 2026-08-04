@@ -239,6 +239,21 @@ test("RÉGRESSION : un seul point de sortie réseau, l'API GraphQL de Twitch", (
   }
 });
 
+test("RÉGRESSION : une seule socket, celle de Twitch, et en chiffré", () => {
+  // Le test précédent ne couvre que `fetch`. Une socket est une sortie réseau
+  // au même titre, et elle porte le jeton de session dans sa première trame :
+  // elle ne doit pouvoir viser que Twitch, et jamais en clair.
+  const dur = new Set();
+  for (const file of SRC_JS) {
+    for (const m of read(file).matchAll(/new WebSocket\(\s*([A-Za-z_$][\w$]*|"[^"]+")/g)) {
+      assert.equal(m[1], "PUBSUB_URL", `${file} ouvre une socket sur ${m[1]}`);
+    }
+    for (const m of read(file).matchAll(/"(wss?:\/\/[^"]+)"/g)) dur.add(m[1]);
+  }
+
+  assert.deepEqual([...dur], ["wss://pubsub-edge.twitch.tv/v1"]);
+});
+
 test("aucun secret ni jeton écrit en dur", () => {
   for (const file of SRC_JS) {
     const code = read(file);

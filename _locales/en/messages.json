@@ -555,5 +555,11 @@
   },
   "options_watch_streak_hint": {
     "message": "When a favourite has just gone live, six minutes of watching earns a streak bonus that will not come round again. The extension leaves the current channel for it, but only when that channel can no longer earn one."
+  },
+  "options_realtime": {
+    "message": "Twitch real-time channel"
+  },
+  "options_realtime_hint": {
+    "message": "A chest or a drop tier is announced the second it happens, instead of being found on the next loop. This only speeds things up: everything still works without it."
   }
 }

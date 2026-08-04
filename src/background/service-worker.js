@@ -12,6 +12,8 @@ import { validateMessage } from "../lib/message-guard.js";
 import * as store from "../lib/storage.js";
 import * as farm from "./farm.js";
 import * as notify from "./notify.js";
+import * as pubsub from "./pubsub.js";
+import { EVENT } from "../lib/pubsub-messages.js";
 import { registerHeaderCapture } from "./header-capture.js";
 import { registerWatchCounter, forgetCountedTab, flushWatchCounter } from "./watch-counter.js";
 
@@ -107,9 +109,58 @@ async function tick() {
     if (settings.dedicatedWindow) await farm.regroupTabs(settings);
     if (settings.wakeStuckTabs) await wakeStuckTabs(status);
     await checkAlert(settings, status);
+    await keepRealtime(settings);
     await store.setLastError(null);
   } catch (err) {
     await store.setLastError(err.message);
+  }
+  await updateBadge();
+}
+
+// --- temps réel -----------------------------------------------------------
+
+/**
+ * La connexion temps réel est rouverte ici, à chaque passage, et nulle part
+ * ailleurs. Chrome peut recycler le service worker à tout moment : la socket
+ * part avec lui, et c'est la boucle d'une minute qui la remonte. Rien ne
+ * dépend d'elle, elle ne fait qu'arriver avant.
+ */
+async function keepRealtime(settings) {
+  if (!settings.realtime) {
+    pubsub.disconnect();
+    return;
+  }
+  await pubsub.ensureConnected({
+    userId: await farm.getUserId(),
+    onEvent: (evt) => onRealtimeEvent(evt, settings),
+  });
+}
+
+async function onRealtimeEvent(evt, settings) {
+  switch (evt.kind) {
+    case EVENT.DROP_PROGRESS:
+      await farm.applyRealtimeDrop(evt);
+      break;
+
+    case EVENT.DROP_CLAIM:
+      // Twitch annonce un palier prêt. La récolte existante sait le prendre et
+      // dédoublonne déjà : on l'appelle plus tôt, on ne la double pas.
+      await farm.runClaimSweep(settings);
+      break;
+
+    case EVENT.POINTS_AVAILABLE: {
+      // Même raisonnement : `refreshPoints` réclame par l'API et dédoublonne.
+      const points = await farm.refreshPoints(settings, { force: true });
+      if (points?.claimed && settings.notifyDrops) notify.notifyPointsClaimed(points.channel);
+      break;
+    }
+
+    case EVENT.POINTS_EARNED:
+      await farm.noteRealtimePoints();
+      break;
+
+    default:
+      break;
   }
   await updateBadge();
 }

@@ -24,6 +24,8 @@ export const FAKE_STATE = {
     notifyActions: true,
     notifyProblems: true,
     alertAfterMin: 15,
+    watchStreak: true,
+    realtime: true,
   },
   stats: {
     drops: 12,

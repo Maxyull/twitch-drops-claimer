@@ -328,8 +328,26 @@ async function getLogin() {
   if (twitchLogin) return twitchLogin;
   const user = await gql.currentUser();
   if (!user?.login) throw new gql.GqlError("Compte Twitch introuvable.", { kind: "auth" });
-  await chrome.storage.local.set({ twitchLogin: user.login });
+  await chrome.storage.local.set({ twitchLogin: user.login, twitchUserId: user.id ?? null });
   return user.login;
+}
+
+/**
+ * Identifiant numérique du compte, exigé par les sujets du canal temps réel.
+ * Renvoie `null` plutôt que de jeter : sans lui on n'ouvre simplement pas la
+ * connexion, et rien d'autre ne change.
+ */
+export async function getUserId() {
+  const { twitchUserId } = await chrome.storage.local.get("twitchUserId");
+  if (twitchUserId) return twitchUserId;
+  try {
+    const user = await gql.currentUser();
+    if (!user?.id) return null;
+    await chrome.storage.local.set({ twitchUserId: user.id });
+    return user.id;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -510,6 +528,37 @@ export async function refreshWatchProof() {
 }
 
 /**
+ * Progression annoncée par le canal temps réel, pour un palier précis.
+ *
+ * Même écriture que la progression interrogée, mais sans attendre le prochain
+ * passage : c'est la seule différence. Les mêmes garde-fous s'appliquent, dont
+ * celui qui interdit à un compteur de reculer.
+ */
+export async function applyRealtimeDrop({ dropID, watchedMinutes }) {
+  const { campaigns } = await store.getCampaigns();
+  const res = applyLiveSession(campaigns, { dropID, watchedMinutes });
+  if (!res.changed) return null;
+
+  await store.setCampaigns(res.campaigns, { touchDate: false });
+
+  // Une minute qui monte est la preuve que Twitch comptabilise ce visionnage.
+  const campagne = res.campaigns.find((c) => (c.drops || []).some((d) => d.id === dropID));
+  if (!campagne) return res;
+
+  const state = await store.getState();
+  await store.setState({
+    proof: { ...(state.proof ?? {}), dropsAt: { ...(state.proof?.dropsAt ?? {}), [campagne.id]: Date.now() } },
+  });
+  return res;
+}
+
+/** Des points viennent d'être crédités : c'est une preuve de comptage. */
+export async function noteRealtimePoints() {
+  const state = await store.getState();
+  return store.setState({ proof: { ...(state.proof ?? {}), pointsAt: Date.now() } });
+}
+
+/**
  * Progression en direct, chaque minute, sur les chaînes farmées.
  *
  * L'inventaire complet est trop lourd pour être demandé si souvent : on ne le
@@ -614,13 +663,16 @@ export async function recordPointsClaim(channel) {
   return true;
 }
 
-export async function refreshPoints(settings) {
+export async function refreshPoints(settings, { force = false } = {}) {
   const state = await store.getState();
   const channel = state.pointsChannel;
   if (!channel) return null;
 
+  // `force` sert au canal temps réel : Twitch vient d'annoncer un coffre, la
+  // valeur en cache est périmée par définition et attendre sa péremption ferait
+  // perdre l'intérêt de l'annonce.
   const cached = state.pointsBalance;
-  if (cached?.channel === channel && Date.now() - cached.at < POINTS_TTL_MS) return cached;
+  if (!force && cached?.channel === channel && Date.now() - cached.at < POINTS_TTL_MS) return cached;
 
   let points;
   try {
