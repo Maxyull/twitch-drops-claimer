@@ -3,7 +3,7 @@
 //   - `local`   : réglages, compteurs, actions à cocher, cache de campagnes.
 //   - `session` : état volatil (onglets, battements), le service worker meurt souvent.
 // Rien de sensible n'y est écrit : pas de jeton, pas de mot de passe
-// (cf. docs/AUDIT-SECU.md, passe 2).
+// (cf. docs/SECURITY-AUDIT.md, passe 2).
 
 import { DEFAULT_SETTINGS, normalizeSettings } from "./settings.js";
 
@@ -227,7 +227,7 @@ const EMPTY_STATE = {
 /**
  * En-têtes capturés sur les requêtes de la page Twitch, dont son jeton de session.
  * En `session` volontairement : mémoire seulement, effacé à la fermeture de Chrome,
- * jamais écrit sur le disque (docs/AUDIT-SECU.md, passe 2).
+ * jamais écrit sur le disque (docs/SECURITY-AUDIT.md, passe 2).
  */
 export async function getCapturedHeaders() {
   const { gqlHeaders = null } = await chrome.storage.session.get("gqlHeaders");

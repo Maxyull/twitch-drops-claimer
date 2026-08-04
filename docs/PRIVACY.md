@@ -1,76 +1,83 @@
-# Politique de confidentialité
+# Privacy policy
 
 **Twitch Drops & Points Auto-Claimer**
-Dernière mise à jour : 3 août 2026.
+Last updated: 4 August 2026.
 
-## En une phrase
+## In one sentence
 
-L'extension ne collecte rien, n'envoie rien à personne, et n'a aucun serveur.
-Tout ce qu'elle sait reste dans votre navigateur.
+The extension collects nothing, sends nothing to anyone, and has no server.
+Everything it knows stays in your browser.
 
-## Ce qui est stocké, et où
+## What is stored, and where
 
-Tout est dans le stockage local de Chrome (`chrome.storage`), sur votre machine.
+All of it lives in Chrome's local storage (`chrome.storage`), on your machine.
 
-| Donnée | Zone | Pourquoi | Durée |
+| Data | Area | Why | Lifetime |
 |---|---|---|---|
-| Vos réglages (chaînes favorites, intervalles, qualité, volume) | `local` | Faire fonctionner l'extension comme vous l'avez demandé | Jusqu'à désinstallation |
-| Compteurs de drops et de bonus réclamés | `local` | Affichage dans le popup | Jusqu'à désinstallation |
-| Liste « actions requises » et leurs cases cochées | `local` | Ne pas vous re-signaler ce que vous avez déjà fait | Purge automatique 7 jours après avoir été cochée |
-| Cache des campagnes de drops et de votre progression | `local` | Éviter de réinterroger Twitch en boucle | Rafraîchi en continu, détails purgés au bout de 24 h |
-| Votre login Twitch | `local` | Nécessaire à une requête de l'API Twitch | Jusqu'à désinstallation |
-| Identifiants des onglets ouverts par l'extension, état du lecteur | `session` | Voyant vert / rouge | Effacé à la fermeture de Chrome |
+| Your settings (favourite channels, intervals, quality, volume, language) | `local` | Run the extension the way you asked | Until you uninstall |
+| Counters of claimed drops and bonuses | `local` | Shown in the popup | Until you uninstall |
+| Claim log: what was claimed, and when | `local` | A counter says how many, never what or when | Last 200 entries |
+| The "action required" list and its checkboxes | `local` | Stop telling you about something you already did | Purged 7 days after being ticked |
+| Cache of drop campaigns and your progress | `local` | Avoid hammering Twitch in a loop | Refreshed continuously, details purged after 24 h |
+| Your Twitch login and account id | `local` | Required by a Twitch API query and by the real-time channel | Until you uninstall |
+| Ids of the tabs the extension opened, player state | `session` | The green / red indicator | Cleared when Chrome closes |
 
-Désinstaller l'extension efface l'ensemble, Chrome s'en charge.
+Uninstalling the extension wipes all of it; Chrome takes care of that.
 
-## Votre session Twitch
+## Your Twitch session
 
-Pour interroger l'API de Twitch en votre nom, l'extension observe les requêtes que la
-page Twitch envoie déjà et en reprend sept en-têtes, dont votre jeton de session et le
-jeton d'intégrité exigé par Twitch. Elle ne fabrique aucun identifiant.
+To query the Twitch API on your behalf, the extension watches the requests the
+Twitch page already sends and reuses seven headers from them, including your
+session token and the integrity token Twitch requires. It forges no credential
+of its own.
 
-- Ces en-têtes sont gardés en **mémoire uniquement** (`chrome.storage.session`) :
-  effacés à la fermeture de Chrome, jamais écrits sur le disque.
-- Votre en-tête `Cookie` n'est **jamais** repris ni conservé.
-- Ils ne sont envoyés qu'à `https://gql.twitch.tv`, c'est-à-dire à Twitch lui-même.
-- L'extension ne demande jamais votre mot de passe et ne touche à aucun formulaire
-  de connexion.
+- Those headers are kept **in memory only** (`chrome.storage.session`): cleared
+  when Chrome closes, never written to disk.
+- Your `Cookie` header is **never** reused nor stored.
+- They go to `https://gql.twitch.tv` and `wss://pubsub-edge.twitch.tv`, that is,
+  to Twitch itself and nowhere else.
+- The extension never asks for your password and never touches a login form.
 
-Conséquence : l'extension a besoin d'au moins un onglet Twitch ouvert pour fonctionner.
-Elle en ouvre un elle-même si nécessaire.
+One consequence: the extension needs at least one open Twitch tab to work. It
+opens one itself when needed.
 
-## Ce que l'extension observe sur le réseau
+## What the extension watches on the network
 
-Pour afficher si Twitch vous compte bien comme spectateur, l'extension observe, sans
-jamais les bloquer ni les modifier, deux familles de requêtes émises par vos onglets
-Twitch : les segments vidéo (`*.ttvnw.net`) et les requêtes vers l'API de Twitch
-(`gql.twitch.tv`). Seuls la date et le type sont retenus, jamais le contenu.
+To tell you whether Twitch actually counts you as a viewer, the extension
+watches, without ever blocking or altering them, two families of requests your
+Twitch tabs emit: video segments (`*.ttvnw.net`) and Twitch API requests
+(`gql.twitch.tv`). Only the timestamp and the kind are kept, never the content.
 
-## Ce qui sort de votre machine
+## What leaves your machine
 
-Une seule destination : **`https://gql.twitch.tv`**, l'API officielle de Twitch.
-Les requêtes envoyées sont : la liste de vos campagnes de drops, votre progression,
-la liste des chaînes en direct, et, uniquement si vous activez le « mode rapide »,
-la réclamation d'un drop.
+Two destinations, both Twitch:
 
-Aucune autre destination. Pas d'analytics, pas de serveur du développeur, pas de
-télémétrie, même anonyme. Il n'y a pas d'option à désactiver parce qu'il n'y a rien
-à désactiver.
+- **`https://gql.twitch.tv`**, the official Twitch API. What is sent: your drop
+  campaigns, your progress, the list of live channels, the current drop session,
+  joining a raid, and claiming a channel-points chest or a drop.
+- **`wss://pubsub-edge.twitch.tv`**, Twitch's own real-time channel. The
+  extension subscribes to your own events (a chest becoming available, a drop
+  tier landing, a raid starting) and sends nothing beyond that subscription. It
+  can be switched off in the settings.
 
-## Ce que l'extension ne fait pas
+Nothing else. No analytics, no developer server, no telemetry, not even
+anonymous. There is no opt-out because there is nothing to opt out of.
 
-- Elle ne lit pas votre historique de navigation.
-- Elle n'agit que sur `www.twitch.tv` : aucun autre site n'est accessible pour elle.
-- Elle ne lit pas vos messages, vos e-mails, vos identifiants.
-- Elle ne partage, ne vend et ne transmet aucune donnée à un tiers.
+## What the extension does not do
 
-## RGPD
+- It does not read your browsing history.
+- It only acts on `www.twitch.tv`: no other site is within its reach.
+- It does not read your messages, your email, your credentials.
+- It shares, sells and transmits no data to any third party.
 
-Aucun traitement de données personnelles au sens du RGPD n'a lieu côté développeur :
-il n'existe aucun serveur, aucune base, aucun destinataire. Les données citées plus
-haut sont sous votre seul contrôle, sur votre machine, et vous les effacez en
-désinstallant l'extension ou en vidant son stockage depuis `chrome://extensions`.
+## GDPR
+
+No processing of personal data in the GDPR sense happens on the developer side:
+there is no server, no database, no recipient. The data listed above is under
+your sole control, on your machine, and you erase it by uninstalling the
+extension or clearing its storage from `chrome://extensions`.
 
 ## Contact
 
-Une question ou un doute sur ce document : ouvrir une issue sur le dépôt du projet.
+A question or a doubt about this document: open an issue on the project
+repository.

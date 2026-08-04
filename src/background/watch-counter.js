@@ -1,6 +1,6 @@
 // Observation, en lecture seule, des requêtes qui prouvent que Twitch comptabilise
 // le visionnage d'un onglet. On ne bloque ni ne modifie rien : `chrome.webRequest`
-// est utilisé en simple écoute (cf. docs/AUDIT-SECU.md).
+// est utilisé en simple écoute (cf. docs/SECURITY-AUDIT.md).
 //
 // Les segments vidéo arrivent toutes les deux secondes : écrire à chaque fois dans
 // le stockage saturerait le quota. On garde un cache en mémoire et on ne persiste

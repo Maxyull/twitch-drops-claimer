@@ -1,4 +1,4 @@
-# AUDIT-SECU.md : Twitch Drops & Points (MV3)
+# SECURITY-AUDIT.md : Twitch Drops & Points (MV3)
 
 Format : 3 passes. Toute case non applicable → `N/A + raison`.
 Une bonne partie des cases est **vérifiée automatiquement** par `tests/extension.test.js` :

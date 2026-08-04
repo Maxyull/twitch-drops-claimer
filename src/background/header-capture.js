@@ -1,6 +1,6 @@
 // Capture, en lecture seule, des en-têtes que la page Twitch envoie à son API.
 // `chrome.webRequest` est utilisé en simple écoute : on n'annule ni ne modifie
-// aucune requête (cf. docs/AUDIT-SECU.md).
+// aucune requête (cf. docs/SECURITY-AUDIT.md).
 
 import { pickForwardableHeaders, isUsable, isStale } from "../lib/gql-headers.js";
 import * as store from "../lib/storage.js";

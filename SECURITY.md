@@ -1,78 +1,75 @@
-# Politique de sécurité
+# Security policy
 
-## Signaler une faille
+## Reporting a vulnerability
 
-**Utilisez le signalement privé de GitHub** : onglet *Security* du dépôt →
-*Report a vulnerability*. La discussion reste privée jusqu'au correctif.
+**Use GitHub's private reporting**: the repository's *Security* tab →
+*Report a vulnerability*. The discussion stays private until there is a fix.
 
-N'ouvrez pas d'issue publique pour une faille : ce dépôt est public et une issue
-l'est aussi.
+Do not open a public issue for a vulnerability: this repository is public, and
+so is the issue.
 
-Vous pouvez espérer une première réponse sous quelques jours. Ce projet est tenu
-par une personne, sur son temps ; il n'y a ni astreinte ni prime.
+Expect a first answer within a few days. This project is maintained by one
+person, in their own time; there is no on-call rotation and no bounty.
 
-## Ce que couvre cette extension
+## What this extension actually holds
 
-Il n'y a **ni serveur, ni compte, ni télémétrie**. Rien ne quitte la machine
-(détail dans [`docs/PRIVACY.md`](docs/PRIVACY.md)). La surface d'attaque tient
-en trois choses :
+There is **no server, no account, no telemetry**. Nothing leaves the machine
+except calls to Twitch itself (details in [`docs/PRIVACY.md`](docs/PRIVACY.md)).
+The attack surface is three things:
 
-1. **Le jeton de session Twitch**, repris des en-têtes que la page envoie déjà.
-   Il vit en `chrome.storage.session` : mémoire seulement, jamais écrit sur le
-   disque. Il part vers `gql.twitch.tv` et `pubsub-edge.twitch.tv`, nulle part
-   ailleurs.
-2. **Les onglets ouverts en arrière-plan**, uniquement sur `www.twitch.tv`.
-3. **Ce qui est stocké** : réglages, compteurs, journal des réclamations, cache
-   de campagnes. Aucun secret.
+1. **The Twitch session token**, reused from the headers the page already sends.
+   It lives in `chrome.storage.session`: memory only, never written to disk. It
+   goes to `gql.twitch.tv` and `wss://pubsub-edge.twitch.tv`, nowhere else.
+2. **The background tabs**, opened on `www.twitch.tv` only.
+3. **What is stored**: settings, counters, claim log, campaign cache. No secrets.
 
-Le raisonnement complet, passe par passe, est dans
-[`docs/AUDIT-SECU.md`](docs/AUDIT-SECU.md).
+The full reasoning, pass by pass, is in
+[`docs/SECURITY-AUDIT.md`](docs/SECURITY-AUDIT.md).
 
-## Ce qui nous intéresse vraiment
+## What we genuinely want to hear about
 
-Par ordre de gravité, ce qui justifie un signalement privé :
+In order of severity, what justifies a private report:
 
-- **Une fuite du jeton de session** hors de Twitch : une écriture sur le disque,
-  un envoi vers un autre hôte, une exposition à une page web.
-- **Une page qui parvient à faire agir l'extension.** Tous les messages passent
-  par `src/lib/message-guard.js` : identité de l'émetteur, liste blanche de
-  types, origine, bornes de chaque champ. Un contournement est une faille.
-- **Une exécution de code venue d'ailleurs.** Il n'y a ni `eval`, ni
-  `new Function`, ni CDN ; le seul `import()` dynamique vise une ressource du
-  paquet. Tout chemin qui exécuterait autre chose est une faille.
-- **Une injection par une donnée de Twitch.** Les noms de campagnes et de drops
-  ne sont pas de confiance : ils sont posés en `textContent`. Tout endroit qui
-  les ferait interpréter comme du HTML est une faille.
-- **Une permission ou un hôte plus large que nécessaire**, ou un appel qui
-  exigerait une permission non déclarée.
+- **The session token leaking outside Twitch**: written to disk, sent to another
+  host, exposed to a web page.
+- **A page managing to make the extension act.** Every message goes through
+  `src/lib/message-guard.js`: sender identity, type allowlist, origin, and
+  bounds on every field. A bypass is a vulnerability.
+- **Code execution from elsewhere.** There is no `eval`, no `new Function`, no
+  CDN; the only dynamic `import()` targets a package resource. Any path that
+  would execute something else is a vulnerability.
+- **Injection through Twitch data.** Campaign and drop names are not trusted:
+  they are set through `textContent`. Anywhere that would let them be
+  interpreted as HTML is a vulnerability.
+- **A permission or a host broader than necessary**, or a call that would
+  require an undeclared permission.
 
-Chacun de ces points est figé par un test de régression dans
-`tests/extension.test.js`. Si vous en cassez un, dites-le : le test est
-probablement trop faible.
+Each of these is frozen by a regression test in `tests/extension.test.js`. If
+you break one of them, say so: the test is probably too weak.
 
-## Ce qui n'en est pas
+## What is not a vulnerability
 
-Pour éviter les allers-retours :
+To save both sides a round trip:
 
-- **Le `Client-Id` dans `src/background/gql.js`** est l'identifiant public du
-  client web de Twitch, visible dans n'importe quelle requête du site. Ce n'est
-  pas un secret.
-- **L'empreinte `OP_CURRENT_DROP.hash`** désigne une requête enregistrée chez
-  Twitch. Elle ne donne aucun accès et n'ouvre rien.
-- **Le fait que l'extension automatise Twitch** est une question de conditions
-  d'utilisation, pas de sécurité. Elle est posée franchement dans le
-  [README](README.md) et l'utilisateur la tranche pour lui-même.
-- **Une dépendance de développement vulnérable** qui ne part pas dans le paquet
-  livré. Le zip n'embarque ni `node_modules`, ni `tests/`, ni `scripts/`.
-- **Un rapport d'outil automatique sans chemin d'exploitation.** Dites ce qu'un
-  attaquant obtient concrètement, sinon il n'y a rien à corriger.
+- **The `Client-Id` used by the API calls** is the public identifier of Twitch's
+  own web client, visible in any request the site makes. It is not hardcoded
+  here anyway: it is read from the headers the page already sends.
+- **`OP_CURRENT_DROP.hash`** designates a query registered with Twitch. It
+  grants no access and opens nothing.
+- **The fact that the extension automates Twitch** is a terms-of-service
+  question, not a security one. It is stated plainly in the
+  [README](README.md), and the user decides for themselves.
+- **A vulnerable dev dependency** that never ships. The zip carries no
+  `node_modules`, no `tests/`, no `scripts/`.
+- **An automated scanner report with no exploitation path.** Say what an
+  attacker concretely gets, otherwise there is nothing to fix.
 
-## Versions suivies
+## Supported versions
 
-Seule la dernière version publiée reçoit des correctifs. Le projet n'a pas de
-branche de maintenance.
+Only the latest released version gets fixes. The project has no maintenance
+branch.
 
-## Après un correctif
+## After a fix
 
-La correction part en PR publique avec, comme toute correction ici, le test qui
-échoue sans elle. Le signalement est crédité dans la PR, sauf demande contraire.
+The fix ships as a public PR with, like every fix here, the test that fails
+without it. The report is credited in the PR unless you ask otherwise.

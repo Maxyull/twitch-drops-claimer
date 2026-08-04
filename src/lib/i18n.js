@@ -55,7 +55,7 @@ export async function initI18n(setting = "auto") {
  *   data-i18n-label  -> aria-label
  *   data-i18n-title  -> title
  *   data-i18n-ph     -> placeholder
- * Always through textContent, never through HTML (docs/AUDIT-SECU.md, pass 1).
+ * Always through textContent, never through HTML (docs/SECURITY-AUDIT.md, pass 1).
  */
 export function localizeDocument(root = document) {
   const apply = (attr, fn) => {

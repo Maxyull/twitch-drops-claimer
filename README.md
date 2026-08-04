@@ -31,7 +31,7 @@ Le dossier racine se charge aussi directement, mais `dist/` est ce qui sera publ
 3. C'est tout. Le popup affiche l'état.
 
 Pour vérifier fonction par fonction, lire les consoles et diagnostiquer un voyant rouge :
-[docs/TESTER-DANS-CHROME.md](docs/TESTER-DANS-CHROME.md).
+[docs/TESTING-IN-CHROME.md](docs/TESTING-IN-CHROME.md).
 
 ## Les chaînes regardées, et si elles comptent
 
@@ -182,12 +182,12 @@ la mise en page sans recharger l'extension.
 | Où | Quoi |
 |---|---|
 | [CONTRIBUTING.md](CONTRIBUTING.md) | conventions, workflow issue / PR / merge |
-| [docs/PIEGES.md](docs/PIEGES.md) | **à lire avant de toucher au code** : ce que Chrome et Twitch imposent, et pourquoi le code est écrit comme ça |
+| [docs/PITFALLS.md](docs/PITFALLS.md) | **à lire avant de toucher au code** : ce que Chrome et Twitch imposent, et pourquoi le code est écrit comme ça |
 | [SECURITY.md](SECURITY.md) | signaler une faille, et ce qui en est une ici |
-| [docs/AUDIT-SECU.md](docs/AUDIT-SECU.md) | permissions justifiées une par une, trois passes d'audit |
+| [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md) | permissions justifiées une par une, trois passes d'audit |
 | [docs/PRIVACY.md](docs/PRIVACY.md) | ce qui est stocké, ce qui sort de la machine |
-| [docs/TESTER-DANS-CHROME.md](docs/TESTER-DANS-CHROME.md) | vérifier chaque fonction à la main |
-| [docs/A-VERIFIER.md](docs/A-VERIFIER.md) | ce que la CI ne peut pas prouver, suivi dans l'issue [#56](../../issues/56) |
+| [docs/TESTING-IN-CHROME.md](docs/TESTING-IN-CHROME.md) | vérifier chaque fonction à la main |
+| [docs/MANUAL-CHECKS.md](docs/MANUAL-CHECKS.md) | ce que la CI ne peut pas prouver, suivi dans l'issue [#56](../../issues/56) |
 
 ### Limite connue de l'environnement
 
