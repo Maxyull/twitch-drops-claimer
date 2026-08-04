@@ -1,0 +1,42 @@
+# gitleaks config: inherits the default rules, plus what is specific to this project.
+[extend]
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Custom rule: Twitch OAuth token.
+#
+# This is THE credential this extension handles. It is captured from the headers
+# the Twitch page already sends, kept in `chrome.storage.session` and never
+# written to disk (docs/SECURITY-AUDIT.md, pass 2).
+#
+# The default gitleaks rules cover Twitch *client* secrets, not the 30-character
+# user session tokens carried by `Authorization: OAuth <token>`. That is the one
+# value that must never reach a commit: it opens the account, not the app.
+#
+# Anchored on the `OAuth`/`Bearer` prefix on purpose. A bare 30-character
+# alphanumeric string is far too common to flag without drowning the scan.
+# ---------------------------------------------------------------------------
+[[rules]]
+id = "twitch-oauth-token"
+description = "Twitch session token (belongs in storage.session, never in the repository)"
+regex = '''(?i)(?:oauth|bearer)[:\s]+[a-z0-9]{30}\b'''
+tags = ["twitch", "oauth", "secret"]
+
+[allowlist]
+description = "Public by design, not secrets"
+# `OP_CURRENT_DROP.hash` in src/background/gql.js is the public fingerprint of a
+# query registered with Twitch. It designates a query and grants no access, but
+# it is a 64-character hex string, so the generic high-entropy rules flag it on
+# every single run. Argued in docs/SECURITY-AUDIT.md.
+#
+# Deliberately anchored on that exact value rather than on a generic hex pattern:
+# a real key committed one day must still fail the scan.
+#
+# No `Client-Id` entry here on purpose. It is not hardcoded anywhere: it is
+# captured from the headers the Twitch page already sends, like the rest.
+regexes = [
+  '''4d06b702d25d652afb9ef835d2a550031f1cf762b193523a92166f40ea3d142b''',
+]
+paths = [
+  '''\.gitleaks\.toml''',
+]

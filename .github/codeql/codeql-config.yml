@@ -1,0 +1,11 @@
+name: "CodeQL config - Twitch Drops & Points"
+
+# `dist/` is produced by scripts/build.py from src/. Scanning it duplicates every
+# alert, once in the source and once in its artifact, without teaching anything.
+# `dev/` is a local preview harness that never ships: it stubs the chrome API on
+# purpose, which reads as suspicious to a scanner and is not.
+paths-ignore:
+  - dist
+  - release
+  - dev
+  - node_modules

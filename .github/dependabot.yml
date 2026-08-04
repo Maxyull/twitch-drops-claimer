@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # The extension ships zero runtime dependencies: this only covers the dev
+  # toolchain (Playwright). A vulnerable dev dependency never reaches a user,
+  # but it does run in CI with our token, which is reason enough to keep it fresh.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # Workflow actions are pinned by SHA, so nothing updates them on its own.
+  # Without this they would silently rot on an old, unpatched commit.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3

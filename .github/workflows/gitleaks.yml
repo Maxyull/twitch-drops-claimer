@@ -1,0 +1,48 @@
+name: gitleaks
+
+# Secret scanning across the working tree AND the git history.
+#
+# GitHub's own secret scanning is already enabled on this repository, but it only
+# knows provider patterns it ships with. This adds the history sweep and a custom
+# rule for the one credential shape that matters here: a Twitch OAuth token.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 5 * * 2" # weekly
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0 # full history: a secret leaked in an old commit is still usable
+
+      # The binary is run directly rather than through gitleaks/gitleaks-action.
+      # In pull_request mode that action calls the GitHub API to rebuild the PR
+      # commit list, and crashes before scanning anything when that endpoint
+      # answers 503. A check that goes red on a clean repository ends up ignored,
+      # which is worse than not having it.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          # Published in gitleaks_<version>_checksums.txt. Verifying it stops a
+          # retagged release or a compromised mirror from injecting a binary.
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          set -euo pipefail
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+
+      # `git` scans the history. --redact so a secret is never printed in public
+      # CI logs. Non-zero exit on any finding.
+      - name: Scan
+        run: ./gitleaks git . --config .gitleaks.toml --redact --no-banner
