@@ -51,6 +51,9 @@ export const DEFAULT_SETTINGS = {
   // --- Notifications ---
   notifyDrops: true,
   notifyActions: true,
+  // Prévenir quand le farm ne tourne plus depuis un moment.
+  notifyProblems: true,
+  alertAfterMin: 15,
 };
 
 const MIN_INTERVAL = 1;
@@ -146,5 +149,7 @@ export function normalizeSettings(raw = {}) {
 
     notifyDrops: bool(raw.notifyDrops, d.notifyDrops),
     notifyActions: bool(raw.notifyActions, d.notifyActions),
+    notifyProblems: bool(raw.notifyProblems, d.notifyProblems),
+    alertAfterMin: clampInt(raw.alertAfterMin, 1, MAX_INTERVAL, d.alertAfterMin),
   };
 }

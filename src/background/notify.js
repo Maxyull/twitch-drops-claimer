@@ -47,6 +47,15 @@ export function notifyActionRequired(action) {
   );
 }
 
+/** Le farm est à l'arrêt depuis assez longtemps pour que ça mérite un signal. */
+export function notifyStalled(raison, minutes) {
+  return create(`stalled:${Date.now()}`, {
+    title: t("notif_stalled_title"),
+    message: t("notif_stalled_body", [String(minutes), raison]),
+    requireInteraction: true,
+  });
+}
+
 export function notifyProblem(message) {
   return create(`problem:${Date.now()}`, {
     title: t("notif_problem_title"),

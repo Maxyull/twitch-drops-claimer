@@ -206,6 +206,9 @@ const EMPTY_STATE = {
   proof: {},
   marks: {},
   proofCheckedAt: 0,
+  // Depuis quand le farm est en panne, et quand on a prévenu.
+  brokenSince: null,
+  alertedAt: null,
 };
 
 /**

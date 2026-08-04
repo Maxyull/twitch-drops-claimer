@@ -70,6 +70,17 @@ du lecteur. Le voyant est **vert** seulement si l'horloge de la vidéo avance vr
 La pastille sur l'icône reprend le pire des deux voyants. Elle passe **orange avec un
 chiffre** quand des actions vous attendent hors de Twitch.
 
+### Et si personne ne regarde le voyant
+
+Un voyant ne sert qu'à celui qui ouvre le popup. On lance le farm le soir, on ne le
+rouvre pas, et on découvre au matin qu'il s'était arrêté à 22 h.
+
+L'extension **prévient donc d'elle-même** quand plus rien n'est compté depuis 15 minutes
+(délai réglable), avec la raison du voyant. Elle ne le redit qu'une fois par heure tant
+que ça dure : une notification par minute ferait désinstaller l'extension plus sûrement
+que la panne. Et n'avoir rien à faire, faute de chaîne favorite ou de campagne en
+direct, n'est pas une panne : ça n'alerte pas.
+
 ## Pourquoi les onglets sont en sourdine
 
 Ce n'est pas qu'un confort : **Chrome refuse de lancer une vidéo avec du son dans un
