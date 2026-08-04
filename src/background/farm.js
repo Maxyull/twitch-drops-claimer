@@ -52,6 +52,17 @@ async function findOwnWindow() {
   }
 }
 
+/** Combien d'onglets portent encore notre marqueur, et où. */
+async function countMarkedTabs() {
+  try {
+    const tabs = await chrome.tabs.query({ url: TWITCH_TABS });
+    const marques = tabs.filter((tab) => (tab.url ?? "").includes(TAB_MARK));
+    return { total: tabs.length, marques: marques.length, fenetres: [...new Set(marques.map((t) => t.windowId))] };
+  } catch {
+    return { total: -1, marques: -1, fenetres: [] };
+  }
+}
+
 /**
  * Garde-fou contre l'emballement : une condition mal évaluée ne doit pas
  * pouvoir produire une fenêtre par cycle. Passé ce délai sans succès, on
@@ -59,12 +70,35 @@ async function findOwnWindow() {
  */
 const WINDOW_COOLDOWN_MS = 5 * 60_000;
 
-async function createDedicatedWindow(windows) {
+/**
+ * Toute création de fenêtre laisse une trace lisible après coup.
+ *
+ * Cinq signalements de « fenêtre en trop » ont donné cinq causes différentes,
+ * chacune corrigée à l'aveugle. Sans savoir POURQUOI l'extension a jugé qu'elle
+ * n'en avait pas, on ne fait que boucher des chemins.
+ *
+ * À lire dans la console du service worker :
+ *   chrome.storage.local.get("windowLog").then(console.log)
+ */
+const WINDOW_LOG_MAX = 20;
+
+async function traceWindow(entry) {
+  const { windowLog = [] } = await chrome.storage.local.get("windowLog");
+  const ligne = { at: Date.now(), ...entry };
+  console.warn("[TDC] fenêtre :", ligne);
+  await chrome.storage.local.set({
+    windowLog: [ligne, ...(Array.isArray(windowLog) ? windowLog : [])].slice(0, WINDOW_LOG_MAX),
+  });
+  return ligne;
+}
+
+async function createDedicatedWindow(windows, contexte = {}) {
   const state = await store.getState();
 
   if (Date.now() - (state.windowCreatedAt ?? 0) < WINDOW_COOLDOWN_MS) {
     // On vient d'en créer une et on n'arrive pas à la retrouver : quelque chose
     // ne tourne pas rond, en ouvrir une de plus ne réglerait rien.
+    await traceWindow({ action: "refusee-delai", ...contexte });
     await store.setLastError("Fenêtre dédiée introuvable, réutilisation d'une fenêtre existante.");
     return windows.at(-1)?.id ?? null;
   }
@@ -79,10 +113,11 @@ async function createDedicatedWindow(windows) {
   }
 
   await store.setState({ windowId: created.id, windowCreatedAt: Date.now() });
+  await traceWindow({ action: "creee", windowId: created.id, ...contexte });
   return created.id;
 }
 
-async function targetWindowId(settings) {
+async function targetWindowId(settings, appelant = "?") {
   const windows = await normalWindows();
   const existe = (id) => id != null && windows.some((w) => w.id === id);
 
@@ -98,7 +133,16 @@ async function targetWindowId(settings) {
       return retrouvee;
     }
 
-    return createDedicatedWindow(windows);
+    // Le contexte dit pourquoi on a conclu qu'il n'y avait pas de fenêtre :
+    // c'est cette information qui manquait aux cinq corrections précédentes.
+    return createDedicatedWindow(windows, {
+      appelant,
+      fenetresNormales: windows.length,
+      windowIdMemorise: state.windowId ?? null,
+      windowIdVivant: existe(state.windowId),
+      fenetreRetrouveeParMarqueur: retrouvee ?? null,
+      ongletsMarques: await countMarkedTabs(),
+    });
   }
 
   // Hors mode dédié, `windows[0]` est la première de la liste de Chrome, pas
@@ -133,7 +177,7 @@ async function applyTabMute(tabId, settings) {
 
 async function openBackgroundTab(url, { pinned = true } = {}) {
   const settings = await store.getSettings();
-  const windowId = await targetWindowId(settings);
+  const windowId = await targetWindowId(settings, "ouverture-onglet");
   const tab = await chrome.tabs.create({ url, active: false, pinned, windowId });
   try {
     // Empêche Chrome de mettre l'onglet en veille : un onglet déchargé ne regarde plus rien.
@@ -861,7 +905,7 @@ export async function regroupTabs(settings) {
   // ce qui en ouvrait une à chaque cycle quand l'extension n'avait aucun onglet.
   if (!vivants.length) return { windowId: state.windowId ?? null, placed: 0 };
 
-  const windowId = await targetWindowId(settings);
+  const windowId = await targetWindowId(settings, "regroupement");
   if (windowId == null) return { windowId: null, placed: 0 };
 
   let placed = 0;
@@ -889,6 +933,7 @@ export async function rebuildWindow(settings) {
   } catch {
     /* pas réduite, elle reste en arrière-plan */
   }
+  await traceWindow({ action: "creee", appelant: "bouton-refaire", windowId: created.id });
   const blank = created.tabs?.[0]?.id ?? null;
   await store.setState({ windowId: created.id, windowCreatedAt: Date.now() });
 
