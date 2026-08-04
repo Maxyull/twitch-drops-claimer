@@ -1,17 +1,17 @@
-// Protocole PubSub de Twitch : construire les trames à envoyer, comprendre
-// celles qui arrivent.
+// Twitch's PubSub protocol: building the frames we send, understanding the ones
+// that arrive.
 //
-// C'est le canal temps réel que le site de Twitch utilise pour lui-même, et
-// dont se servent TwitchDropsMiner et Twitch-Channel-Points-Miner-v2. Il dit
-// qu'un coffre est disponible ou qu'un palier vient de tomber à la seconde,
-// là où l'interrogation périodique met jusqu'à une minute.
+// This is the real-time channel Twitch uses for itself, and the one
+// TwitchDropsMiner and Twitch-Channel-Points-Miner-v2 rely on. It says a chest is
+// available or a tier has landed within the second, where polling takes up to a
+// minute.
 //
-// Module pur : aucune socket ici, seulement des objets. C'est ce qui rend le
-// protocole testable sans réseau.
+// Pure module: no socket here, only objects. That is what makes the protocol
+// testable without a network.
 
 export const PUBSUB_URL = "wss://pubsub-edge.twitch.tv/v1";
 
-/** Twitch ferme une connexion silencieuse au bout de cinq minutes. */
+/** Twitch closes a silent connection after five minutes. */
 export const PING_FRAME = { type: "PING" };
 
 export const EVENT = {
@@ -26,7 +26,7 @@ export const EVENT = {
   UNKNOWN: "unknown",
 };
 
-/** Les sujets écoutés pour un compte donné. */
+/** The topics watched for a given account. */
 export function userTopics(userId) {
   const id = String(userId ?? "").trim();
   if (!id) return [];
@@ -34,9 +34,9 @@ export function userTopics(userId) {
 }
 
 /**
- * Sujets liés aux chaînes regardées. Un raid n'est annoncé que là : il n'existe
- * aucune trace fiable dans la page, et l'identifiant du raid, sans lequel on ne
- * peut pas le rejoindre, ne vient que d'ici.
+ * Topics tied to the watched channels. A raid is announced nowhere else: there
+ * is no reliable trace of it in the page, and its id, without which it cannot be
+ * joined, comes only from here.
  */
 export function channelTopics(channelIds) {
   const vus = new Set();
@@ -48,9 +48,9 @@ export function channelTopics(channelIds) {
 }
 
 /**
- * Trame d'abonnement.
- * `auth_token` est le jeton de session repris sur la page Twitch. Il part vers
- * Twitch et nulle part ailleurs, et n'est jamais écrit sur le disque.
+ * Subscription frame.
+ * `auth_token` is the session token reused from the Twitch page. It goes to
+ * Twitch and nowhere else, and is never written to disk.
  */
 export function listenFrame(topics, authToken, nonce) {
   return {
@@ -60,15 +60,15 @@ export function listenFrame(topics, authToken, nonce) {
   };
 }
 
-/** Se désabonner d'une chaîne qu'on ne regarde plus. */
+/** Unsubscribing from a channel we no longer watch. */
 export function unlistenFrame(topics, nonce) {
   return { type: "UNLISTEN", nonce: String(nonce ?? ""), data: { topics: [...topics] } };
 }
 
 /**
- * Ce qu'il faut envoyer pour passer de l'abonnement courant au voulu.
- * Pas de désabonnement/réabonnement global : on ne touche qu'aux différences,
- * sinon chaque changement d'onglet couperait aussi les sujets du compte.
+ * What to send to go from the current subscription set to the wanted one.
+ * No global unsubscribe/resubscribe: we only touch the differences, otherwise
+ * every tab change would also cut the account-level topics.
  */
 export function topicDelta(courants, voulus) {
   const a = new Set(courants || []);
@@ -79,7 +79,7 @@ export function topicDelta(courants, voulus) {
   };
 }
 
-/** "OAuth abc" | "abc" -> "abc". Renvoie "" si rien d'exploitable. */
+/** "OAuth abc" | "abc" -> "abc". Returns "" when there is nothing usable. */
 export function bareToken(authorization) {
   const raw = String(authorization ?? "").trim();
   if (!raw) return "";
@@ -96,9 +96,9 @@ function json(value) {
 }
 
 /**
- * Trame reçue -> évènement exploitable.
- * Ne jette jamais : une trame inconnue ou malformée devient `UNKNOWN`, et la
- * boucle continue. Un canal d'accélération ne doit pas pouvoir casser le farm.
+ * Received frame -> usable event.
+ * Never throws: an unknown or malformed frame becomes `UNKNOWN` and the loop
+ * carries on. An acceleration channel must not be able to break the farm.
  */
 export function parseFrame(raw) {
   const frame = json(raw);
@@ -132,7 +132,8 @@ export function parseFrame(raw) {
         channelId: data.channel_id ? String(data.channel_id) : null,
         balance: Number(data.balance?.balance) || 0,
         gained: Number(data.point_gain?.total_points) || 0,
-        // `WATCH_STREAK`, `CLAIM`, `WATCH`... c'est ce qui dit d'où vient le gain.
+        // `WATCH_STREAK`, `CLAIM`, `WATCH`... this is what says where the gain
+        // came from.
         reason: data.point_gain?.reason_code ?? "",
       };
     }
@@ -161,7 +162,7 @@ export function parseFrame(raw) {
   }
 
   if (topic.startsWith("raid.")) {
-    // `raid_update_v2` est la seule forme qui porte l'identifiant du raid.
+    // `raid_update_v2` is the only shape that carries the raid id.
     if (inner.type !== "raid_update_v2") return { kind: EVENT.UNKNOWN };
     const raid = inner.raid ?? data.raid ?? {};
     if (!raid.id) return { kind: EVENT.UNKNOWN };

@@ -1,24 +1,24 @@
-// Série de visionnage : quelle chaîne favorite regarder en priorité.
+// Watch streak: which favourite channel to watch first.
 //
-// Twitch verse un bonus de série quand on est présent au début d'un flux qu'on
-// n'a pas encore regardé. Environ six minutes de présence suffisent, et le bonus
-// ne se redonne pas sur le même flux. Une chaîne qui vient d'ouvrir vaut donc
-// beaucoup plus qu'une chaîne allumée depuis six heures, sur laquelle il n'y a
-// plus que le coffre à ramasser.
+// Twitch pays a streak bonus when you are present at the start of a stream you
+// have not watched yet. About six minutes of presence is enough, and the bonus
+// is not given twice on the same stream. A channel that just went live is
+// therefore worth far more than one that has been up for six hours, where only
+// the chest is left to collect.
 //
-// C'est la règle de Twitch-Channel-Points-Miner-v2 : il priorise les chaînes
-// dont la série n'est pas encore prise et sur lesquelles moins de sept minutes
-// ont été regardées.
+// This is the rule from Twitch-Channel-Points-Miner-v2: it prioritises channels
+// whose streak has not been taken yet and where fewer than seven minutes have
+// been watched.
 //
-// Module pur.
+// Pure module.
 
-/** Six minutes suffisent au bonus ; on garde une minute de marge. */
+/** Six minutes is enough for the bonus; keep one minute of margin. */
 export const STREAK_MINUTES = 7;
-/** Au-delà, le flux n'est plus « un début de flux » et le bonus est passé. */
+/** Past that, the stream is no longer "a start of stream" and the bonus is gone. */
 export const FRESH_MINUTES = 30;
 
 /**
- * Une chaîne peut-elle encore rapporter la série ?
+ * Can this channel still pay the streak?
  *
  * @param {object} chaine  { startedAt, watchedMs }
  * @param {object} ctx     { now, streakMinutes, freshMinutes }
@@ -31,7 +31,7 @@ export function streakReachable(chaine, ctx = {}) {
   } = ctx;
 
   const startedAt = Number(chaine?.startedAt);
-  // Sans date de début, on ne sait pas : on ne prétend pas que si.
+  // With no start date we do not know, so we do not pretend we do.
   if (!Number.isFinite(startedAt) || startedAt <= 0) return false;
 
   const ageMin = (now - startedAt) / 60_000;
@@ -42,9 +42,9 @@ export function streakReachable(chaine, ctx = {}) {
 }
 
 /**
- * Ordonne des chaînes favorites : celles qui peuvent encore rapporter la série
- * d'abord, la plus récemment ouverte en tête. Le reste garde l'ordre d'entrée,
- * qui est celui que l'utilisateur a saisi.
+ * Orders favourite channels: the ones that can still pay the streak first, most
+ * recently started at the top. The rest keeps its input order, which is the one
+ * the user typed.
  *
  * @param {Array<{login:string, startedAt?:number, watchedMs?:number}>} chaines
  */
@@ -53,8 +53,8 @@ export function rankForStreak(chaines, ctx = {}) {
 
   const eligibles = liste
     .filter((c) => streakReachable(c, ctx))
-    // La plus fraîche d'abord : c'est celle sur laquelle il reste le plus de
-    // temps pour atteindre les six minutes.
+    // Freshest first: that is the one with the most time left to reach the six
+    // minutes.
     .sort((a, b) => Number(b.startedAt) - Number(a.startedAt));
 
   const eligiblesSet = new Set(eligibles.map((c) => c.login));
