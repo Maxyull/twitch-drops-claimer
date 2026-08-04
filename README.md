@@ -70,6 +70,22 @@ du lecteur. Le voyant est **vert** seulement si l'horloge de la vidéo avance vr
 La pastille sur l'icône reprend le pire des deux voyants. Elle passe **orange avec un
 chiffre** quand des actions vous attendent hors de Twitch.
 
+### D'où vient la progression affichée
+
+Deux sources, à deux rythmes :
+
+- **Chaque minute**, `DropCurrentSessionContext` : le palier que Twitch fait avancer en ce
+  moment sur la chaîne regardée, et ses minutes. C'est léger, c'est la requête faite pour ça,
+  et c'est ce qu'utilisent les deux miners de référence.
+- **Toutes les 5 minutes**, l'inventaire complet : l'état de toutes les campagnes, y compris
+  celles qui ne sont pas devant.
+
+Un compteur ne redescend jamais : les deux sources ne se rafraîchissent pas au même rythme,
+et une valeur plus vieille arrivant après une plus récente ferait reculer la barre.
+
+Si Twitch retire la première requête, l'extension le voit, arrête de l'appeler et continue
+sur l'inventaire seul. On perd la fraîcheur, pas la mesure.
+
 ### Et si personne ne regarde le voyant
 
 Un voyant ne sert qu'à celui qui ouvre le popup. On lance le farm le soir, on ne le

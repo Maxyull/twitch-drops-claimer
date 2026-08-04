@@ -21,6 +21,39 @@ export class GqlError extends Error {
 }
 
 async function request(operationName, query, variables = {}) {
+  return send({ operationName, query, variables });
+}
+
+/**
+ * Requête « persistée » : Twitch accepte l'empreinte d'une requête enregistrée
+ * chez lui à la place de son texte. C'est ce que fait son propre site, et c'est
+ * le seul moyen d'appeler une opération dont on ne connaît pas la signature
+ * exacte, comme `DropCurrentSessionContext`.
+ *
+ * Une empreinte peut être retirée par Twitch : l'API répond alors
+ * `PersistedQueryNotFound`. `kind: "persisted"` permet à l'appelant de le
+ * reconnaître et de repasser sur le chemin normal plutôt que d'insister.
+ */
+async function requestPersisted(operationName, sha256Hash, variables = {}) {
+  try {
+    return await send({
+      operationName,
+      variables,
+      extensions: { persistedQuery: { version: 1, sha256Hash } },
+    });
+  } catch (err) {
+    // Volontairement étroit : « not found » tout court désignerait aussi des
+    // erreurs sans rapport, et couperait la progression en direct pour rien.
+    if (err instanceof GqlError && /persisted\s*query/i.test(err.message)) {
+      throw new GqlError(`Requête ${operationName} retirée par Twitch (${err.message})`, {
+        kind: "persisted",
+      });
+    }
+    throw err;
+  }
+}
+
+async function send(body) {
   const captured = await getUsableHeaders();
   if (!captured) {
     throw new GqlError(
@@ -34,7 +67,7 @@ async function request(operationName, query, variables = {}) {
     res = await fetch(GQL_URL, {
       method: "POST",
       headers: buildRequestHeaders(captured),
-      body: JSON.stringify({ operationName, query, variables }),
+      body: JSON.stringify(body),
     });
   } catch (cause) {
     throw new GqlError(`Réseau injoignable (${cause.message})`, { kind: "network" });
@@ -224,14 +257,53 @@ export async function inventory() {
   return data?.currentUser?.inventory?.dropCampaignsInProgress ?? [];
 }
 
-/** Sous-ensemble des logins réellement en direct. */
-export async function liveLogins(logins) {
+/** Chaînes réellement en direct, avec leur identifiant. */
+export async function liveChannels(logins) {
   const list = (logins || []).filter(Boolean).slice(0, 100);
   if (!list.length) return [];
   const data = await request("TdcLive", Q_LIVE, { logins: list });
   return (data?.users ?? [])
-    .filter((u) => u?.stream?.id)
-    .map((u) => u.login.toLowerCase());
+    .filter((u) => u?.stream?.id && u?.login)
+    .map((u) => ({ login: u.login.toLowerCase(), id: u.id ?? null }));
+}
+
+/** Sous-ensemble des logins réellement en direct. */
+export async function liveLogins(logins) {
+  return (await liveChannels(logins)).map((c) => c.login);
+}
+
+/**
+ * Progression du drop que Twitch comptabilise EN CE MOMENT sur une chaîne.
+ *
+ * L'inventaire dit où en sont toutes les campagnes ; cette requête dit lequel
+ * des paliers avance vraiment, tout de suite, et de combien. C'est la source
+ * qu'utilisent TwitchDropsMiner et Twitch-Channel-Points-Miner : elle est bien
+ * plus légère que l'inventaire complet, donc interrogeable chaque minute.
+ *
+ * Empreinte publique de l'opération, telle que le site de Twitch l'envoie.
+ * Ce n'est pas un secret : c'est l'identifiant d'une requête enregistrée.
+ */
+export const OP_CURRENT_DROP = {
+  name: "DropCurrentSessionContext",
+  hash: "4d06b702d25d652afb9ef835d2a550031f1cf762b193523a92166f40ea3d142b",
+};
+
+export async function currentDropSession(channelId) {
+  if (!channelId) return null;
+  const data = await requestPersisted(OP_CURRENT_DROP.name, OP_CURRENT_DROP.hash, {
+    // `channelLogin` est attendu par l'opération et toujours vide côté Twitch.
+    channelID: String(channelId),
+    channelLogin: "",
+  });
+
+  const session = data?.currentUser?.dropCurrentSession;
+  if (!session?.dropID) return null;
+
+  return {
+    dropID: session.dropID,
+    watchedMinutes: Number(session.currentMinutesWatched) || 0,
+    requiredMinutes: Number(session.requiredMinutesWatched) || 0,
+  };
 }
 
 /** Un live de la catégorie avec les drops activés (le plus regardé d'abord). */

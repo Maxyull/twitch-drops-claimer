@@ -8,6 +8,7 @@ import {
   campaignProgress,
   isActive,
   mergeProgress,
+  applyLiveSession,
 } from "../lib/campaigns.js";
 import { buildPendingActions, linkedOverrides, pruneActions } from "../lib/actions.js";
 import { mergeClaimed, trimRemembered } from "../lib/claimed-drops.js";
@@ -505,6 +506,75 @@ export async function refreshWatchProof() {
   }
 
   return store.setState({ proofCheckedAt: now, marks, proof });
+}
+
+/**
+ * Progression en direct, chaque minute, sur les chaînes farmées.
+ *
+ * L'inventaire complet est trop lourd pour être demandé si souvent : on ne le
+ * touche que toutes les cinq minutes. `DropCurrentSessionContext` ne renvoie
+ * qu'un palier et ses minutes, c'est ce que font les deux miners de référence,
+ * et c'est assez léger pour suivre le compteur en direct.
+ *
+ * Deuxième bénéfice, moins visible : une minute qui monte est la preuve la plus
+ * sûre que Twitch compte bien ce visionnage. Le badge « compté en viewer »
+ * l'obtient donc en une minute au lieu de cinq.
+ */
+const LIVE_TTL_MS = 60_000;
+
+export async function refreshLiveProgress() {
+  const state = await store.getState();
+  const now = Date.now();
+  if (now - (state.liveCheckedAt ?? 0) < LIVE_TTL_MS) return state;
+  // Empreinte retirée par Twitch : inutile de la redemander chaque minute.
+  // L'inventaire, lui, continue de tourner : on perd la fraîcheur, pas la mesure.
+  if (state.livePersistedGone) return state;
+
+  const tabs = (state.dropTabs ?? []).filter((entry) => entry.channel);
+  if (!tabs.length) return store.setState({ liveCheckedAt: now });
+
+  const ids = { ...(state.channelIds ?? {}) };
+  const proof = { ...(state.proof ?? {}) };
+  const marks = { ...(state.marks ?? {}) };
+  let campaigns = (await store.getCampaigns()).campaigns;
+  let ecrire = false;
+
+  try {
+    const manquants = tabs.map((e) => e.channel).filter((login) => !ids[login]);
+    if (manquants.length) {
+      for (const chaine of await gql.liveChannels(manquants)) ids[chaine.login] = chaine.id;
+    }
+
+    const minutes = { ...(marks.liveMinutes ?? {}) };
+
+    for (const entry of tabs) {
+      const session = await gql.currentDropSession(ids[entry.channel]);
+      if (!session) continue;
+
+      if (progressAdvanced(minutes[session.dropID], session.watchedMinutes)) {
+        proof.dropsAt = { ...(proof.dropsAt ?? {}), [entry.campaignId]: now };
+      }
+      minutes[session.dropID] = session.watchedMinutes;
+
+      const applique = applyLiveSession(campaigns, session);
+      if (applique.changed) {
+        campaigns = applique.campaigns;
+        ecrire = true;
+      }
+    }
+
+    marks.liveMinutes = minutes;
+  } catch (err) {
+    if (err?.kind === "persisted") {
+      console.warn("[TDC] progression en direct indisponible :", err.message);
+      return store.setState({ liveCheckedAt: now, livePersistedGone: true });
+    }
+    // Réseau ou session : on retentera au prochain passage, sans rien casser.
+    return store.setState({ liveCheckedAt: now });
+  }
+
+  if (ecrire) await store.setCampaigns(campaigns, { touchDate: false });
+  return store.setState({ liveCheckedAt: now, channelIds: ids, proof, marks });
 }
 
 /**

@@ -117,6 +117,24 @@ et confirme qu'il a été pris. Le clic reste en secours pour les onglets que
 l'utilisateur ouvre lui-même. Attention alors au double comptage : la
 déduplication est à deux niveaux dans `farm.js`.
 
+### L'inventaire n'est pas fait pour suivre une progression
+
+Il renvoie toutes les campagnes entamées : c'est lourd, donc c'est demandé
+rarement, donc la progression affichée traîne. La barre du popup est restée
+figée une demi-heure pour cette raison ([#49](../../../issues/49)).
+
+Twitch a une requête faite pour ça, `DropCurrentSessionContext` : un palier,
+ses minutes, rien d'autre. C'est ce qu'utilisent
+[TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) et
+[Twitch-Channel-Points-Miner-v2](https://github.com/Tkd-Alex/Twitch-Channel-Points-Miner-v2).
+Sa signature exacte n'est pas publique : on l'appelle donc par son **empreinte
+de requête enregistrée**, ce que fait le site lui-même, plutôt que d'inventer
+une requête au jugé.
+
+Corollaire : une empreinte peut être retirée. L'API répond alors
+`PersistedQueryNotFound`, le code le reconnaît, cesse d'appeler et retombe sur
+l'inventaire. La fraîcheur se perd, la mesure non.
+
 ### Un cache ne doit jamais porter la progression
 
 Le cache de structure des campagnes servait aussi `isClaimed`, vieux de six
