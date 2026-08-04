@@ -523,5 +523,28 @@
   },
   "popup_history_points": {
     "message": "Points bonus"
+  },
+  "notif_stalled_title": {
+    "message": "Farming has stopped"
+  },
+  "notif_stalled_body": {
+    "message": "Nothing counted for $MIN$ min: $RAISON$",
+    "placeholders": {
+      "min": {
+        "content": "$1"
+      },
+      "raison": {
+        "content": "$2"
+      }
+    }
+  },
+  "options_notify_problems": {
+    "message": "Warn me when farming stops"
+  },
+  "options_notify_problems_hint": {
+    "message": "A notification when nothing has been counted for a while, at most one per hour. Without it, an overnight failure only shows up in the morning."
+  },
+  "options_alert_after": {
+    "message": "Delay before alerting (min)"
   }
 }

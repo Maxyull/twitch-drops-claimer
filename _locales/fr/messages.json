@@ -523,5 +523,28 @@
   },
   "popup_history_points": {
     "message": "Bonus de points"
+  },
+  "notif_stalled_title": {
+    "message": "Le farm est à l'arrêt"
+  },
+  "notif_stalled_body": {
+    "message": "Rien n'est compté depuis $MIN$ min : $RAISON$",
+    "placeholders": {
+      "min": {
+        "content": "$1"
+      },
+      "raison": {
+        "content": "$2"
+      }
+    }
+  },
+  "options_notify_problems": {
+    "message": "Prévenir quand le farm s'arrête"
+  },
+  "options_notify_problems_hint": {
+    "message": "Une notification quand plus rien n'est compté depuis un moment, au plus une par heure. Sans elle, une panne de la nuit ne se voit qu'au matin."
+  },
+  "options_alert_after": {
+    "message": "Délai avant alerte (min)"
   }
 }

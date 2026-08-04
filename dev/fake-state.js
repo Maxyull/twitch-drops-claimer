@@ -22,6 +22,8 @@ export const FAKE_STATE = {
     quality: "160p30",
     notifyDrops: true,
     notifyActions: true,
+    notifyProblems: true,
+    alertAfterMin: 15,
   },
   stats: {
     drops: 12,

@@ -4,6 +4,7 @@
 
 import { evaluateBeat, summarize, STATUS } from "../lib/status.js";
 import { evaluateCounted } from "../lib/counted.js";
+import { evaluateAlert, minutesOf } from "../lib/alert.js";
 import { campaignProgress, rankCampaigns, claimableDrops, isActive } from "../lib/campaigns.js";
 import { countOpen, linkedOverrides, redeemAction, addAction, setDone } from "../lib/actions.js";
 import { MSG, CLAIM_KIND, ROLE, CAMPAIGN_PRIORITY } from "../lib/messaging.js";
@@ -104,6 +105,7 @@ async function tick() {
     await farm.refreshWatchProof();
     if (settings.dedicatedWindow) await farm.regroupTabs(settings);
     if (settings.wakeStuckTabs) await wakeStuckTabs(status);
+    await checkAlert(settings, status);
     await store.setLastError(null);
   } catch (err) {
     await store.setLastError(err.message);
@@ -140,6 +142,38 @@ async function rotate() {
 
   await store.setState({ rotationIndex: index });
   await updateBadge();
+}
+
+/**
+ * Prévient quand le farm ne tourne plus depuis un moment.
+ *
+ * Sans ça, tout le diagnostic ne sert qu'à celui qui pense à ouvrir le popup :
+ * on lance le farm le soir, et on découvre au matin qu'il s'est arrêté à 22 h.
+ */
+async function checkAlert(settings, status) {
+  if (!settings.notifyProblems) return;
+
+  const state = await store.getState();
+  const res = evaluateAlert(
+    {
+      green: status.global.green,
+      code: status.global.code,
+      brokenSince: state.brokenSince,
+      alertedAt: state.alertedAt,
+    },
+    { now: Date.now(), afterMs: settings.alertAfterMin * 60_000, idleCode: STATUS.DISABLED },
+  );
+
+  if (res.brokenSince !== state.brokenSince || res.alertedAt !== state.alertedAt) {
+    await store.setState({ brokenSince: res.brokenSince, alertedAt: res.alertedAt });
+  }
+
+  if (res.notify) {
+    notify.notifyStalled(
+      chrome.i18n.getMessage(`status_${status.global.code}`),
+      minutesOf(res.brokenFor),
+    );
+  }
 }
 
 const WAKE_COOLDOWN_MS = 3 * 60_000;

@@ -16,12 +16,14 @@ const CHECKS = [
   "wakeStuckTabs",
   "notifyDrops",
   "notifyActions",
+  "notifyProblems",
   "randomAfterFocus",
 ];
 const NUMBERS = [
   "claimIntervalMin",
   "discoverIntervalMin",
   "rotateIntervalMin",
+  "alertAfterMin",
   "farmTabs",
   "volumePercent",
 ];
