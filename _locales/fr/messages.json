@@ -578,5 +578,29 @@
         "content": "$1"
       }
     }
+  },
+  "popup_tabs_label": {
+    "message": "Sections du popup"
+  },
+  "popup_tab_live": {
+    "message": "En cours"
+  },
+  "popup_tab_history": {
+    "message": "Historique"
+  },
+  "popup_history_filter": {
+    "message": "Filtrer le journal"
+  },
+  "popup_filter_all": {
+    "message": "Tout"
+  },
+  "popup_filter_drops": {
+    "message": "Drops"
+  },
+  "popup_filter_points": {
+    "message": "Points"
+  },
+  "popup_history_empty_filter": {
+    "message": "Rien de ce type pour l'instant. Le filtre « Tout » montre le reste."
   }
 }

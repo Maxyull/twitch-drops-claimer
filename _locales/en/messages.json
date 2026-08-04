@@ -578,5 +578,29 @@
         "content": "$1"
       }
     }
+  },
+  "popup_tabs_label": {
+    "message": "Popup sections"
+  },
+  "popup_tab_live": {
+    "message": "Running"
+  },
+  "popup_tab_history": {
+    "message": "History"
+  },
+  "popup_history_filter": {
+    "message": "Filter the log"
+  },
+  "popup_filter_all": {
+    "message": "All"
+  },
+  "popup_filter_drops": {
+    "message": "Drops"
+  },
+  "popup_filter_points": {
+    "message": "Points"
+  },
+  "popup_history_empty_filter": {
+    "message": "Nothing of this kind yet. The “All” filter shows the rest."
   }
 }

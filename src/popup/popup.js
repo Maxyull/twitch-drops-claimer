@@ -6,6 +6,7 @@ import { MSG, ROLE, CAMPAIGN_PRIORITY } from "../lib/messaging.js";
 import { ACTION_KIND } from "../lib/actions.js";
 import { COUNTED } from "../lib/counted.js";
 import { t, localizeDocument } from "../lib/i18n.js";
+import { TABS, filterHistory, normalizeFilter, normalizeTab, tabForKey } from "../lib/tabs.js";
 
 const $ = (id) => document.getElementById(id);
 const TOGGLES = ["enabled", "watchFavorite", "farmDrops"];
@@ -75,6 +76,7 @@ function renderWatchers(state) {
   const { status, settings } = state;
 
   setDot($("globalDot"), status.global.green, statusText(status.global.code));
+  $("globalReason").textContent = statusText(status.global.code);
   setDot($("pointsDot"), status.points.green, statusText(status.points.code));
   // Plusieurs onglets de farm : le voyant reprend le pire des leurs, sinon il
   // afficherait vert alors qu'un des deux est en panne.
@@ -169,19 +171,34 @@ function renderCurrentDrop(campaigns) {
   box.append(el("small", null, bits.join(" · ")));
 }
 
-/** Le journal : ce qui a été réclamé, et à quelle heure. */
+/**
+ * Le journal : ce qui a été réclamé, et à quelle heure.
+ *
+ * Une seule frise pour les drops et les points, dans l'ordre du temps. La
+ * question qu'on se pose le matin est « qu'est-ce qui s'est passé cette nuit »,
+ * et elle mêle les deux ; le filtre est là pour les cas où on cherche un type
+ * précis, pas l'inverse.
+ */
 function renderHistory(history) {
   const list = $("history");
-  list.replaceChildren();
-  $("historyEmpty").hidden = history.length > 0;
+  const filtre = currentFilter();
+  const entries = filterHistory(history, filtre);
 
-  for (const entry of history.slice(0, 60)) {
-    const li = el("li", "event");
+  list.replaceChildren();
+  $("historyEmpty").hidden = entries.length > 0;
+  $("historyEmpty").textContent = history.length
+    ? t("popup_history_empty_filter")
+    : t("popup_history_empty");
+
+  for (const entry of entries.slice(0, 60)) {
+    const li = el("li", `event ${entry.kind === "points" ? "points" : "drop"}`);
+    li.append(el("span", "kind"));
 
     const heure = document.createElement("time");
     const date = new Date(entry.at);
     heure.dateTime = date.toISOString();
     heure.textContent = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    // L'heure exacte au survol : la frise reste compacte, l'information est là.
     heure.title = date.toLocaleString();
 
     const what = el("div", "what");
@@ -204,8 +221,14 @@ function renderActions(actions) {
 
   const sorted = [...actions].sort((a, b) => Number(a.done) - Number(b.done));
   const open = sorted.filter((a) => !a.done).length;
-  $("actionsCount").textContent = open ? `(${open})` : "";
   $("actionsEmpty").hidden = sorted.length > 0;
+
+  // La pastille sur l'onglet : ce qui attend l'utilisateur ne doit pas pouvoir
+  // se cacher derrière un onglet fermé.
+  const badge = $("liveBadge");
+  badge.hidden = open === 0;
+  badge.textContent = String(open);
+  badge.title = t("popup_section_actions");
 
   for (const action of sorted) {
     const li = el("li", `action${action.done ? " done" : ""}`);
@@ -254,7 +277,10 @@ function renderCampaigns(campaigns) {
   $("campaignsEmpty").hidden = campaigns.length > 0;
 
   const kept = campaigns.filter((c) => c.selected).length;
-  $("campaignsCount").textContent = campaigns.length
+  const badge = $("campaignsBadge");
+  badge.hidden = campaigns.length === 0;
+  badge.textContent = String(kept);
+  badge.title = campaigns.length
     ? t("popup_campaigns_count", [String(kept), String(campaigns.length)])
     : "";
 
@@ -320,23 +346,96 @@ function renderCampaigns(campaigns) {
   }
 }
 
-// L'état replié est une préférence d'affichage, pas un réglage de
-// fonctionnement : il reste local à la page du popup.
-const COLLAPSIBLE = [
-  ["campaignsBox", "tdc.campaignsOpen"],
-  ["actionsBox", "tdc.actionsOpen"],
-  ["historyBox", "tdc.historyOpen"],
-];
+// --- onglets --------------------------------------------------------------
 
-function setupCollapse() {
-  for (const [id, key] of COLLAPSIBLE) {
-    const box = $(id);
-    // Le journal est replié par défaut : on l'ouvre quand on se pose la question,
-    // il n'a pas à repousser le reste du popup vers le bas en permanence.
-    const parDefaut = id === "historyBox" ? "0" : "1";
-    box.open = (localStorage.getItem(key) ?? parDefaut) !== "0";
-    box.addEventListener("toggle", () => localStorage.setItem(key, box.open ? "1" : "0"));
+// L'onglet ouvert et le filtre du journal sont des préférences d'affichage,
+// pas des réglages de fonctionnement : ils restent locaux à la page du popup.
+const TAB_KEY = "tdc.tab";
+const FILTER_KEY = "tdc.historyFilter";
+
+const tabBtn = (id) => document.querySelector(`.tab[data-tab="${id}"]`);
+const currentFilter = () => normalizeFilter(localStorage.getItem(FILTER_KEY));
+
+let activeTab = normalizeTab(localStorage.getItem(TAB_KEY));
+
+/**
+ * Le trait sous l'onglet actif, positionné par `transform`.
+ * Il est large de 100 px dans la feuille de style et remis à l'échelle ici :
+ * animer `width` ou `left` referait la mise en page à chaque image.
+ */
+function moveUnderline() {
+  const btn = tabBtn(activeTab);
+  const barre = $("tabUnderline");
+  if (!btn || !barre) return;
+  const zone = btn.parentElement.getBoundingClientRect();
+  const cible = btn.getBoundingClientRect();
+  barre.style.transform = `translateX(${cible.left - zone.left}px) scaleX(${cible.width / 100})`;
+}
+
+function showTab(id, { focus = false } = {}) {
+  activeTab = normalizeTab(id);
+  localStorage.setItem(TAB_KEY, activeTab);
+
+  for (const nom of TABS) {
+    const btn = tabBtn(nom);
+    const panel = document.getElementById(`panel-${nom}`);
+    if (!btn || !panel) continue;
+
+    const actif = nom === activeTab;
+    btn.setAttribute("aria-selected", String(actif));
+    // Un seul onglet atteignable par Tab : c'est le motif ARIA, il évite de
+    // devoir traverser toute la barre pour atteindre le contenu.
+    btn.tabIndex = actif ? 0 : -1;
+    panel.hidden = !actif;
   }
+
+  if (focus) tabBtn(activeTab)?.focus();
+  moveUnderline();
+  document.querySelector("main").scrollTop = 0;
+}
+
+function setupTabs() {
+  const barre = document.querySelector(".tabs");
+
+  barre.addEventListener("click", (ev) => {
+    const btn = ev.target.closest(".tab");
+    if (btn) showTab(btn.dataset.tab);
+  });
+
+  barre.addEventListener("keydown", (ev) => {
+    const suivant = tabForKey(activeTab, ev.key);
+    if (!suivant) return; // les autres touches restent au navigateur
+    ev.preventDefault();
+    showTab(suivant, { focus: true });
+  });
+
+  showTab(activeTab);
+  // La largeur des onglets dépend des libellés traduits, qui sont posés juste
+  // avant : on repositionne une fois la mise en page faite.
+  requestAnimationFrame(moveUnderline);
+}
+
+function setupFilter() {
+  const seg = document.querySelector(".seg");
+
+  const peindre = () => {
+    const actif = currentFilter();
+    for (const btn of seg.querySelectorAll(".seg-btn")) {
+      const on = btn.dataset.filter === actif;
+      btn.classList.toggle("on", on);
+      btn.setAttribute("aria-pressed", String(on));
+    }
+  };
+
+  seg.addEventListener("click", (ev) => {
+    const btn = ev.target.closest(".seg-btn");
+    if (!btn) return;
+    localStorage.setItem(FILTER_KEY, normalizeFilter(btn.dataset.filter));
+    peindre();
+    void load();
+  });
+
+  peindre();
 }
 
 function renderError(lastError) {
@@ -361,10 +460,15 @@ async function load() {
   renderActions(state.actions);
   renderCampaigns(state.campaigns);
   renderError(state.lastError);
+
+  // Les pastilles changent la largeur des onglets : le trait se recale après le
+  // rendu, sinon il reste décalé jusqu'au prochain clic.
+  moveUnderline();
 }
 
 localizeDocument();
-setupCollapse();
+setupTabs();
+setupFilter();
 
 for (const key of TOGGLES) {
   $(key).addEventListener("click", async () => {

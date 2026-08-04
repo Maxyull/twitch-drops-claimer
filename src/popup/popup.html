@@ -5,75 +5,102 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <header>
-    <span class="dot" id="globalDot"></span>
-    <h1 data-i18n="popup_title">Twitch Drops &amp; Points</h1>
-    <button id="enabled" class="toggle" data-i18n-label="popup_toggle_enabled"></button>
-  </header>
+  <!--
+    Ce qui est au-dessus de la barre d'onglets ne bouge jamais : la raison
+    d'ouvrir ce popup est « est-ce que ça tourne », et cette réponse ne doit
+    pas être derrière un clic.
+  -->
+  <div class="pinned">
+    <header>
+      <span class="dot" id="globalDot"></span>
+      <div class="head">
+        <h1 data-i18n="popup_title">Twitch Drops &amp; Points</h1>
+        <small id="globalReason"></small>
+      </div>
+      <button id="enabled" class="toggle" data-i18n-label="popup_toggle_enabled"></button>
+    </header>
 
-  <div id="error" class="err" hidden></div>
+    <div id="error" class="err" hidden></div>
+    <div class="now" id="currentDrop" hidden></div>
 
-  <div class="now" id="currentDrop" hidden></div>
+    <nav class="tabs" role="tablist" data-i18n-label="popup_tabs_label">
+      <button class="tab" role="tab" id="tab-live" data-tab="live"
+              aria-controls="panel-live" aria-selected="true" tabindex="0">
+        <span data-i18n="popup_tab_live">En cours</span>
+        <span class="badge" id="liveBadge" hidden></span>
+      </button>
+      <button class="tab" role="tab" id="tab-history" data-tab="history"
+              aria-controls="panel-history" aria-selected="false" tabindex="-1">
+        <span data-i18n="popup_tab_history">Historique</span>
+      </button>
+      <button class="tab" role="tab" id="tab-campaigns" data-tab="campaigns"
+              aria-controls="panel-campaigns" aria-selected="false" tabindex="-1">
+        <span data-i18n="popup_section_campaigns">Campagnes</span>
+        <span class="badge quiet" id="campaignsBadge" hidden></span>
+      </button>
+      <span class="tab-underline" id="tabUnderline" aria-hidden="true"></span>
+    </nav>
+  </div>
 
-  <details id="historyBox">
-    <summary>
+  <main>
+    <section class="panel" role="tabpanel" id="panel-live" aria-labelledby="tab-live" tabindex="0">
+      <h2 data-i18n="popup_section_watch">Regardé en arrière-plan</h2>
+      <ul id="watchers"></ul>
+      <p class="empty" id="watchersEmpty" data-i18n="popup_watchers_empty"></p>
+
+      <h2 id="actionsTitle" data-i18n="popup_section_actions">Actions requises</h2>
+      <ul id="actions"></ul>
+      <p class="empty" id="actionsEmpty" data-i18n="popup_actions_empty"></p>
+
+      <h2 data-i18n="popup_section_quick">Réglages rapides</h2>
+      <div class="card watch">
+        <span class="dot" id="pointsDot"></span>
+        <span class="who"><b data-i18n="popup_points">Points de chaîne</b></span>
+        <button id="watchFavorite" class="toggle" data-i18n-label="popup_toggle_watch"></button>
+      </div>
+      <div class="card watch">
+        <span class="dot" id="dropsDot"></span>
+        <span class="who"><b data-i18n="popup_drops">Farm des drops</b></span>
+        <button id="farmDrops" class="toggle" data-i18n-label="popup_toggle_farm"></button>
+      </div>
+
+      <!-- Une réparation, pas une action courante : elle vit à côté de ce
+           qu'elle répare, en bas, et pas dans la barre du bas. -->
+      <button class="act wide ghost" id="rebuildWindow" data-i18n="popup_btn_rebuild_window"
+              data-i18n-title="popup_btn_rebuild_window_hint"></button>
+    </section>
+
+    <section class="panel" role="tabpanel" id="panel-history" aria-labelledby="tab-history" tabindex="0" hidden>
       <div class="stats">
         <div class="stat"><b id="statDrops">0</b><small data-i18n="popup_stat_drops"></small></div>
         <div class="stat"><b id="statPoints">0</b><small data-i18n="popup_stat_points"></small></div>
       </div>
       <div class="last" id="lastClaim"></div>
-    </summary>
-    <ul id="history"></ul>
-    <p class="empty" id="historyEmpty" data-i18n="popup_history_empty"></p>
-  </details>
 
-  <h2 data-i18n="popup_section_watch">Regardé en arrière-plan</h2>
-  <ul id="watchers"></ul>
-  <p class="empty" id="watchersEmpty" data-i18n="popup_watchers_empty"></p>
+      <div class="seg" role="group" data-i18n-label="popup_history_filter">
+        <button class="seg-btn on" data-filter="all" aria-pressed="true" data-i18n="popup_filter_all"></button>
+        <button class="seg-btn" data-filter="drop" aria-pressed="false" data-i18n="popup_filter_drops"></button>
+        <button class="seg-btn" data-filter="points" aria-pressed="false" data-i18n="popup_filter_points"></button>
+      </div>
 
-  <h2 data-i18n="popup_section_quick">Réglages rapides</h2>
-  <div class="card watch">
-    <span class="dot" id="pointsDot"></span>
-    <span class="who"><b data-i18n="popup_points">Points de chaîne</b></span>
-    <button id="watchFavorite" class="toggle" data-i18n-label="popup_toggle_watch"></button>
-  </div>
-  <div class="card watch">
-    <span class="dot" id="dropsDot"></span>
-    <span class="who"><b data-i18n="popup_drops">Farm des drops</b></span>
-    <button id="farmDrops" class="toggle" data-i18n-label="popup_toggle_farm"></button>
-  </div>
+      <ul id="history"></ul>
+      <p class="empty" id="historyEmpty" data-i18n="popup_history_empty"></p>
+    </section>
 
-  <div class="row-btn">
+    <section class="panel" role="tabpanel" id="panel-campaigns" aria-labelledby="tab-campaigns" tabindex="0" hidden>
+      <p class="hint" data-i18n="popup_campaigns_hint"></p>
+      <ul id="campaigns"></ul>
+      <p class="empty" id="campaignsEmpty" data-i18n="popup_campaigns_empty"></p>
+    </section>
+  </main>
+
+  <!-- Les boutons sont des actions, pas du contenu : ils ne changent pas d'onglet. -->
+  <footer class="toolbar">
     <button class="act primary" id="refresh" data-i18n="popup_btn_refresh"></button>
     <button class="act" id="switch" data-i18n="popup_btn_switch"></button>
-  </div>
-  <div class="row-btn">
     <button class="act" id="inventory" data-i18n="popup_btn_inventory"></button>
     <button class="act" id="options" data-i18n="popup_btn_options"></button>
-  </div>
-  <div class="row-btn">
-    <button class="act" id="rebuildWindow" data-i18n="popup_btn_rebuild_window"
-            data-i18n-title="popup_btn_rebuild_window_hint"></button>
-  </div>
-
-  <details id="campaignsBox" open>
-    <summary>
-      <span data-i18n="popup_section_campaigns">Campagnes</span>
-      <span id="campaignsCount"></span>
-    </summary>
-    <p class="hint" data-i18n="popup_campaigns_hint"></p>
-    <ul id="campaigns"></ul>
-    <p class="empty" id="campaignsEmpty" data-i18n="popup_campaigns_empty"></p>
-  </details>
-
-  <details id="actionsBox" open>
-    <summary>
-      <span data-i18n="popup_section_actions">Actions requises</span>
-      <span id="actionsCount"></span>
-    </summary>
-    <ul id="actions"></ul>
-    <p class="empty" id="actionsEmpty" data-i18n="popup_actions_empty"></p>
-  </details>
+  </footer>
 
   <script src="popup.js" type="module"></script>
 </body>
