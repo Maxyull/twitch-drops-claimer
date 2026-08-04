@@ -555,5 +555,11 @@
   },
   "options_watch_streak_hint": {
     "message": "Quand une favorite vient d'ouvrir, la regarder six minutes rapporte un bonus de série qui ne repassera pas. L'extension quitte alors la chaîne en cours, mais seulement si celle-ci ne peut plus rien donner de tel."
+  },
+  "options_realtime": {
+    "message": "Canal temps réel de Twitch"
+  },
+  "options_realtime_hint": {
+    "message": "Un coffre ou un palier est signalé à la seconde, au lieu d'être découvert au prochain passage de la boucle. Ce n'est qu'une accélération : tout continue de fonctionner sans."
   }
 }

@@ -45,6 +45,9 @@ export const DEFAULT_SETTINGS = {
   // réveiller sans jamais voler le focus de la fenêtre où l'on travaille.
   dedicatedWindow: true,
   wakeStuckTabs: true,
+  // Canal temps réel de Twitch : coffres et paliers signalés à la seconde.
+  // Pure accélération, tout fonctionne sans (cf. src/background/pubsub.js).
+  realtime: true,
   // Passage périodique sur chaque onglet : on l'active, et on le recharge s'il
   // n'est pas au vert. 0 désactive la rotation.
   rotateIntervalMin: 15,
@@ -145,6 +148,7 @@ export function normalizeSettings(raw = {}) {
     muteTabs: bool(raw.muteTabs, d.muteTabs),
     dedicatedWindow: bool(raw.dedicatedWindow, d.dedicatedWindow),
     wakeStuckTabs: bool(raw.wakeStuckTabs, d.wakeStuckTabs),
+    realtime: bool(raw.realtime, d.realtime),
     // 0 est une valeur légitime ici : elle coupe la rotation.
     rotateIntervalMin: clampInt(raw.rotateIntervalMin, 0, MAX_INTERVAL, d.rotateIntervalMin),
 

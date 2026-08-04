@@ -47,6 +47,22 @@ Ce qui la demanderait : lire `url`, `title` ou `favIconUrl` d'un onglet hors du
 périmètre d'hôte. Des tests de régression figent ces limites, et ils ont été
 **resserrés** à chaque fois qu'un nouvel appel apparaissait, jamais assouplis.
 
+### Une socket meurt avec le service worker, sauf si elle parle
+
+Chrome recycle un service worker inactif au bout de **30 secondes**. Une
+connexion WebSocket ouverte ne suffit pas à le tenir éveillé : ce qui compte,
+c'est le trafic. Sans rien qui arrive, la socket part avec le worker.
+
+D'où le battement toutes les 20 secondes dans `src/background/pubsub.js` : il
+tient la connexion ouverte côté Twitch **et** le worker éveillé côté Chrome.
+C'est la seule exception au « aucun `setInterval`, tout par `chrome.alarms` »
+de `CLAUDE.md`, parce qu'une alarme ne descend pas sous la minute. Ce battement
+est lié à la vie de la socket et disparaît avec elle.
+
+Corollaire assumé : **rien ne dépend de cette socket.** Elle n'est qu'une
+accélération. Si le worker est recyclé malgré tout, la boucle d'une minute la
+rouvre, et les interrogations périodiques ont couvert l'intervalle.
+
 ### `windows.create({ state, focused })`
 
 Les deux propriétés se recouvrent. La fenêtre est créée non focalisée, puis

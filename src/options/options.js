@@ -15,6 +15,7 @@ const CHECKS = [
   "muteTabs",
   "dedicatedWindow",
   "wakeStuckTabs",
+  "realtime",
   "notifyDrops",
   "notifyActions",
   "notifyProblems",

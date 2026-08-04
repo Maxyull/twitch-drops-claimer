@@ -123,6 +123,12 @@ pas interroger l'API. Elle en ouvre un d'elle-même quand c'est le cas.
 - [x] **Inventaire des données collectées : aucune ne quitte la machine.** Détail dans
       `docs/PRIVACY.md`. Aucun serveur n'appartient au projet.
 - [x] Tout fetch sortant : HTTPS, un seul domaine (`gql.twitch.tv`) `[test]`
+- [x] **Une seule socket**, `wss://pubsub-edge.twitch.tv/v1`, le canal temps réel de Twitch.
+      Chiffrée, et un test de régression vérifie qu'aucune autre adresse `ws://` ou `wss://`
+      n'apparaît dans le code. Elle transporte le jeton de session dans sa trame
+      d'abonnement : c'est le même jeton, vers le même émetteur, et il ne quitte jamais
+      `chrome.storage.session`. Aucune donnée de l'utilisateur n'est envoyée, seulement
+      un abonnement à ses propres évènements. Elle se coupe depuis les réglages.
 - [x] Pas de télémétrie, même anonyme
 - [x] `docs/PRIVACY.md` à jour
 - [x] Pas de backend, donc N/A pour RLS et jetons courts
