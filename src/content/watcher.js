@@ -5,6 +5,7 @@
 
 import { isDropClaimButton, isPointsBonusButton, isDismissOverlayButton } from "../lib/dom-rules.js";
 import { MSG, CLAIM_KIND, ROLE } from "../lib/messaging.js";
+import { AUDIO_ONLY, chooseQualityIndex } from "../lib/quality.js";
 
 const BEAT_MS = 5_000;
 const SCAN_MS = 8_000;
@@ -159,12 +160,17 @@ function applyStoredPrefs() {
  * premier venu, souvent à l'arrêt, et tout le diagnostic partait de là : lecteur
  * dit en pause alors que le vrai flux tourne.
  * On prend celui qui joue, et à défaut le plus grand.
+ *
+ * On ne filtre PAS sur `videoWidth > 0` : en qualité audio seul, le flux n'a
+ * aucune image et cette condition écartait précisément le lecteur à suivre.
+ * `!paused && readyState >= 2` suffit à écarter les aperçus à l'arrêt, qui
+ * étaient le vrai problème.
  */
 function videoEl() {
   const videos = [...document.querySelectorAll("video")];
   if (videos.length <= 1) return videos[0] ?? null;
 
-  const playing = videos.filter((v) => !v.paused && v.readyState >= 2 && v.videoWidth > 0);
+  const playing = videos.filter((v) => !v.paused && v.readyState >= 2);
   const pool = playing.length ? playing : videos;
 
   return pool.reduce(
@@ -208,11 +214,21 @@ function enforcePlayer() {
   );
 }
 
+/** Libellé affiché d'une entrée du menu qualité. */
+function labelOfOption(radio) {
+  const wrapper = radio.closest("label");
+  const pointe = radio.id ? document.querySelector(`label[for="${CSS.escape(radio.id)}"]`) : null;
+  return (wrapper ?? pointe ?? radio.parentElement)?.textContent?.trim() ?? "";
+}
+
 /**
- * Repli quand `localStorage` n'a pas été pris en compte : on descend la qualité
+ * Repli quand `localStorage` n'a pas été pris en compte : on règle la qualité
  * par le menu du lecteur. Deux tentatives maximum, on n'insiste pas.
+ *
+ * C'est aussi le seul chemin fiable pour l'audio seul : la valeur écrite dans
+ * `localStorage` n'est qu'une préférence que le lecteur relit au chargement.
  */
-async function forceLowestQualityViaMenu() {
+async function setQualityViaMenu() {
   if (qualityMenuTries >= 2) return;
   qualityMenuTries += 1;
 
@@ -232,10 +248,10 @@ async function forceLowestQualityViaMenu() {
   const options = [
     ...document.querySelectorAll('[data-a-target="player-settings-menu"] input[type="radio"]'),
   ];
-  const lowest = options[options.length - 1];
-  if (lowest) {
-    lowest.click();
-    log("qualité forcée par le menu");
+  const index = chooseQualityIndex(options.map(labelOfOption), config.quality);
+  if (index >= 0) {
+    options[index].click();
+    log("qualité réglée par le menu", labelOfOption(options[index]));
   }
   await wait(200);
   document.body.click();
@@ -323,8 +339,12 @@ function beat() {
     ...flags,
   });
 
-  if (config.forcePlayer && flags.videoHeight > 480 && !flags.paused) {
-    void forceLowestQualityViaMenu();
+  // En audio seul, la moindre image prouve que le réglage n'a pas pris. Sinon on
+  // ne s'en mêle qu'au-delà de 480p. Jamais pendant une publicité : elle a sa
+  // propre image, et le menu ne la concerne pas.
+  const seuil = config.quality === AUDIO_ONLY ? 0 : 480;
+  if (config.forcePlayer && !flags.ads && !flags.paused && flags.videoHeight > seuil) {
+    void setQualityViaMenu();
   }
 }
 

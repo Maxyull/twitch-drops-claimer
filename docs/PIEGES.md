@@ -84,6 +84,24 @@ Aperçus de la barre latérale, bandeau de recommandation, publicité.
 diagnostic part de là. On prend celui qui joue, à défaut le plus grand.
 Voir [#16](../../../issues/16).
 
+Le tri initial exigeait aussi `videoWidth > 0`, ce qui semblait inoffensif : un
+lecteur sans image n'est pas un lecteur. **Sauf en qualité audio seul**, où le
+flux légitime n'a précisément aucune image et se faisait donc écarter. Le
+critère est retombé à `!paused && readyState >= 2`, qui suffisait déjà à écarter
+les aperçus à l'arrêt, le vrai problème d'origine.
+
+### La dernière entrée du menu qualité est « Audio Only »
+
+Descendre la qualité en cliquant la dernière entrée du menu paraît évident.
+L'ordre réel est : Auto, Source, 720p60, ..., 160p, **Audio Only**. Le repli
+« qualité la plus basse » coupait donc l'image sur les chaînes qui proposent
+l'audio seul, sans que personne l'ait demandé, et faisait perdre le bon `<video>`
+au piège ci-dessus.
+
+Le choix se fait maintenant sur le libellé, dans `src/lib/quality.js` : module
+pur, testé sur les menus réels en français et en anglais. Le mot « audio » n'est
+porté par aucune autre entrée, et surtout pas par « Auto ».
+
 ### `community-points-summary` n'est pas le coffre
 
 C'est le conteneur du **solde**, toujours présent à côté du chat. S'en contenter

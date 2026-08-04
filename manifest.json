@@ -37,7 +37,12 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/content/watcher.js", "src/lib/dom-rules.js", "src/lib/messaging.js"],
+      "resources": [
+        "src/content/watcher.js",
+        "src/lib/dom-rules.js",
+        "src/lib/messaging.js",
+        "src/lib/quality.js"
+      ],
       "matches": ["https://www.twitch.tv/*"],
       "use_dynamic_url": true
     }

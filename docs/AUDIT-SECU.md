@@ -63,8 +63,10 @@ pas interroger l'API. Elle en ouvre un d'elle-même quand c'est le cas.
 - [x] `content_scripts.run_at` justifié : **`document_start` volontaire**. La qualité et le
       volume se posent dans `localStorage` **avant** l'initialisation du lecteur Twitch ;
       en `document_idle` le lecteur démarre déjà en qualité source. `all_frames: false`. `[test]`
-- [x] `web_accessible_resources` : exactement 3 fichiers (le module du script de contenu et
-      les 2 modules qu'il importe), `matches` restreint à Twitch, `use_dynamic_url: true` `[test]`
+- [x] `web_accessible_resources` : exactement 4 fichiers (le module du script de contenu et
+      les 3 modules qu'il importe), `matches` restreint à Twitch, `use_dynamic_url: true` `[test]`.
+      `src/lib/quality.js` s'y est ajouté avec la qualité audio seul : module pur, aucune
+      donnée, il ne fait que choisir une entrée de menu d'après des libellés
 - [x] `externally_connectable` : absent `[test]`
 - [x] CSP : aucune `content_security_policy` déclarée, donc celle par défaut de MV3 `[test]`
 - [x] `default_locale: "fr"`, icônes 16/32/48/128 présentes `[test]`
