@@ -1,214 +1,209 @@
 # Twitch Drops & Points Auto-Claimer
 
-Extension Chrome (Manifest V3) qui fait quatre choses :
+A Chrome extension (Manifest V3) that does four things:
 
-1. **Regarde une chaîne favorite en arrière-plan** et y réclame les bonus de points.
-   Onglet épinglé, qualité 160p, son à 1 %, avec un **voyant vert / rouge** qui dit si
-   le visionnage compte vraiment.
-2. **Réclame les Twitch Drops** dès qu'un bouton apparaît, en direct comme dans
-   l'inventaire, et repasse toutes les 15 minutes pour ramasser ce qui traîne.
-3. **Cherche toute seule les campagnes en cours**, choisit une chaîne en direct qui
-   distribue des drops, et enchaîne les campagnes jusqu'à les avoir toutes finies.
-4. **Prévient quand il faut faire quelque chose hors de Twitch** (lier son compte chez
-   l'éditeur, récupérer la récompense sur son site) et affiche une **liste à cocher**
-   pour dire « c'est fait ».
+1. **Watches a favourite channel in the background** and claims its points bonuses.
+   Pinned tab, 160p quality, sound at 1 %, with a **green / red indicator** that says
+   whether the viewing actually counts.
+2. **Claims Twitch Drops** as soon as a button appears, live and in the inventory, and
+   sweeps every 15 minutes for whatever is left behind.
+3. **Finds running campaigns on its own**, picks a live channel handing out drops, and
+   works through campaigns until they are all finished.
+4. **Tells you when something has to be done outside Twitch** (linking your account with
+   the publisher, redeeming a reward on their site) and shows a **checklist** so you can
+   say "done".
 
-## Installation
+## Install
 
 ```bash
 python scripts/build.py
 ```
 
-Puis dans Chrome : `chrome://extensions` → **Mode développeur** → **Charger l'extension
-non empaquetée** → choisir le dossier `dist/`.
+Then in Chrome: `chrome://extensions` → **Developer mode** → **Load unpacked** → pick the
+`dist/` folder.
 
-Le dossier racine se charge aussi directement, mais `dist/` est ce qui sera publié.
+The repository root loads directly too, but `dist/` is what actually ships.
 
-## Réglage minimum
+## Minimum setup
 
-1. Être connecté sur `twitch.tv` dans le même navigateur.
-2. Ouvrir les **Réglages** de l'extension, mettre au moins une chaîne favorite.
-3. C'est tout. Le popup affiche l'état.
+1. Be logged in to `twitch.tv` in the same browser.
+2. Open the extension's **Settings** and add at least one favourite channel.
+3. That is all. The popup shows the state.
 
-Pour vérifier fonction par fonction, lire les consoles et diagnostiquer un voyant rouge :
+To check feature by feature, read the consoles and diagnose a red indicator:
 [docs/TESTING-IN-CHROME.md](docs/TESTING-IN-CHROME.md).
 
-## Les chaînes regardées, et si elles comptent
+## The watched channels, and whether they count
 
-Le popup liste chaque onglet que l'extension fait tourner en arrière-plan : la chaîne,
-ce qu'elle sert à farmer, depuis combien de temps, et surtout **si Twitch la
-comptabilise**. Un clic sur une ligne affiche l'onglet correspondant.
+The popup lists every tab the extension runs in the background: the channel, what it is
+farming, for how long, and above all **whether Twitch counts it**. Clicking a row brings
+that tab up.
 
-Le comptage n'est pas déduit, il est observé. L'extension écoute deux signaux réseau,
-sans jamais les bloquer ni les modifier :
+Counting is not deduced, it is observed. The extension listens to two network signals,
+without ever blocking or altering them:
 
-| Badge | Ce qui a été observé |
+| Badge | What was observed |
 |---|---|
-| 🟢 compté en viewer | le ping de comptage du lecteur Twitch, preuve directe |
-| 🟠 flux téléchargé | les segments vidéo arrivent, mais aucun ping vu (bloqueur de pub ?) |
-| 🔴 non compté | plus rien depuis trop longtemps, ou lecteur à l'arrêt |
-| ⚪ en cours de vérification | l'onglet vient d'ouvrir, trop tôt pour se prononcer |
+| 🟢 counted as a viewer | the Twitch player's watch ping, direct proof |
+| 🟠 stream downloading | video segments are arriving, but no ping seen (ad blocker?) |
+| 🔴 not counted | nothing for too long, or the player is stopped |
+| ⚪ checking | the tab just opened, too early to say |
 
-L'état orange existe parce qu'un bloqueur de publicité peut tuer le ping sans empêcher
-le comptage : répondre « non » dans ce cas serait un mensonge.
+The orange state exists because an ad blocker can kill the ping without stopping the
+counting: answering "no" in that case would be a lie.
 
-## Le voyant vert / rouge
+## The green / red indicator
 
-Le script de contenu envoie un battement de coeur toutes les 5 secondes avec l'état réel
-du lecteur. Le voyant est **vert** seulement si l'horloge de la vidéo avance vraiment.
+The content script sends a heartbeat every 5 seconds with the player's real state. The
+indicator is **green** only if the video clock is actually moving.
 
-| Voyant | Ce que ça veut dire |
+| Indicator | What it means |
 |---|---|
-| 🟢 en train de regarder | le temps de visionnage se cumule |
-| 🟢 publicité en cours | normal, le temps continue de compter |
-| 🔴 lecture refusée par le navigateur | lecteur non coupé dans un onglet d arrière-plan |
-| 🔴 lecteur en pause / flux figé | le temps ne compte pas |
-| 🔴 chaîne hors ligne | la chaîne a coupé, l'extension va en chercher une autre |
-| 🔴 aucune réponse de l'onglet | onglet mis en veille par Chrome, ou script bloqué |
-| 🔴 onglet fermé | l'onglet d'arrière-plan a été fermé à la main |
+| 🟢 watching | watch time is accumulating |
+| 🟢 ad playing | normal, time keeps counting |
+| 🔴 playback refused by the browser | unmuted player in a background tab |
+| 🔴 player paused / stream frozen | time is not counting |
+| 🔴 channel offline | the channel stopped, the extension will find another |
+| 🔴 no answer from the tab | tab discarded by Chrome, or script blocked |
+| 🔴 tab closed | the background tab was closed by hand |
 
-La pastille sur l'icône reprend le pire des deux voyants. Elle passe **orange avec un
-chiffre** quand des actions vous attendent hors de Twitch.
+The badge on the icon takes the worse of the two indicators. It turns **orange with a
+number** when actions are waiting for you outside Twitch.
 
-### D'où vient la progression affichée
+### Where the displayed progress comes from
 
-Trois sources, à trois rythmes :
+Three sources, at three rhythms:
 
-- **À la seconde**, le canal temps réel de Twitch (PubSub) : il annonce un coffre
-  disponible ou un palier qui tombe au moment où ça arrive. C'est ce que le site de
-  Twitch utilise pour lui-même. Pure accélération : la connexion peut sauter à tout
-  moment, tout ce qui suit continue de tourner et la rouvre à la minute suivante.
+- **To the second**, Twitch's real-time channel (PubSub): it announces an available chest
+  or a drop tier landing the moment it happens. It is what the Twitch site uses for
+  itself. Pure acceleration: the connection can drop at any time, everything below keeps
+  running and reopens it on the next minute.
+- **Every minute**, `DropCurrentSessionContext`: the tier Twitch is currently advancing on
+  the watched channel, and its minutes. It is light, it is the query made for this, and it
+  is what both reference miners use.
+- **Every 5 minutes**, the full inventory: the state of every campaign, including the ones
+  not currently in front.
 
-- **Chaque minute**, `DropCurrentSessionContext` : le palier que Twitch fait avancer en ce
-  moment sur la chaîne regardée, et ses minutes. C'est léger, c'est la requête faite pour ça,
-  et c'est ce qu'utilisent les deux miners de référence.
-- **Toutes les 5 minutes**, l'inventaire complet : l'état de toutes les campagnes, y compris
-  celles qui ne sont pas devant.
+A counter never goes down: the sources do not refresh at the same rhythm, and an older
+value arriving after a newer one would make the bar move backwards.
 
-Un compteur ne redescend jamais : les deux sources ne se rafraîchissent pas au même rythme,
-et une valeur plus vieille arrivant après une plus récente ferait reculer la barre.
+If Twitch retires the first query, the extension notices, stops calling it and carries on
+with the inventory alone. Freshness is lost, the measurement is not.
 
-Si Twitch retire la première requête, l'extension le voit, arrête de l'appeler et continue
-sur l'inventaire seul. On perd la fraîcheur, pas la mesure.
+### And if nobody is looking at the indicator
 
-### Et si personne ne regarde le voyant
+An indicator only helps whoever opens the popup. You start farming in the evening, you do
+not reopen it, and you find out in the morning that it stopped at 10 pm.
 
-Un voyant ne sert qu'à celui qui ouvre le popup. On lance le farm le soir, on ne le
-rouvre pas, et on découvre au matin qu'il s'était arrêté à 22 h.
+So the extension **warns on its own** when nothing has been counted for 15 minutes
+(configurable), with the indicator's reason. It only repeats once an hour while it lasts:
+one notification a minute would get the extension uninstalled faster than the failure
+itself. And having nothing to do, for want of a favourite channel or a live campaign, is
+not a failure: it does not alert.
 
-L'extension **prévient donc d'elle-même** quand plus rien n'est compté depuis 15 minutes
-(délai réglable), avec la raison du voyant. Elle ne le redit qu'une fois par heure tant
-que ça dure : une notification par minute ferait désinstaller l'extension plus sûrement
-que la panne. Et n'avoir rien à faire, faute de chaîne favorite ou de campagne en
-direct, n'est pas une panne : ça n'alerte pas.
+## Why tabs are muted
 
-## Pourquoi les onglets sont en sourdine
+This is not just a comfort: **Chrome refuses to start a video with sound in a background
+tab** without a prior user gesture. An unmuted player therefore never starts, and nothing
+gets counted. Muted playback, on the other hand, is always allowed.
 
-Ce n'est pas qu'un confort : **Chrome refuse de lancer une vidéo avec du son dans un
-onglet d'arrière-plan** sans geste préalable de l'utilisateur. Un lecteur non coupé ne
-démarre donc jamais, et rien n'est comptabilisé. La lecture en sourdine, elle, est
-toujours autorisée.
+The setting can be turned off if you insist, but expect the "playback refused by the
+browser" indicator. In that case the extension briefly activates the tab to unblock the
+player, at most once every three minutes.
 
-Le réglage se désactive si vous y tenez, mais attendez-vous alors à voir le voyant
-« lecture refusée par le navigateur ». Dans ce cas l'extension active brièvement
-l'onglet pour débloquer le lecteur, au plus une fois toutes les trois minutes.
+Muting is applied twice: on the player by the content script, and on the tab itself. If
+the content script fails to load, Twitch starts at the volume you saved and the tab starts
+talking on its own; the tab-level mute covers that.
 
-La sourdine est posée deux fois : sur le lecteur par le script de contenu, et sur
-l'onglet lui-même. Si le script de contenu ne se charge pas, Twitch démarre au volume
-que vous aviez enregistré et l'onglet se met à parler tout seul ; la sourdine d'onglet
-couvre ce cas.
+By default the extension keeps **a minimised window of its own** for its tabs. That is
+what lets it do that wake-up without ever stealing focus from the window you work in. It
+moves one tab forward on each pass, so each gets its turn in front, which is enough to
+restart a player the browser had set aside.
 
-L'extension garde par défaut **une fenêtre réduite à elle** pour ses onglets. C'est ce
-qui lui permet de faire ce réveil sans jamais voler le focus de la fenêtre où vous
-travaillez. Elle y avance d'un onglet à chaque passage, pour que chacun ait son tour au
-premier plan, ce qui suffit à relancer un lecteur que le navigateur avait mis de côté.
+**It always gives the place back.** An activated tab stays in front for five seconds, long
+enough for the player to start, then whatever was there returns. An extension that
+confiscates the tab you were watching is not worth the gain. Clicking a row in the list
+brings up that tab if you want to go there yourself, and then it stays.
 
-**Elle rend toujours la place.** Un onglet activé le reste cinq secondes, le temps que
-le lecteur démarre, puis celui qui était devant revient. Une extension qui confisque
-l'onglet qu'on regardait ne vaut pas le gain. Un clic sur une ligne de la liste affiche
-l'onglet correspondant si vous voulez y aller vous-même, et là il y reste.
+Quality is dropped to 160p to save bandwidth. The settings also offer **audio only**, when
+the channel provides it: no image is decoded at all, which costs far less bandwidth and
+CPU across several tabs at once.
 
-La qualité est descendue à 160p pour la bande passante. Les réglages proposent aussi
-**audio seul**, quand la chaîne l'offre : plus rien n'est décodé en image, ce qui coûte
-nettement moins de bande passante et de processeur sur plusieurs onglets à la fois.
+Two honest caveats:
 
-Deux réserves, dites franchement :
+- Not every channel offers audio only. If the entry is missing from the player menu, the
+  extension **changes nothing** rather than degrading at random.
+- A stream without video is still viewing as far as Twitch is concerned, but the extension
+  does not guarantee that on its behalf: the row's **"counted as a viewer"** badge is what
+  settles it. If it turns to "not counted" after the change, go back to 160p.
 
-- Toutes les chaînes ne proposent pas l'audio seul. Si l'entrée n'existe pas dans le
-  menu du lecteur, l'extension **ne touche à rien** plutôt que de dégrader au hasard.
-- Un flux sans image reste un visionnage pour Twitch, mais l'extension ne le garantit
-  pas à sa place : le badge **« compté en viewer »** de la ligne est ce qui tranche.
-  S'il passe à « non compté » après le changement, revenez à 160p.
+## What you need to know
 
-## Ce qu'il faut savoir
+- **You must be logged in to Twitch, and keep a Twitch tab open.** The Twitch API requires
+  an integrity token that its own JavaScript computes inside the page; an extension cannot
+  forge it. So the extension reuses the headers the page already sends. Without a Twitch
+  tab the popup shows "waiting for a Twitch tab" and opens one itself. Details in
+  [docs/PRIVACY.md](docs/PRIVACY.md).
+- **Several farming tabs, but Twitch probably counts only one.** The setting opens two
+  tabs by default, on two campaigns and two different channels. Nobody guarantees Twitch
+  advances both: that is exactly why every popup row carries its own counting badge. Look
+  at those rather than taking my word for it.
+- **Tabs close themselves when they are no longer useful.** No favourite channel live, no
+  campaign left to farm, inventory already swept: the tab disappears. The one case where
+  the inventory tab is kept is when it is the last Twitch tab, because it is then also
+  what lets us pick up the integrity token.
+- **Do not let background tabs be discarded.** The extension sets
+  `autoDiscardable: false`, which is enough in most cases. If an indicator stays red on
+  "no answer from the tab", turn off the memory saver for `twitch.tv` in
+  `chrome://settings/performance`.
+- **"Fast claim" is off by default.** Turned on, the extension claims drops directly
+  through the API instead of simulating a click. It is more reliable, but it is a choice
+  to make knowingly.
+- **Grey area with regard to the Twitch terms.** Automating claim clicks is not explicitly
+  forbidden, and not explicitly allowed either. Your call, on your account.
 
-- **Il faut être connecté à Twitch, et garder un onglet Twitch ouvert.** L'API de Twitch
-  exige un jeton d'intégrité que son propre JavaScript calcule dans la page ; une
-  extension ne peut pas le fabriquer. L'extension reprend donc au passage les en-têtes
-  que la page envoie déjà. Sans onglet Twitch, le popup affiche « en attente d'un onglet
-  Twitch » et en ouvre un tout seul. Détail dans [docs/PRIVACY.md](docs/PRIVACY.md).
-- **Plusieurs onglets de farm, mais Twitch n'en compte probablement qu'un.** Le réglage
-  ouvre deux onglets par défaut, sur deux campagnes et deux chaînes différentes. Personne
-  ne garantit que Twitch fasse avancer les deux : c'est justement pour ça que chaque ligne
-  du popup porte son propre badge de comptage. Regardez-les plutôt que de me croire.
-- **Les onglets se ferment tout seuls quand ils ne servent plus.** Aucune chaîne favorite
-  en direct, plus aucune campagne à farmer, inventaire déjà passé : l'onglet disparaît.
-  Le seul cas où l'inventaire est conservé est quand c'est le dernier onglet Twitch, car
-  il sert alors aussi à reprendre le jeton d'intégrité.
-- **Ne mettez pas les onglets d'arrière-plan en veille.** L'extension pose
-  `autoDiscardable: false`, ce qui suffit dans la plupart des cas. Si un voyant reste au
-  rouge en « aucune réponse de l'onglet », désactiver l'économiseur de mémoire pour
-  `twitch.tv` dans `chrome://settings/performance`.
-- **Le « mode rapide » est désactivé par défaut.** Activé, l'extension réclame les drops
-  directement par l'API au lieu de simuler un clic. C'est plus fiable, mais c'est un choix
-  à faire en connaissance de cause.
-- **Zone grise vis-à-vis des CGU Twitch.** Automatiser des clics de réclamation n'est pas
-  explicitement interdit, ce n'est pas non plus explicitement autorisé. À votre
-  discrétion, sur votre compte.
-
-## Développement
+## Development
 
 ```bash
-npm test                  # 91 tests unitaires et de régression, sans navigateur
-npm run preview           # aperçu du popup et des réglages sur http://localhost:8791
+npm test                  # unit and regression tests, no browser
+npm run preview           # preview the popup and settings at http://localhost:8791
 npm run build             # dist/ + release/*.zip
-npx playwright test       # e2e sur dist/ chargé dans Chromium
+npx playwright test       # e2e on dist/ loaded into Chromium
 ```
 
-`npm run preview` sert `dev/popup-preview.html` et `dev/options-preview.html` : les vraies
-vues, avec un bouchon de l'API `chrome` et des données factices. Pratique pour travailler
-la mise en page sans recharger l'extension.
+`npm run preview` serves `dev/popup-preview.html` and `dev/options-preview.html`: the real
+views, with a stubbed `chrome` API and fake data. Handy for working on layout without
+reloading the extension.
 
-| Où | Quoi |
+| Where | What |
 |---|---|
-| [CONTRIBUTING.md](CONTRIBUTING.md) | conventions, workflow issue / PR / merge |
-| [docs/PITFALLS.md](docs/PITFALLS.md) | **à lire avant de toucher au code** : ce que Chrome et Twitch imposent, et pourquoi le code est écrit comme ça |
-| [SECURITY.md](SECURITY.md) | signaler une faille, et ce qui en est une ici |
-| [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md) | permissions justifiées une par une, trois passes d'audit |
-| [docs/PRIVACY.md](docs/PRIVACY.md) | ce qui est stocké, ce qui sort de la machine |
-| [docs/TESTING-IN-CHROME.md](docs/TESTING-IN-CHROME.md) | vérifier chaque fonction à la main |
-| [docs/MANUAL-CHECKS.md](docs/MANUAL-CHECKS.md) | ce que la CI ne peut pas prouver, suivi dans l'issue [#56](../../issues/56) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | conventions, issue / PR / merge workflow |
+| [docs/PITFALLS.md](docs/PITFALLS.md) | **read before touching the code**: what Chrome and Twitch impose, and why the code looks the way it does |
+| [SECURITY.md](SECURITY.md) | reporting a vulnerability, and what counts as one here |
+| [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md) | permissions argued one by one, three audit passes |
+| [docs/PRIVACY.md](docs/PRIVACY.md) | what is stored, what leaves the machine |
+| [docs/TESTING-IN-CHROME.md](docs/TESTING-IN-CHROME.md) | checking each feature by hand |
+| [docs/MANUAL-CHECKS.md](docs/MANUAL-CHECKS.md) | what CI cannot prove, tracked in issue [#56](../../issues/56) |
 
-### Limite connue de l'environnement
+### Known limitation of the development machine
 
-Les tests e2e Playwright **ne tournent pas sur ce poste** : le Chromium téléchargé par
-Playwright refuse de démarrer (« configuration côte-à-côte incorrecte », runtime Visual
-C++ manquant sur la machine). Ils sont écrits et lancés par la CI GitHub, où le problème
-ne se pose pas. Pour les faire tourner localement, installer le
-*Microsoft Visual C++ Redistributable* puis relancer `npx playwright install chromium`.
+The Playwright e2e tests **do not run on this machine**: the Chromium that Playwright
+downloads refuses to start ("side-by-side configuration is incorrect", a missing Visual C++
+runtime). They are written and run by GitHub CI, where the problem does not occur. To run
+them locally, install the *Microsoft Visual C++ Redistributable* and re-run
+`npx playwright install chromium`.
 
-## Si ça casse un jour
+## If it breaks one day
 
-Twitch change son DOM régulièrement. Les points de rupture probables, dans l'ordre :
+Twitch changes its DOM regularly. The likely breaking points, in order:
 
-1. **Les boutons ne sont plus cliqués** → `src/lib/dom-rules.js`, ajouter le nouveau
-   `data-test-selector` dans `DROP_CLAIM_SELECTORS`. Les tests de `tests/dom-rules.test.js`
-   disent tout de suite si la règle devient trop permissive.
-2. **« failed integrity check »** → le jeton repris de la page a expiré ou Twitch a changé
-   le nom de ses en-têtes. Voir `FORWARDED_HEADERS` dans `src/lib/gql-headers.js` et
-   comparer avec une vraie requête (F12 sur un onglet Twitch, onglet Network, filtre `gql`,
-   section Request Headers).
-3. **La recherche de campagnes échoue autrement** → `src/background/gql.js`, une requête a
-   changé de forme. Le popup affiche l'erreur exacte remontée par Twitch.
-4. **Le module du script de contenu ne se charge plus** → `use_dynamic_url: true` dans le
-   manifeste est le premier suspect ; le passer à `false` pour vérifier.
+1. **Buttons stop being clicked** → `src/lib/dom-rules.js`, add the new
+   `data-test-selector` to `DROP_CLAIM_SELECTORS`. The tests in
+   `tests/dom-rules.test.js` say immediately if the rule becomes too permissive.
+2. **"failed integrity check"** → the token taken from the page expired, or Twitch renamed
+   its headers. See `FORWARDED_HEADERS` in `src/lib/gql-headers.js` and compare with a real
+   request (F12 on a Twitch tab, Network, filter `gql`, Request Headers).
+3. **Campaign discovery fails some other way** → `src/background/gql.js`, a query changed
+   shape. The popup shows the exact error Twitch returned.
+4. **The content script module stops loading** → `use_dynamic_url: true` in the manifest is
+   the first suspect; flip it to `false` to check.

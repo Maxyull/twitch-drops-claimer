@@ -1,250 +1,245 @@
-# Les pièges, et pourquoi le code est écrit comme ça
+# Pitfalls, and why the code looks the way it does
 
-Ce fichier existe parce que chacune de ces lignes a coûté un bug, souvent
-plusieurs allers-retours, et qu'aucune ne se devine en lisant le code. Chaque
-entrée dit **le piège**, **ce qu'on croyait**, et **ce qui est vrai**.
+This file exists because every line in it cost a bug, often several round trips,
+and none of it can be guessed by reading the code. Each entry states **the trap**,
+**what we believed**, and **what is actually true**.
 
-Les issues citées gardent le détail, dont les hypothèses écartées.
+The linked issues keep the details, including the ruled-out hypotheses.
 
 ---
 
 ## Chrome
 
-### La lecture automatique avec du son est refusée en arrière-plan
+### Autoplay with sound is refused in a background tab
 
-Un onglet d'arrière-plan ne démarre **jamais** une vidéo non coupée : Chrome
-refuse `play()` sans geste préalable de l'utilisateur, avec `NotAllowedError`.
+A background tab **never** starts an unmuted video: Chrome refuses `play()`
+without a prior user gesture, with `NotAllowedError`.
 
-La sourdine n'est donc pas un confort, c'est ce qui fait fonctionner le farm.
-Le réglage se désactive, mais le voyant passe alors à « lecture refusée par le
-navigateur ». Voir [#6](../../../issues/6).
+Muting is therefore not a comfort, it is what makes the farm work. The setting can
+be turned off, but the indicator then reads "playback refused by the browser".
+See [#6](../../../issues/6).
 
-Corollaire : la sourdine est posée **deux fois**, sur le lecteur par le script de
-contenu, et sur l'onglet lui-même. Si le script ne se charge pas, Twitch démarre
-au volume enregistré par l'utilisateur et l'onglet se met à parler tout seul.
+Corollary: muting is applied **twice**, on the player by the content script and on
+the tab itself. If the script fails to load, Twitch starts at the volume the user
+saved and the tab starts talking on its own.
 
-### `chrome.storage.session` est vidé à chaque rechargement de l'extension
+### `chrome.storage.session` is cleared on every extension reload
 
-Pas seulement à la fermeture du navigateur. Tout ce qui doit survivre à un
-`chrome://extensions` → recharger appartient à `local`.
+Not only when the browser closes. Anything that must survive a
+`chrome://extensions` → reload belongs in `local`.
 
-Trois fenêtres en trop ont eu cette seule cause, corrigées trois fois de travers
-avant qu'elle soit vue. Voir [#42](../../../issues/42), et [#31](../../../issues/31),
-[#36](../../../issues/36), [#40](../../../issues/40) pour les rustines qui l'ont
-précédée.
+Three "extra window" reports had this single cause, fixed three times the wrong
+way before it was seen. See [#42](../../../issues/42), plus
+[#31](../../../issues/31), [#36](../../../issues/36), [#40](../../../issues/40)
+for the patches that preceded it.
 
-La répartition est explicite dans `src/lib/storage.js` :
-`PERSISTENT_STATE_KEYS` d'un côté, le reste en session.
+The split is explicit in `src/lib/storage.js`: `PERSISTENT_STATE_KEYS` on one
+side, everything else in session.
 
-### Ce qui ne demande PAS la permission `tabs`
+### What does NOT require the `tabs` permission
 
 - `chrome.tabs.create` / `update` / `remove` / `get` / `reload`
 - `chrome.tabs.update(id, { muted })`
-- `chrome.tabs.query` **filtré par une URL couverte par `host_permissions`**
-- `chrome.tabs.query({ active: true, windowId })`, dont on ne lit que l'identifiant
+- `chrome.tabs.query` **filtered by a URL covered by `host_permissions`**
+- `chrome.tabs.query({ active: true, windowId })`, where only the id is read
 
-Ce qui la demanderait : lire `url`, `title` ou `favIconUrl` d'un onglet hors du
-périmètre d'hôte. Des tests de régression figent ces limites, et ils ont été
-**resserrés** à chaque fois qu'un nouvel appel apparaissait, jamais assouplis.
+What would require it: reading `url`, `title` or `favIconUrl` of a tab outside the
+host scope. Regression tests freeze those limits, and they have been **tightened**
+every time a new call appeared, never loosened.
 
-### Une socket meurt avec le service worker, sauf si elle parle
+### A socket dies with the service worker, unless it keeps talking
 
-Chrome recycle un service worker inactif au bout de **30 secondes**. Une
-connexion WebSocket ouverte ne suffit pas à le tenir éveillé : ce qui compte,
-c'est le trafic. Sans rien qui arrive, la socket part avec le worker.
+Chrome recycles an idle service worker after **30 seconds**. An open WebSocket is
+not enough to keep it awake: what counts is traffic. With nothing arriving, the
+socket goes down with the worker.
 
-D'où le battement toutes les 20 secondes dans `src/background/pubsub.js` : il
-tient la connexion ouverte côté Twitch **et** le worker éveillé côté Chrome.
-C'est la seule exception au « aucun `setInterval`, tout par `chrome.alarms` »
-de `CLAUDE.md`, parce qu'une alarme ne descend pas sous la minute. Ce battement
-est lié à la vie de la socket et disparaît avec elle.
+Hence the 20-second heartbeat in `src/background/pubsub.js`: it keeps the
+connection open on the Twitch side **and** the worker awake on the Chrome side.
+It is the only exception to "no `setInterval`, everything through
+`chrome.alarms`" in `CLAUDE.md`, because an alarm cannot go below one minute. The
+heartbeat is tied to the socket's lifetime and disappears with it.
 
-Corollaire assumé : **rien ne dépend de cette socket.** Elle n'est qu'une
-accélération. Si le worker est recyclé malgré tout, la boucle d'une minute la
-rouvre, et les interrogations périodiques ont couvert l'intervalle.
+Accepted corollary: **nothing depends on that socket.** It is only an
+acceleration. If the worker is recycled anyway, the one-minute loop reopens it,
+and the periodic queries covered the gap.
 
 ### `windows.create({ state, focused })`
 
-Les deux propriétés se recouvrent. La fenêtre est créée non focalisée, puis
-réduite, en deux temps.
+The two properties overlap. The window is created unfocused, then minimised, in
+two steps.
 
 ---
 
 ## Twitch
 
-### L'API GraphQL exige un jeton d'intégrité qu'on ne peut pas fabriquer
+### The GraphQL API requires an integrity token we cannot forge
 
-Sans en-tête `Client-Integrity`, toute requête reçoit `failed integrity check`.
-Ce jeton est calculé par le JavaScript de Twitch, dans la page.
+Without a `Client-Integrity` header, every request gets `failed integrity check`.
+That token is computed by Twitch's own JavaScript, inside the page.
 
-L'extension reprend donc les en-têtes que la page envoie déjà, listés
-explicitement dans `src/lib/gql-headers.js`. Conséquence assumée : **elle a
-besoin d'au moins un onglet Twitch ouvert** pour interroger l'API.
+So the extension reuses the headers the page already sends, listed explicitly in
+`src/lib/gql-headers.js`. Accepted consequence: **it needs at least one open
+Twitch tab** to query the API.
 
-Effet de bord heureux : l'autorisation vient du même endroit, donc la permission
-`cookies` a pu être retirée. Voir [#25](../../../issues/25) et l'audit.
+Happy side effect: authorisation comes from the same place, so the `cookies`
+permission could be dropped. See [#25](../../../issues/25) and the audit.
 
-### Twitch réécrit l'URL en permanence
+### Twitch rewrites the URL constantly
 
-C'est une application monopage : le fragment `#tdc` qui marque les onglets de
-l'extension disparaît à chaque navigation interne. Le script de contenu le
-remet, mais **seulement tant qu'il est vivant**. Après un rechargement de
-l'extension, plus personne ne le remet.
+It is a single-page application: the `#tdc` fragment that marks the extension's
+tabs disappears on every internal navigation. The content script puts it back, but
+**only while it is alive**. After an extension reload, nobody puts it back.
 
-Ce marqueur est donc un filet de secours, jamais la source de vérité.
+That marker is therefore a safety net, never the source of truth.
 
-### Une page Twitch contient plusieurs `<video>`
+### A Twitch page contains several `<video>` elements
 
-Aperçus de la barre latérale, bandeau de recommandation, publicité.
-`querySelector("video")` renvoie le premier venu, souvent à l'arrêt, et tout le
-diagnostic part de là. On prend celui qui joue, à défaut le plus grand.
-Voir [#16](../../../issues/16).
+Sidebar previews, recommendation banner, ads. `querySelector("video")` returns
+whichever comes first, often a stopped one, and the whole diagnosis starts from
+there. We take the one that is playing, and failing that the biggest.
+See [#16](../../../issues/16).
 
-Le tri initial exigeait aussi `videoWidth > 0`, ce qui semblait inoffensif : un
-lecteur sans image n'est pas un lecteur. **Sauf en qualité audio seul**, où le
-flux légitime n'a précisément aucune image et se faisait donc écarter. Le
-critère est retombé à `!paused && readyState >= 2`, qui suffisait déjà à écarter
-les aperçus à l'arrêt, le vrai problème d'origine.
+The original filter also required `videoWidth > 0`, which looked harmless: a
+player with no image is not a player. **Except in audio-only quality**, where the
+legitimate stream has precisely no image and was therefore discarded. The
+criterion fell back to `!paused && readyState >= 2`, which was already enough to
+discard the stopped previews, the actual original problem.
 
-### La dernière entrée du menu qualité est « Audio Only »
+### The last entry in the quality menu is "Audio Only"
 
-Descendre la qualité en cliquant la dernière entrée du menu paraît évident.
-L'ordre réel est : Auto, Source, 720p60, ..., 160p, **Audio Only**. Le repli
-« qualité la plus basse » coupait donc l'image sur les chaînes qui proposent
-l'audio seul, sans que personne l'ait demandé, et faisait perdre le bon `<video>`
-au piège ci-dessus.
+Lowering the quality by clicking the last entry in the menu looks obvious. The
+real order is: Auto, Source, 720p60, ..., 160p, **Audio Only**. So the "lowest
+quality" fallback was cutting the image on channels that offer audio only, without
+anyone asking for it, and it made us lose the right `<video>` to the trap above.
 
-Le choix se fait maintenant sur le libellé, dans `src/lib/quality.js` : module
-pur, testé sur les menus réels en français et en anglais. Le mot « audio » n'est
-porté par aucune autre entrée, et surtout pas par « Auto ».
+The choice is now made on the label, in `src/lib/quality.js`: a pure module,
+tested against the real menus in French and English. The word "audio" appears in
+no other entry, and certainly not in "Auto".
 
-### Un raid n'existe nulle part ailleurs que dans PubSub
+### A raid exists nowhere but in PubSub
 
-Il n'y a aucune trace fiable d'un raid dans la page, et surtout pas son
-identifiant, sans lequel on ne peut pas le rejoindre. Il ne vient que du sujet
-`raid.<id de chaîne>`, message `raid_update_v2`. Les formes voisines
-(`raid_go_v2`, `raid_cancel_v2`) ne le portent pas.
+There is no reliable trace of a raid in the page, least of all its id, without
+which it cannot be joined. It comes only from the `raid.<channel id>` topic,
+message `raid_update_v2`. The neighbouring shapes (`raid_go_v2`,
+`raid_cancel_v2`) do not carry it.
 
-Deux conséquences que rien ne laisse deviner :
+Two consequences nothing hints at:
 
-- **Un raid déplace l'onglet.** Twitch redirige le spectateur vers la cible.
-  Sur un onglet de farm, cette cible ne porte presque jamais la campagne : le
-  visionnage cesse de compter, et le voyant ne le dit qu'au passage suivant.
-- **Le bonus et la dérive ne se traitent pas pareil.** Le bonus n'a de sens que
-  sur la chaîne favorite, celle qu'on a choisie. Le prendre sur un onglet de
-  farm reviendrait à récolter chez un inconnu.
+- **A raid moves the tab.** Twitch redirects the viewer to the target. On a
+  farming tab that target almost never carries the campaign: viewing stops
+  counting, and the indicator only says so on the next pass.
+- **The bonus and the drift are not handled the same way.** The bonus only makes
+  sense on the favourite channel, the one that was chosen. Taking it on a farming
+  tab would mean harvesting at a stranger's.
 
-### `community-points-summary` n'est pas le coffre
+### `community-points-summary` is not the chest
 
-C'est le conteneur du **solde**, toujours présent à côté du chat. S'en contenter
-revenait à cliquer le solde, à ouvrir le menu des points, et à ne jamais
-atteindre le coffre, tout en rapportant une réclamation qui n'avait pas eu lieu.
+It is the **balance** container, always present next to the chat. Settling for it
+meant clicking the balance, opening the points menu, never reaching the chest, and
+reporting a claim that had not happened.
 
-Le vrai marqueur, `claimable-bonus`, est porté par une icône **à l'intérieur** du
-bouton : il faut donc lire les marqueurs des enfants, pas seulement des ancêtres.
-Voir [#12](../../../issues/12).
+The real marker, `claimable-bonus`, is carried by an icon **inside** the button:
+you have to read the markers of the children, not only of the ancestors.
+See [#12](../../../issues/12).
 
-Depuis, le bonus est réclamé par l'API, qui dit explicitement qu'un coffre attend
-et confirme qu'il a été pris. Le clic reste en secours pour les onglets que
-l'utilisateur ouvre lui-même. Attention alors au double comptage : la
-déduplication est à deux niveaux dans `farm.js`.
+Since then the bonus is claimed through the API, which explicitly says a chest is
+waiting and confirms it was taken. The click stays as a fallback for tabs the user
+opens themselves. Watch out for double counting: deduplication happens at two
+levels in `farm.js`.
 
-### L'inventaire n'est pas fait pour suivre une progression
+### The inventory is not built for tracking progress
 
-Il renvoie toutes les campagnes entamées : c'est lourd, donc c'est demandé
-rarement, donc la progression affichée traîne. La barre du popup est restée
-figée une demi-heure pour cette raison ([#49](../../../issues/49)).
+It returns every started campaign: heavy, therefore requested rarely, therefore
+the displayed progress lags. The popup bar stayed frozen for half an hour for that
+reason ([#49](../../../issues/49)).
 
-Twitch a une requête faite pour ça, `DropCurrentSessionContext` : un palier,
-ses minutes, rien d'autre. C'est ce qu'utilisent
-[TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) et
-[Twitch-Channel-Points-Miner-v2](https://github.com/Tkd-Alex/Twitch-Channel-Points-Miner-v2).
-Sa signature exacte n'est pas publique : on l'appelle donc par son **empreinte
-de requête enregistrée**, ce que fait le site lui-même, plutôt que d'inventer
-une requête au jugé.
+Twitch has a query made for this, `DropCurrentSessionContext`: one tier, its
+minutes, nothing else. It is what
+[TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) and
+[Twitch-Channel-Points-Miner-v2](https://github.com/Tkd-Alex/Twitch-Channel-Points-Miner-v2)
+use. Its exact signature is not public, so we call it by its **persisted query
+fingerprint**, the way the site itself does, rather than inventing a query by
+guesswork.
 
-Corollaire : une empreinte peut être retirée. L'API répond alors
-`PersistedQueryNotFound`, le code le reconnaît, cesse d'appeler et retombe sur
-l'inventaire. La fraîcheur se perd, la mesure non.
+Corollary: a fingerprint can be retired. The API then answers
+`PersistedQueryNotFound`, the code recognises it, stops calling and falls back to
+the inventory. Freshness is lost, the measurement is not.
 
-### Un cache ne doit jamais porter la progression
+### A cache must never carry progress
 
-Le cache de structure des campagnes servait aussi `isClaimed`, vieux de six
-heures. Un drop réclamé entre-temps restait invisible, et le compteur ne bougeait
-pas. La structure se met en cache, l'avancement vient de l'inventaire.
-Voir [#27](../../../issues/27).
+The campaign structure cache was also serving `isClaimed`, six hours old. A drop
+claimed in the meantime stayed invisible and the counter did not move. Structure
+is cached, progress comes from the inventory. See [#27](../../../issues/27).
 
-### Twitch ne fait probablement progresser qu'un flux à la fois
+### Twitch probably advances only one stream at a time
 
-**Probablement.** Personne ne le garantit, et l'extension ne tranche pas à sa
-place : elle ouvre plusieurs onglets de farm si on le lui demande, et le badge
-« compté en viewer » de chaque ligne dit lequel avance vraiment.
+**Probably.** Nobody guarantees it, and the extension does not settle it on their
+behalf: it opens several farming tabs if asked, and the "counted as a viewer"
+badge on each row says which one is actually advancing.
 
 ---
 
-## Principes tirés de ces bugs
+## Principles that came out of these bugs
 
-### Une preuve l'emporte toujours sur une déduction
+### Evidence always beats deduction
 
-L'état du lecteur lu dans le DOM est une déduction, et elle s'est trompée. Les
-segments vidéo téléchargés, les pings de comptage et la progression relevée dans
-l'inventaire sont des faits. `evaluateCounted` regarde les preuves **avant** de
-juger l'état du lecteur, dans cet ordre précis. Voir [#16](../../../issues/16).
+Player state read from the DOM is a deduction, and it was wrong. Downloaded video
+segments, watch pings and progress read from the inventory are facts.
+`evaluateCounted` looks at the evidence **before** judging the player state, in
+that precise order. See [#16](../../../issues/16).
 
-### Un compteur compte ce qui s'est passé, pas ce qu'on a fait
+### A counter counts what happened, not what we did
 
-Le compteur de drops suivait nos clics. Twitch peut créditer un palier sans nous,
-un clic peut échouer sans bruit, un message peut ne pas arriver. Il compte
-désormais les paliers marqués obtenus par Twitch, dédupliqués par identifiant.
+The drop counter followed our clicks. Twitch can credit a tier without us, a click
+can fail silently, a message can fail to arrive. It now counts the tiers Twitch
+marks as obtained, deduplicated by id.
 
-Avec une précaution : le premier passage ne compte rien, il prend une empreinte
-de l'existant. Sinon le compteur sauterait de 0 à tout l'historique du compte.
-Voir [#14](../../../issues/14).
+With one precaution: the first pass counts nothing, it takes a snapshot of what
+already exists. Otherwise the counter would jump from 0 to the account's entire
+history. See [#14](../../../issues/14).
 
-### Ne jamais conclure sur une information qu'on n'a pas
+### Never conclude on information you do not have
 
-`liveLogins` peut échouer. Une liste vide et une absence de réponse ne veulent
-pas dire la même chose : confondre les deux ferme les onglets à chaque hoquet de
-l'API. Le code distingue explicitement `null` de `[]`.
+`liveLogins` can fail. An empty list and a missing answer do not mean the same
+thing: conflating them closes tabs on every API hiccup. The code explicitly
+distinguishes `null` from `[]`.
 
-Même logique pour `isAccountConnected` : `null` veut dire « la requête ne portait
-pas l'information », pas « compte non lié ».
+Same logic for `isAccountConnected`: `null` means "the query did not carry that
+information", not "account not linked".
 
-### Une confirmation qui ment coûte des heures
+### A confirmation that lies costs hours
 
-La page de réglages affichait « Enregistré » sans regarder la réponse. Un refus
-était indiscernable d'une réussite, et c'est ce qui a rendu un bug invisible
-pendant trois PR. Voir [#3](../../../issues/3) et [#35](../../../issues/35).
+The settings page showed "Saved" without looking at the answer. A refusal was
+indistinguishable from a success, and that is what kept a bug invisible across
+three PRs. See [#3](../../../issues/3) and [#35](../../../issues/35).
 
-Pire cas trouvé : elle laissait aussi **enregistrer avant d'avoir lu**, donc le
-formulaire vide s'écrivait par-dessus les vrais réglages. Les boutons sont
-maintenant inactifs jusqu'à la lecture réussie.
+Worst case found: it also allowed **saving before it had loaded**, so the empty
+form was written over the real settings. The buttons are now disabled until a
+successful load.
 
-### Vérifier avant d'affirmer
+### Verify before asserting
 
-Deux fois ici, la cause évidente était fausse : une collision d'écritures dans
-`storage.session` (infirmée par une sonde jetable), et la permission `tabs`
-supposée nécessaire pour couper le son d'un onglet. Une sonde coûte deux minutes.
+Twice here, the obvious cause was wrong: a write collision in `storage.session`
+(disproved by a throwaway probe), and the `tabs` permission assumed necessary to
+mute a tab. A probe costs two minutes.
 
-Les hypothèses écartées restent écrites dans les issues : savoir ce qui n'était
-**pas** la cause fait gagner du temps à la panne suivante.
+Ruled-out hypotheses stay written in the issues: knowing what was **not** the
+cause saves time on the next failure.
 
-### La CI a raison jusqu'à preuve du contraire
+### CI is right until proven otherwise
 
-Elle a trouvé, seule, le rejet des messages de la page d'options, l'enregistrement
-bloqué par l'ouverture des onglets, et l'écrasement des réglages par un
-formulaire vide. Une CI intermittente est pire qu'une CI absente : elle apprend à
-ignorer le rouge.
+On its own it found the options page messages being rejected, saving blocked by
+tab opening, and settings being overwritten by an empty form. An intermittent CI
+is worse than no CI: it teaches people to ignore red.
 
 ---
 
-## Limite de l'environnement de développement
+## Limitation of the development machine
 
-Les tests e2e Playwright **ne tournent pas sur le poste de développement** : le
-Chromium téléchargé refuse de démarrer, faute du *Visual C++ Redistributable*.
-Ils sont écrits et exécutés par la CI. Ne pas promettre de les avoir lancés en
-local.
+The Playwright e2e tests **do not run on the development machine**: the downloaded
+Chromium refuses to start, for want of the *Visual C++ Redistributable*. They are
+written and executed by CI. Do not claim to have run them locally.
 
-La vérification locale du rendu passe par `npm run preview`, qui sert les vraies
-vues avec un bouchon de l'API `chrome`. Sauter cette étape a produit une page de
-réglages illisible ([#21](../../../issues/21)).
+Local rendering checks go through `npm run preview`, which serves the real views
+with a stubbed `chrome` API. Skipping that step produced an unreadable settings
+page once ([#21](../../../issues/21)).
