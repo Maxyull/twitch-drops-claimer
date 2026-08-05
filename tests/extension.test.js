@@ -292,7 +292,7 @@ test("the message guard is not exposed to the page", () => {
 test("fr and en declare exactly the same keys", () => {
   const [fr, en] = LOCALES.map((l) => Object.keys(messages[l]).sort());
   assert.deepEqual(fr, en);
-  for (const key of ["ext_name", "ext_description"]) assert.ok(messages.fr[key], `${key} manquant`);
+  for (const key of ["ext_name", "ext_description"]) assert.ok(messages.fr[key], `${key} missing`);
 });
 
 test("every i18n key used exists in both languages", () => {
@@ -318,7 +318,7 @@ test("no dead i18n key", () => {
   const sources = [...HTML_FILES.map(read), ...SRC_JS.map(read)];
   const haystack = [...sources, JSON.stringify(manifest)].join("\n");
 
-  // Les familles construites dynamiquement, du type t(`status_${code}`).
+  // Families built dynamically, of the form t(`status_${code}`).
   const dynamic = new Set();
   for (const m of haystack.matchAll(/`([a-z0-9_]+_)\$\{/g)) dynamic.add(m[1]);
 

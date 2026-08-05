@@ -6,8 +6,9 @@
 // at least one open Twitch tab to query the API, and it no longer needs to read a
 // single cookie.
 //
-// The French text in the thrown `GqlError` messages is user-visible and tracked
-// in #76, not here: it is a missing catalogue key, not a translation leftover.
+// A thrown `GqlError` carries two things: `message`, English and for a developer,
+// and `kind`, which the view turns into a translated sentence through
+// `src/lib/errors.js`. Never write a user-facing sentence here (#76).
 
 import { buildRequestHeaders } from "../lib/gql-headers.js";
 import { getUsableHeaders } from "./header-capture.js";
@@ -367,7 +368,7 @@ export async function channelPoints(login) {
  * @returns {{ok: boolean, error: string|null}}
  */
 export async function claimCommunityPoints(channelId, claimId) {
-  if (!channelId || !claimId) return { ok: false, error: "identifiants manquants" };
+  if (!channelId || !claimId) return { ok: false, error: "missing ids" };
   const data = await request("TdcClaimPoints", M_CLAIM_POINTS, {
     input: { channelID: String(channelId), claimID: String(claimId) },
   });
@@ -383,7 +384,7 @@ export async function claimCommunityPoints(channelId, claimId) {
  * bonus is simply lost.
  */
 export async function joinRaid(raidID) {
-  if (!raidID) return { ok: false, error: "identifiant manquant" };
+  if (!raidID) return { ok: false, error: "missing id" };
   const data = await request("TdcJoinRaid", M_JOIN_RAID, { input: { raidID: String(raidID) } });
   return { ok: Boolean(data?.joinRaid?.raidID), error: null };
 }

@@ -70,7 +70,7 @@ test("REGRESSION: a campaign missing from the inventory keeps its progress", () 
   assert.equal(res.campaigns[1].drops[0].watchedMinutes, 10, "untouched, not reset");
 });
 
-test("un palier inconnu de l'inventaire reste tel quel", () => {
+test("a tier the inventory does not know is left as it is", () => {
   const stockees = [campagne("c1", [drop("d1", 60, 40), drop("d2", 120, 40)])];
   const frais = [campagne("c1", [drop("d1", 60, 55)])];
 

@@ -4,5 +4,5 @@
 // pure modules in src/lib/ without duplicating them.
 // No remote code is loaded, the resource ships inside the package.
 import(chrome.runtime.getURL("src/content/watcher.js")).catch((err) => {
-  console.error("[TDC] chargement du module impossible", err);
+  console.error("[TDC] could not load the module", err);
 });

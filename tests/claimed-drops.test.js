@@ -62,8 +62,8 @@ test("reading the same thing twice does not count twice", () => {
 });
 
 test("a tier reverting to unclaimed removes nothing", () => {
-  // Twitch can return a stripped-down campaign: that is no reason to
-  // faire redescendre un compteur.
+  // Twitch can return a stripped-down campaign: that is no reason to bring a
+  // counter back down.
   const connu = mergeClaimed([], true, [campagne("c1", [["d1", true]])]).ids;
   const apres = mergeClaimed(connu, true, [campagne("c1", [["d1", false]])]);
   assert.deepEqual(apres.ids, ["d1"]);

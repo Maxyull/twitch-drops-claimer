@@ -60,8 +60,8 @@ test("the number of farming tabs stays within useful bounds", () => {
 });
 
 test("0 turns the rotation off, without turning the other loops off", () => {
-  // Seul `rotateIntervalMin` accepte 0 : ailleurs, 0 voudrait dire « en boucle
-  // endlessly", which is not an intention anyone can express.
+  // Only `rotateIntervalMin` accepts 0: elsewhere 0 would mean "loop endlessly",
+  // which is not an intention anyone can express.
   assert.equal(normalizeSettings({ rotateIntervalMin: 0 }).rotateIntervalMin, 0);
   assert.equal(normalizeSettings({ rotateIntervalMin: -5 }).rotateIntervalMin, 0);
   assert.equal(normalizeSettings({ rotateIntervalMin: 9999 }).rotateIntervalMin, 240);
@@ -70,7 +70,7 @@ test("0 turns the rotation off, without turning the other loops off", () => {
 });
 
 test("normalizeSettings refuses an unknown quality or priority", () => {
-  const s = normalizeSettings({ quality: "8k", priority: "n'importe quoi" });
+  const s = normalizeSettings({ quality: "8k", priority: "whatever" });
   assert.equal(s.quality, DEFAULT_SETTINGS.quality);
   assert.equal(s.priority, DEFAULT_SETTINGS.priority);
 });
