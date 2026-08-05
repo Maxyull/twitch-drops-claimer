@@ -107,6 +107,11 @@ behaviour, notifications: all of that is verified by hand.
 `docs/MANUAL-CHECKS.md`. A green CI on pure modules says nothing about a wire
 format: that is exactly where this project can break silently.
 
+**A PR that renames a control label or a console string updates #56 too**, in the
+same PR. The list quotes both, no test can read an issue, and a check pointing at a
+label that no longer exists fails silently in the worst way: the person running it
+assumes they are the one who is lost.
+
 ## Build and versioning
 
 ```bash
