@@ -77,7 +77,13 @@ same ones again.
   logic testable under Node, with no browser and no stubs.
 - i18n: the catalogue is loaded by `src/lib/i18n.js`, not by `chrome.i18n`
   (see `src/lib/messages.js` for why). No UI string is hardcoded; a test checks
-  that no key is missing and none is dead.
+  that no key is missing and none is dead, and a second one checks the **call
+  sites**, because a hardcoded string never asks the catalogue for anything and
+  so stayed invisible to the first (#76).
+- **Errors are described, never written out.** A producer returns `{ key, params }`
+  from `src/lib/errors.js`; the view translates it. Handing a sentence to
+  `setLastError`, `showError` or `renderError` fails a test. Text that comes from
+  Twitch cannot be translated, so it is quoted inside a sentence that can be.
 
 ## Tests
 
