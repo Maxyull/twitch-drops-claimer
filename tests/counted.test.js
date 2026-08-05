@@ -52,8 +52,8 @@ test("observed progress is the strongest evidence", () => {
 });
 
 test("REGRESSION: evidence outranks the player's supposed state", () => {
-  // The reported case: "it says not counted but I got drops". Our
-  // lecture du lecteur peut se tromper, la progression non. Elle gagne.
+  // The reported case: "it says not counted but I got drops". Our reading of the
+  // player can be wrong, progress cannot. Progress wins.
   const progression = evaluateCounted({ progressAt: NOW }, { now: NOW, playing: false });
   assert.equal(progression.code, COUNTED.CONFIRMED);
 

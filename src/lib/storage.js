@@ -19,7 +19,7 @@ async function write(area, values) {
     return { ok: true };
   } catch (err) {
     const message = err?.message ?? String(err);
-    console.warn("[TDC] écriture", area, "refusée :", message);
+    console.warn("[TDC]", area, "write refused:", message);
     if (area !== "local") return { ok: false, error: message };
     try {
       // Written directly rather than through `setLastError`: that function calls

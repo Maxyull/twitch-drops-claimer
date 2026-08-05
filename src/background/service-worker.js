@@ -55,7 +55,7 @@ async function installAlarms() {
 // before it has gone through. It is idempotent, a plain version check in most
 // cases.
 const migrated = store.migrate().catch((err) => {
-  console.error("[TDC] migration impossible :", err);
+  console.error("[TDC] migration failed:", err);
 });
 
 // The translation catalogue loads when the module starts, for the same reason as
@@ -65,7 +65,7 @@ const migrated = store.migrate().catch((err) => {
 let i18nReady = migrated
   .then(() => store.getSettings())
   .then((settings) => initI18n(settings.language))
-  .catch((err) => console.warn("[TDC] traductions indisponibles :", err));
+  .catch((err) => console.warn("[TDC] translations unavailable:", err));
 
 async function boot() {
   await migrated;

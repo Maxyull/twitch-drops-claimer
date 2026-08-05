@@ -125,8 +125,8 @@ test("REGRESSION: an unreadable frame never brings the loop down", () => {
     message("user-drop-events.42", { type: "drop-progress", data: {} }),
     message("user-drop-events.42", { type: "drop-claim", data: {} }),
     message("community-points-user-v1.42", { type: "claim-available", data: {} }),
-    message("sujet-inconnu.42", { type: "quelque-chose", data: {} }),
-    message("user-drop-events.42", { type: "type-inconnu", data: {} }),
+    message("unknown-topic.42", { type: "something", data: {} }),
+    message("user-drop-events.42", { type: "unknown-type", data: {} }),
   ];
 
   for (const raw of nimporteQuoi) {

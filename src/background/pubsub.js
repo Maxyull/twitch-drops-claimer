@@ -109,14 +109,14 @@ export async function ensureConnected({ userId, channelIds = [], onEvent }) {
   lastAttempt = now;
 
   if (!topics.length) {
-    lastError = "compte inconnu";
+    lastError = "unknown account";
     return false;
   }
 
   const captured = await getUsableHeaders();
   const token = bareToken(captured?.authorization);
   if (!token) {
-    lastError = "jeton indisponible, un onglet Twitch doit être ouvert";
+    lastError = "no token available, a Twitch tab must be open";
     return false;
   }
   jeton = token;
@@ -169,7 +169,7 @@ export async function ensureConnected({ userId, channelIds = [], onEvent }) {
   });
 
   socket.addEventListener("error", () => {
-    lastError = "connexion temps réel interrompue";
+    lastError = "real-time connection interrupted";
   });
 
   return true;
@@ -185,5 +185,5 @@ function envoyer(frame) {
 }
 
 function noter(err) {
-  console.warn("[TDC] évènement temps réel non traité :", err?.message ?? err);
+  console.warn("[TDC] unhandled real-time event:", err?.message ?? err);
 }

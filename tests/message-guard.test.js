@@ -15,7 +15,7 @@ const fromOptions = {
 };
 
 test("a sender from another extension is rejected", () => {
-  const res = validateMessage({ type: MSG.BEAT }, { id: "autre-extension", tab: { id: 1 } }, EXT_ID);
+  const res = validateMessage({ type: MSG.BEAT }, { id: "another-extension", tab: { id: 1 } }, EXT_ID);
   assert.equal(res.ok, false);
   assert.match(res.error, /sender/);
 });
@@ -25,7 +25,7 @@ test("a sender from another extension is rejected", () => {
 // translates. A rejection missing its key would render as nothing at all.
 test("every rejection carries both a developer message and a catalogue key", () => {
   const rejections = [
-    validateMessage({ type: MSG.BEAT }, { id: "autre-extension" }, EXT_ID),
+    validateMessage({ type: MSG.BEAT }, { id: "another-extension" }, EXT_ID),
     validateMessage({ type: "nope" }, fromPopup, EXT_ID),
     validateMessage({ type: MSG.SET_SETTINGS }, fromTab, EXT_ID),
     validateMessage({ type: MSG.BEAT }, fromPopup, EXT_ID),
@@ -40,7 +40,7 @@ test("every rejection carries both a developer message and a catalogue key", () 
 });
 
 test("an unknown message type is rejected (no dynamic dispatch)", () => {
-  for (const type of ["", "constructor", "__proto__", "toString", "n-importe-quoi", 42]) {
+  for (const type of ["", "constructor", "__proto__", "toString", "whatever", 42]) {
     assert.equal(validateMessage({ type }, fromPopup, EXT_ID).ok, false, `type accepted: ${type}`);
   }
   assert.equal(validateMessage(null, fromPopup, EXT_ID).ok, false);
@@ -93,7 +93,7 @@ test("an extension page with another id is rejected", () => {
 
 test("isExtensionUrl only recognises our own pages", () => {
   assert.equal(isExtensionUrl(`chrome-extension://${EXT_ID}/src/popup/popup.html`, EXT_ID), true);
-  assert.equal(isExtensionUrl("chrome-extension://autre/src/popup/popup.html", EXT_ID), false);
+  assert.equal(isExtensionUrl("chrome-extension://another/src/popup/popup.html", EXT_ID), false);
   assert.equal(isExtensionUrl("https://www.twitch.tv/", EXT_ID), false);
   assert.equal(isExtensionUrl(undefined, EXT_ID), false);
   assert.equal(isExtensionUrl(`chrome-extension://${EXT_ID}/x`, ""), false);
@@ -107,11 +107,11 @@ test("the heartbeat is bounded and cleaned", () => {
         channel: "https://www.twitch.tv/ZeratoR",
         currentTime: "12.5",
         videoHeight: 999_999,
-        paused: "oui",
+        paused: "yes",
         ads: 1,
         offline: true,
         url: "x".repeat(9000),
-        extra: "champ pirate",
+        extra: "rogue field",
       },
     },
     fromTab,
@@ -122,7 +122,7 @@ test("the heartbeat is bounded and cleaned", () => {
   assert.equal(res.payload.channel, "zerator");
   assert.equal(res.payload.currentTime, 12.5);
   assert.equal(res.payload.videoHeight, 10_000, "bounded");
-  assert.equal(res.payload.paused, false, "seul true vaut true");
+  assert.equal(res.payload.paused, false, "only true counts as true");
   assert.equal(res.payload.ads, false);
   assert.equal(res.payload.offline, true);
   assert.equal(res.payload.url.length, 500, "truncated");
@@ -131,7 +131,7 @@ test("the heartbeat is bounded and cleaned", () => {
 
 test("a claim keeps a known kind and bounded texts", () => {
   const res = validateMessage(
-    { type: MSG.CLAIMED, payload: { kind: "n'importe quoi", label: "L".repeat(500) } },
+    { type: MSG.CLAIMED, payload: { kind: "whatever", label: "L".repeat(500) } },
     fromTab,
     EXT_ID,
   );
@@ -166,10 +166,10 @@ test("setSettings with no known key at all is refused", () => {
     validateMessage({ type: MSG.SET_SETTINGS, payload: { hop: 1 } }, fromPopup, EXT_ID).ok,
     false,
   );
-  assert.equal(validateMessage({ type: MSG.SET_SETTINGS, payload: "texte" }, fromPopup, EXT_ID).ok, false);
+  assert.equal(validateMessage({ type: MSG.SET_SETTINGS, payload: "text" }, fromPopup, EXT_ID).ok, false);
 });
 
-test("setActionDone exige un identifiant", () => {
+test("setActionDone requires an id", () => {
   assert.equal(validateMessage({ type: MSG.SET_ACTION_DONE, payload: {} }, fromPopup, EXT_ID).ok, false);
   const res = validateMessage(
     { type: MSG.SET_ACTION_DONE, payload: { id: "link:camp-1" } },
@@ -189,7 +189,7 @@ test("a campaign's priority only accepts three values", () => {
   assert.equal(ok.ok, true);
   assert.equal(ok.payload.priority, "focus");
 
-  for (const priority of ["FOCUS", "toutes", "", null, 1]) {
+  for (const priority of ["FOCUS", "all", "", null, 1]) {
     const res = validateMessage(
       { type: MSG.SET_CAMPAIGN_PRIORITY, payload: { id: "camp-1", priority } },
       fromOptions,
@@ -205,7 +205,7 @@ test("a campaign's priority only accepts three values", () => {
       EXT_ID,
     ).ok,
     false,
-    "identifiant obligatoire",
+    "an id is mandatory",
   );
 });
 

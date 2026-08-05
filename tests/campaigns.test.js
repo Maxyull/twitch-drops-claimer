@@ -272,7 +272,7 @@ test("rankCampaigns tolerates empty or null input", () => {
 test("pickChannel takes the first allowed channel that is live", () => {
   const c = parseCampaign(restrictedCampaignNode(["alpha", "beta", "gamma"]));
   assert.equal(pickChannel(c, ["GAMMA", "beta"]), "beta");
-  assert.equal(pickChannel(c, ["inconnue"]), null);
+  assert.equal(pickChannel(c, ["unknown"]), null);
   assert.equal(pickChannel(c, []), null);
 });
 

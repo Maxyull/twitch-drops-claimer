@@ -70,7 +70,7 @@ test("red: tab closed, channel offline, wrong channel", () => {
   assert.equal(evaluateBeat(beat(), null, { now: NOW, tabExists: false }).code, STATUS.NO_TAB);
   assert.equal(evaluateBeat(beat({ offline: true }), null, { now: NOW }).code, STATUS.OFFLINE);
   assert.equal(
-    evaluateBeat(beat({ channel: "autre" }), null, { now: NOW, expectedChannel: "zerator" }).code,
+    evaluateBeat(beat({ channel: "another" }), null, { now: NOW, expectedChannel: "zerator" }).code,
     STATUS.WRONG_CHANNEL,
   );
 });

@@ -3,8 +3,9 @@
 // It injects no DOM and no style into the page: nothing to prefix, nothing to
 // clean up, no possible collision with Twitch.
 //
-// The `log()` calls keep their French text: they are developer-facing strings and
-// move with the same block as the rest of them in #72.
+// The `log()` calls go to the page's console and are read by a developer, never
+// by a user: they are plain English, not catalogue keys. Anything a user reads
+// goes through `_locales` (see src/lib/errors.js).
 
 import { isDropClaimButton, isPointsBonusButton, isDismissOverlayButton } from "../lib/dom-rules.js";
 import { MSG, CLAIM_KIND, ROLE } from "../lib/messaging.js";
@@ -211,7 +212,7 @@ function enforcePlayer() {
       // No longer swallowed: without this the popup says "paused" without
       // explaining that the browser is refusing, and nobody knows what to fix.
       autoplayBlocked = err?.name === "NotAllowedError";
-      if (autoplayBlocked) log("lecture automatique refusée par le navigateur");
+      if (autoplayBlocked) log("autoplay refused by the browser");
     },
   );
 }
@@ -253,7 +254,7 @@ async function setQualityViaMenu() {
   const index = chooseQualityIndex(options.map(labelOfOption), config.quality);
   if (index >= 0) {
     options[index].click();
-    log("qualité réglée par le menu", labelOfOption(options[index]));
+    log("quality set through the menu", labelOfOption(options[index]));
   }
   await wait(200);
   document.body.click();
@@ -307,7 +308,7 @@ async function scan() {
     for (const btn of allButtons()) {
       if (!isPointsBonusButton(descriptorOf(btn))) continue;
       if (clickOnce(btn)) {
-        log("bonus de points réclamé");
+        log("points bonus claimed");
         send(MSG.CLAIMED, { kind: CLAIM_KIND.POINTS, channel: currentChannel() });
       }
       break;
@@ -321,7 +322,7 @@ async function scan() {
       const label = labelNear(btn);
       if (clickOnce(btn)) {
         claimed += 1;
-        log("drop réclamé", label);
+        log("drop claimed", label);
         send(MSG.CLAIMED, { kind: CLAIM_KIND.DROP, label, dropName: label });
         await wait(600); // let Twitch breathe between two clicks
       }

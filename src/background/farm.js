@@ -94,7 +94,7 @@ const WINDOW_LOG_MAX = 20;
 async function traceWindow(entry) {
   const { windowLog = [] } = await chrome.storage.local.get("windowLog");
   const ligne = { at: Date.now(), ...entry };
-  console.warn("[TDC] fenêtre :", ligne);
+  console.warn("[TDC] window:", ligne);
   await chrome.storage.local.set({
     windowLog: [ligne, ...(Array.isArray(windowLog) ? windowLog : [])].slice(0, WINDOW_LOG_MAX),
   });
@@ -686,7 +686,7 @@ export async function refreshLiveProgress() {
     marks.liveMinutes = minutes;
   } catch (err) {
     if (err?.kind === "persisted") {
-      console.warn("[TDC] progression en direct indisponible :", err.message);
+      console.warn("[TDC] live progress unavailable:", err.message);
       return store.setState({ liveCheckedAt: now, livePersistedGone: true });
     }
     // Network or session: we will try again on the next pass, breaking nothing.

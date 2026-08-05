@@ -46,7 +46,7 @@ test("an identical value writes nothing", () => {
 
 test("an unknown tier creates nothing", () => {
   const stockees = [campagne("c1", [drop("d1", 60, 40)])];
-  const res = applyLiveSession(stockees, { dropID: "inconnu", watchedMinutes: 99 });
+  const res = applyLiveSession(stockees, { dropID: "unknown", watchedMinutes: 99 });
   assert.equal(res.changed, false);
   assert.equal(res.campaigns[0].drops.length, 1);
 });

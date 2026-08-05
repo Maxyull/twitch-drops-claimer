@@ -23,7 +23,7 @@ test("an entry carries the time, the kind and a bounded label", () => {
 });
 
 test("an unknown kind falls back to drop", () => {
-  assert.equal(makeEntry({ kind: "n'importe quoi" }, NOW).kind, HISTORY_KIND.DROP);
+  assert.equal(makeEntry({ kind: "whatever" }, NOW).kind, HISTORY_KIND.DROP);
   assert.equal(makeEntry({ kind: HISTORY_KIND.POINTS }, NOW).kind, HISTORY_KIND.POINTS);
   assert.equal(makeEntry(null, NOW).label, "");
 });
