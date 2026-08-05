@@ -614,5 +614,95 @@
   },
   "options_language_auto": {
     "message": "Automatic (browser language)"
+  },
+  "error_integrity": {
+    "message": "Waiting for a Twitch tab: the extension picks up the integrity token the API requires."
+  },
+  "error_integrity_stale": {
+    "message": "Integrity token expired, it will be picked up on the next Twitch page load."
+  },
+  "error_auth": {
+    "message": "Twitch session refused: sign in again on twitch.tv."
+  },
+  "error_network": {
+    "message": "Network unreachable ($WHAT$).",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_persisted": {
+    "message": "Query $WHAT$ retired by Twitch: progress follows the inventory, to within five minutes.",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_http": {
+    "message": "Twitch answered $WHAT$.",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_twitch": {
+    "message": "Twitch refused the request: $WHAT$",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_account": {
+    "message": "Twitch account not found."
+  },
+  "error_storage": {
+    "message": "Storage refused: $WHAT$",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_window": {
+    "message": "Dedicated window not found, reusing an existing one."
+  },
+  "error_no_answer": {
+    "message": "No answer from the service worker."
+  },
+  "error_state_unavailable": {
+    "message": "State unavailable."
+  },
+  "error_settings_unreadable": {
+    "message": "Settings unreadable."
+  },
+  "error_refused": {
+    "message": "Setting refused."
+  },
+  "error_unknown": {
+    "message": "Unexpected error: $WHAT$",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_sender": {
+    "message": "Message rejected: unknown sender."
+  },
+  "error_message_type": {
+    "message": "Message rejected: unknown type."
+  },
+  "error_not_privileged": {
+    "message": "Message rejected: a web page cannot drive the extension."
+  },
+  "error_not_twitch": {
+    "message": "Message rejected: expected from a Twitch tab."
+  },
+  "error_payload": {
+    "message": "Message rejected: invalid payload."
   }
 }

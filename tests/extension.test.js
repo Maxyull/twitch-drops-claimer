@@ -356,3 +356,33 @@ test("no magic message-type string outside messaging.js", () => {
     assert.equal(literals.test(read(file)), false, `${file} uses a literal message type`);
   }
 });
+
+// The defect in #76: every function below ends up in the popup, and each one used
+// to be handed a French sentence built where the failure happened. The i18n
+// coverage test could not see it, because a hardcoded string never asks the
+// catalogue for anything. This one looks at the call sites instead.
+test("REGRESSION: no literal sentence is handed to a function that displays it", () => {
+  const displays = /\b(setLastError|showError|renderError)\(\s*(["'`]|\{\s*message:\s*["'`])/;
+  for (const file of SRC_JS) {
+    const m = read(file).match(displays);
+    assert.equal(
+      m,
+      null,
+      `${file} passes a literal to ${m?.[1]}: use a descriptor from src/lib/errors.js`,
+    );
+  }
+});
+
+// A key that exists in errors.js but in neither catalogue would render raw in the
+// popup, which is the failure this whole change is meant to remove. The dead-key
+// test above covers the other direction.
+test("every ERROR key is defined in both catalogues", () => {
+  const keys = [...read("src/lib/errors.js").matchAll(/"(error_[a-z_]+)"/g)].map((m) => m[1]);
+  assert.ok(keys.length >= 15, "ERROR keys are no longer being found in errors.js");
+
+  for (const key of new Set(keys)) {
+    for (const locale of LOCALES) {
+      assert.ok(messages[locale][key], `${key} missing from _locales/${locale}`);
+    }
+  }
+});

@@ -6,6 +6,7 @@
 // (see docs/SECURITY-AUDIT.md, pass 2).
 
 import { DEFAULT_SETTINGS, normalizeSettings } from "./settings.js";
+import { ERROR, describe, isDescriptor } from "./errors.js";
 
 export const STORAGE_VERSION = 2;
 
@@ -21,8 +22,10 @@ async function write(area, values) {
     console.warn("[TDC] écriture", area, "refusée :", message);
     if (area !== "local") return { ok: false, error: message };
     try {
+      // Written directly rather than through `setLastError`: that function calls
+      // `write`, and a storage that has just refused a write would recurse.
       await chrome.storage.local.set({
-        lastError: { message: `Stockage : ${message}`, at: Date.now() },
+        lastError: { ...describe(ERROR.STORAGE, [message]), at: Date.now() },
       });
     } catch {
       /* storage really is dead, give up quietly */
@@ -169,9 +172,26 @@ export async function getLastError() {
   return lastError;
 }
 
-export async function setLastError(message) {
+/**
+ * @param {{key: string, params: string[]}|null} entry a descriptor from
+ *   `src/lib/errors.js`, or `null` to clear. A bare string is refused on purpose:
+ *   that was how French sentences reached the popup (#76).
+ */
+export async function setLastError(entry) {
+  if (!entry) {
+    await write("local", { lastError: null });
+    return;
+  }
+  if (!isDescriptor(entry)) throw new TypeError("setLastError expects a descriptor, not a string");
+
   await write("local", {
-    lastError: message ? { message: String(message).slice(0, 300), at: Date.now() } : null,
+    lastError: {
+      key: entry.key,
+      // Bounded here rather than at every call site: a Twitch error text or a
+      // storage message can be arbitrarily long, and it ends up in the popup.
+      params: (entry.params ?? []).map((p) => String(p).slice(0, 300)),
+      at: Date.now(),
+    },
   });
 }
 

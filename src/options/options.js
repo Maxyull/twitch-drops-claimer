@@ -1,6 +1,7 @@
 import { DEFAULT_SETTINGS, normalizeChannelList } from "../lib/settings.js";
 import { MSG } from "../lib/messaging.js";
 import { t, initI18n, localizeDocument } from "../lib/i18n.js";
+import { ERROR, describe, formatError } from "../lib/errors.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -42,17 +43,22 @@ let focus = new Set();
 async function send(type, payload) {
   try {
     const res = await chrome.runtime.sendMessage({ type, payload });
-    return res ?? { ok: false, error: "aucune réponse du service worker" };
+    return res ?? { ok: false, error: describe(ERROR.NO_ANSWER) };
   } catch (err) {
-    return { ok: false, error: err?.message ?? String(err) };
+    return { ok: false, error: describe(ERROR.UNKNOWN, [err?.message ?? String(err)]) };
   }
 }
 
-function showError(reason) {
+/**
+ * `entry` is a `{ key, params }` descriptor from src/lib/errors.js, translated
+ * here rather than written out where the failure happened (#76).
+ */
+function showError(entry) {
   const box = $("error");
+  const reason = formatError(entry, t);
   box.hidden = !reason;
   if (reason) {
-    box.textContent = t("options_save_failed", [String(reason)]);
+    box.textContent = t("options_save_failed", [reason]);
     // A "Saved" left over from an earlier attempt, sitting next to an error,
     // sends exactly the wrong message.
     $("saved").classList.remove("show");
@@ -173,7 +179,7 @@ async function load() {
   const state = await send(MSG.GET_STATE);
   if (!state?.settings) {
     setReady(false);
-    showError(state?.error ?? "réglages illisibles");
+    showError(state?.error ?? describe(ERROR.SETTINGS_UNREADABLE));
     return;
   }
 
@@ -198,7 +204,7 @@ $("save").addEventListener("click", async () => {
   // "Saved" is only shown when it really is. A silent refusal is what makes this
   // kind of failure impossible to diagnose.
   if (!res.ok || !res.settings) {
-    showError(res.error ?? "refusé");
+    showError(res.error ?? describe(ERROR.REFUSED));
     return;
   }
 
