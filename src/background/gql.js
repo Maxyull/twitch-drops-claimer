@@ -14,12 +14,18 @@ import { getUsableHeaders } from "./header-capture.js";
 
 const GQL_URL = "https://gql.twitch.tv/gql";
 
+/**
+ * `message` is for a developer: it lands in the console and in a stack trace, and
+ * it stays English. What a user reads comes from `kind` plus `params`, translated
+ * by the view through `src/lib/errors.js` (see #76).
+ */
 export class GqlError extends Error {
-  constructor(message, { status = null, kind = "gql" } = {}) {
+  constructor(message, { status = null, kind = "gql", params = [] } = {}) {
     super(message);
     this.name = "GqlError";
     this.status = status;
     this.kind = kind;
+    this.params = params;
   }
 }
 
@@ -48,8 +54,9 @@ async function requestPersisted(operationName, sha256Hash, variables = {}) {
     // Deliberately narrow: a plain "not found" would also match unrelated errors
     // and would cut live progress off for nothing.
     if (err instanceof GqlError && /persisted\s*query/i.test(err.message)) {
-      throw new GqlError(`Requête ${operationName} retirée par Twitch (${err.message})`, {
+      throw new GqlError(`query ${operationName} retired by Twitch (${err.message})`, {
         kind: "persisted",
+        params: [operationName],
       });
     }
     throw err;
@@ -59,10 +66,7 @@ async function requestPersisted(operationName, sha256Hash, variables = {}) {
 async function send(body) {
   const captured = await getUsableHeaders();
   if (!captured) {
-    throw new GqlError(
-      "En attente d'un onglet Twitch : l'extension y récupère le jeton d'intégrité exigé par l'API.",
-      { kind: "integrity" },
-    );
+    throw new GqlError("no usable integrity headers captured yet", { kind: "integrity" });
   }
 
   let res;
@@ -73,17 +77,24 @@ async function send(body) {
       body: JSON.stringify(body),
     });
   } catch (cause) {
-    throw new GqlError(`Réseau injoignable (${cause.message})`, { kind: "network" });
+    throw new GqlError(`network unreachable (${cause.message})`, {
+      kind: "network",
+      params: [cause.message],
+    });
   }
 
   if (res.status === 401 || res.status === 403) {
-    throw new GqlError("Session Twitch refusée : reconnecte-toi sur twitch.tv.", {
+    throw new GqlError(`Twitch refused the session (HTTP ${res.status})`, {
       status: res.status,
       kind: "auth",
     });
   }
   if (!res.ok) {
-    throw new GqlError(`Twitch a répondu ${res.status}`, { status: res.status });
+    throw new GqlError(`Twitch answered HTTP ${res.status}`, {
+      status: res.status,
+      kind: "http",
+      params: [String(res.status)],
+    });
   }
 
   const json = await res.json();
@@ -99,12 +110,12 @@ async function send(body) {
     // The captured token has expired: throw it away to force a fresh capture.
     if (/integrity/i.test(failure)) {
       await chrome.storage.session.remove("gqlHeaders");
-      throw new GqlError(
-        "Jeton d'intégrité périmé, il sera repris sur le prochain chargement d'une page Twitch.",
-        { kind: "integrity" },
-      );
+      throw new GqlError("captured integrity token expired", { kind: "integrity_stale" });
     }
-    throw new GqlError(failure);
+    // Twitch's own wording. We cannot translate it, so it is quoted rather than
+    // shown bare: the sentence around it is translated and says where it comes
+    // from. That is the open question #76 left, settled here.
+    throw new GqlError(failure, { kind: "twitch", params: [failure] });
   }
 
   return payload?.data ?? {};

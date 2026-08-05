@@ -8,9 +8,6 @@ const EXT_ID = "abcdefghijklmnopabcdefghijklmnop";
 const fromTab = { id: EXT_ID, tab: { id: 7 }, url: "https://www.twitch.tv/zerator" };
 const fromPopup = { id: EXT_ID, url: `chrome-extension://${EXT_ID}/src/popup/popup.html` };
 // The options page opens in a tab: it therefore has a `sender.tab`.
-//
-// The French `error` strings matched below belong to src/lib/message-guard.js and
-// stay: they reach the popup, so they are user-visible and move with #76.
 const fromOptions = {
   id: EXT_ID,
   tab: { id: 12 },
@@ -20,7 +17,26 @@ const fromOptions = {
 test("a sender from another extension is rejected", () => {
   const res = validateMessage({ type: MSG.BEAT }, { id: "autre-extension", tab: { id: 1 } }, EXT_ID);
   assert.equal(res.ok, false);
-  assert.match(res.error, /expéditeur/);
+  assert.match(res.error, /sender/);
+});
+
+// A rejection has two readers, and #76 was about them being conflated. `error` is
+// read by whoever opens the service worker console; `reason` is what the popup
+// translates. A rejection missing its key would render as nothing at all.
+test("every rejection carries both a developer message and a catalogue key", () => {
+  const rejections = [
+    validateMessage({ type: MSG.BEAT }, { id: "autre-extension" }, EXT_ID),
+    validateMessage({ type: "nope" }, fromPopup, EXT_ID),
+    validateMessage({ type: MSG.SET_SETTINGS }, fromTab, EXT_ID),
+    validateMessage({ type: MSG.BEAT }, fromPopup, EXT_ID),
+    validateMessage({ type: MSG.SET_SETTINGS, payload: null }, fromPopup, EXT_ID),
+  ];
+
+  for (const res of rejections) {
+    assert.equal(res.ok, false);
+    assert.match(res.error, /^[\x20-\x7e]+$/, `not a plain-ASCII developer string: ${res.error}`);
+    assert.match(res.reason, /^error_[a-z_]+$/, `no catalogue key on: ${res.error}`);
+  }
 });
 
 test("an unknown message type is rejected (no dynamic dispatch)", () => {

@@ -9,6 +9,7 @@ import { campaignProgress, rankCampaigns, claimableDrops, isActive } from "../li
 import { countOpen, linkedOverrides, redeemAction, addAction, setDone } from "../lib/actions.js";
 import { MSG, CLAIM_KIND, ROLE, CAMPAIGN_PRIORITY } from "../lib/messaging.js";
 import { validateMessage } from "../lib/message-guard.js";
+import { ERROR, describe, describeThrown, formatError } from "../lib/errors.js";
 import * as store from "../lib/storage.js";
 import * as farm from "./farm.js";
 import * as notify from "./notify.js";
@@ -124,7 +125,7 @@ async function tick() {
     await keepRealtime(settings);
     await store.setLastError(null);
   } catch (err) {
-    await store.setLastError(err.message);
+    await store.setLastError(describeThrown(err));
   }
   await updateBadge();
 }
@@ -289,13 +290,17 @@ async function discover() {
     campaigns = await farm.refreshCampaigns();
     await store.setLastError(null);
   } catch (err) {
-    await store.setLastError(err.message);
+    await store.setLastError(describeThrown(err));
 
     // With no Twitch tab open there is no integrity token to pick up, therefore no
     // request is possible. Open one: it will serve the next claim pass too, and
     // the capture happens by itself when the page loads.
     if (err.kind === "integrity") await farm.ensureHarvestTab();
-    else if (err.kind === "auth" && settings.notifyActions) notify.notifyProblem(err.message);
+    // A notification is read by a user, so it goes through the catalogue like any
+    // other displayed text. `err.message` is the developer's version.
+    else if (err.kind === "auth" && settings.notifyActions) {
+      notify.notifyProblem(formatError(describeThrown(err), t));
+    }
   }
 
   // Counting drops does not depend on the full discovery succeeding: the
@@ -315,7 +320,7 @@ async function discover() {
     try {
       await farm.ensureDropsTabs(settings);
     } catch (err) {
-      await store.setLastError(err.message);
+      await store.setLastError(describeThrown(err));
     }
   }
 
@@ -329,7 +334,7 @@ async function claimSweep() {
     await farm.runClaimSweep(settings);
     await store.setLastError(null);
   } catch (err) {
-    await store.setLastError(err.message);
+    await store.setLastError(describeThrown(err));
   }
 }
 
@@ -716,8 +721,10 @@ const HANDLERS = {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const check = validateMessage(msg, sender, chrome.runtime.id);
   if (!check.ok || !Object.hasOwn(HANDLERS, check.type)) {
-    console.warn("[TDC] message rejeté :", check.error ?? check.type);
-    sendResponse({ ok: false, error: check.error ?? "type inconnu" });
+    // Two readers, two texts: the console gets the developer string, the caller
+    // gets a descriptor its own view can translate.
+    console.warn("[TDC] message rejected:", check.error ?? check.type);
+    sendResponse({ ok: false, error: describe(check.reason ?? ERROR.MESSAGE_TYPE) });
     return false;
   }
 
@@ -725,7 +732,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   migrated
     .then(() => HANDLERS[check.type](check.payload, sender.tab?.id ?? null))
     .then(sendResponse)
-    .catch((err) => sendResponse({ ok: false, error: err.message }));
+    .catch((err) => sendResponse({ ok: false, error: describeThrown(err) }));
   return true; // asynchronous response
 });
 

@@ -614,5 +614,95 @@
   },
   "options_language_auto": {
     "message": "Automatique (langue du navigateur)"
+  },
+  "error_integrity": {
+    "message": "En attente d'un onglet Twitch : l'extension y récupère le jeton d'intégrité exigé par l'API."
+  },
+  "error_integrity_stale": {
+    "message": "Jeton d'intégrité périmé, il sera repris au prochain chargement d'une page Twitch."
+  },
+  "error_auth": {
+    "message": "Session Twitch refusée : reconnecte-toi sur twitch.tv."
+  },
+  "error_network": {
+    "message": "Réseau injoignable ($WHAT$).",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_persisted": {
+    "message": "Requête $WHAT$ retirée par Twitch : la progression suit l'inventaire, à cinq minutes près.",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_http": {
+    "message": "Twitch a répondu $WHAT$.",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_twitch": {
+    "message": "Twitch a refusé la requête : $WHAT$",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_account": {
+    "message": "Compte Twitch introuvable."
+  },
+  "error_storage": {
+    "message": "Stockage refusé : $WHAT$",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_window": {
+    "message": "Fenêtre dédiée introuvable, réutilisation d'une fenêtre existante."
+  },
+  "error_no_answer": {
+    "message": "Aucune réponse du service worker."
+  },
+  "error_state_unavailable": {
+    "message": "État indisponible."
+  },
+  "error_settings_unreadable": {
+    "message": "Réglages illisibles."
+  },
+  "error_refused": {
+    "message": "Réglage refusé."
+  },
+  "error_unknown": {
+    "message": "Erreur inattendue : $WHAT$",
+    "placeholders": {
+      "what": {
+        "content": "$1"
+      }
+    }
+  },
+  "error_sender": {
+    "message": "Message rejeté : expéditeur inconnu."
+  },
+  "error_message_type": {
+    "message": "Message rejeté : type inconnu."
+  },
+  "error_not_privileged": {
+    "message": "Message rejeté : une page web ne peut pas piloter l'extension."
+  },
+  "error_not_twitch": {
+    "message": "Message rejeté : attendu depuis un onglet Twitch."
+  },
+  "error_payload": {
+    "message": "Message rejeté : charge utile invalide."
   }
 }

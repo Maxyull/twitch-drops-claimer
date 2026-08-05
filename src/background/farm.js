@@ -21,6 +21,7 @@ import { progressAdvanced } from "../lib/counted.js";
 import { rankForStreak, streakReachable } from "../lib/streak.js";
 import { isTabDead } from "../lib/stall.js";
 import { mapLimited } from "../lib/concurrency.js";
+import { ERROR, describe } from "../lib/errors.js";
 import * as gql from "./gql.js";
 import * as store from "../lib/storage.js";
 
@@ -107,7 +108,7 @@ async function createDedicatedWindow(windows, contexte = {}) {
     // We have just created one and cannot find it again: something is off, and
     // opening yet another would fix nothing.
     await traceWindow({ action: "refusee-delai", ...contexte });
-    await store.setLastError("Fenêtre dédiée introuvable, réutilisation d'une fenêtre existante.");
+    await store.setLastError(describe(ERROR.WINDOW));
     return windows.at(-1)?.id ?? null;
   }
 
@@ -331,7 +332,7 @@ async function getLogin() {
   const { twitchLogin } = await chrome.storage.local.get("twitchLogin");
   if (twitchLogin) return twitchLogin;
   const user = await gql.currentUser();
-  if (!user?.login) throw new gql.GqlError("Compte Twitch introuvable.", { kind: "auth" });
+  if (!user?.login) throw new gql.GqlError("no login on the current user", { kind: "account" });
   await chrome.storage.local.set({ twitchLogin: user.login, twitchUserId: user.id ?? null });
   return user.login;
 }

@@ -7,6 +7,7 @@ import { ACTION_KIND } from "../lib/actions.js";
 import { COUNTED } from "../lib/counted.js";
 import { t, initI18n, localizeDocument } from "../lib/i18n.js";
 import { TABS, filterHistory, normalizeFilter, normalizeTab, tabForKey } from "../lib/tabs.js";
+import { ERROR, describe, formatError } from "../lib/errors.js";
 
 const $ = (id) => document.getElementById(id);
 const TOGGLES = ["enabled", "watchFavorite", "farmDrops"];
@@ -14,9 +15,9 @@ const TOGGLES = ["enabled", "watchFavorite", "farmDrops"];
 async function send(type, payload) {
   try {
     const res = await chrome.runtime.sendMessage({ type, payload });
-    return res ?? { ok: false, error: "aucune réponse du service worker" };
+    return res ?? { ok: false, error: describe(ERROR.NO_ANSWER) };
   } catch (err) {
-    return { ok: false, error: err?.message ?? String(err) };
+    return { ok: false, error: describe(ERROR.UNKNOWN, [err?.message ?? String(err)]) };
   }
 }
 
@@ -306,7 +307,7 @@ function renderCampaigns(campaigns) {
       const res = await send(MSG.SET_CAMPAIGN_PRIORITY, { id: c.id, priority });
       if (!res.ok) {
         box.checked = c.selected;
-        renderError({ message: res.error ?? "", at: Date.now() });
+        renderError({ ...(res.error ?? {}), at: Date.now() });
         return;
       }
       void load();
@@ -438,10 +439,16 @@ function setupFilter() {
   peindre();
 }
 
+/**
+ * Errors arrive as `{ key, params }` and are translated here. Producers no longer
+ * write sentences, which is what used to put French text in front of an
+ * English-speaking user (#76).
+ */
 function renderError(lastError) {
   const box = $("error");
-  box.hidden = !lastError;
-  if (lastError) box.textContent = `${lastError.message} (${fmtDate(lastError.at)})`;
+  const text = formatError(lastError, t);
+  box.hidden = !text;
+  box.textContent = text ? `${text} (${fmtDate(lastError.at)})` : "";
 }
 
 // --- cycle ----------------------------------------------------------------
@@ -449,7 +456,7 @@ function renderError(lastError) {
 async function load() {
   const state = await send(MSG.GET_STATE);
   if (!state?.settings) {
-    renderError({ message: state?.error ?? "état indisponible", at: Date.now() });
+    renderError({ ...(state?.error ?? describe(ERROR.STATE_UNAVAILABLE)), at: Date.now() });
     return;
   }
   for (const key of TOGGLES) $(key).classList.toggle("on", Boolean(state.settings[key]));
@@ -487,7 +494,7 @@ for (const key of TOGGLES) {
       // A toggle that stays lit while nothing was saved lies to the user: put it
       // back where it was and show the reason.
       $(key).classList.toggle("on", before);
-      renderError({ message: res.error ?? "réglage refusé", at: Date.now() });
+      renderError({ ...(res.error ?? describe(ERROR.REFUSED)), at: Date.now() });
       return;
     }
     void load();
@@ -512,7 +519,7 @@ $("rebuildWindow").addEventListener("click", async () => {
   const res = await send(MSG.REBUILD_WINDOW);
   bouton.disabled = false;
 
-  if (!res.ok) renderError({ message: res.error ?? "", at: Date.now() });
+  if (!res.ok) renderError({ ...(res.error ?? {}), at: Date.now() });
   void load();
 });
 

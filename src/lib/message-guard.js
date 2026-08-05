@@ -6,12 +6,13 @@
 //     accepted only from the origin entitled to send it.
 // Pure module: the sender's identity check is passed in as a parameter.
 //
-// The French text in the `error` fields below is not an oversight: those strings
-// are asserted on in tests/message-guard.test.js and move together with the test
-// slice of #72.
+// A rejection carries two things: `error`, an English string for the service
+// worker's console, and `reason`, a catalogue key for the popup. They are
+// separate because they have different readers (#76).
 
 import { MSG, MESSAGE_ORIGIN, SENDER, CLAIM_KIND, CAMPAIGN_PRIORITY } from "./messaging.js";
 import { normalizeChannel, DEFAULT_SETTINGS } from "./settings.js";
+import { ERROR } from "./errors.js";
 
 const MAX_TEXT = 200;
 
@@ -99,17 +100,17 @@ const SANITIZERS = {
  * @param {any} msg
  * @param {object} sender  the `sender` object from chrome.runtime.onMessage
  * @param {string} extensionId  chrome.runtime.id
- * @returns {{ok:true,type:string,payload:object}|{ok:false,error:string}}
+ * @returns {{ok:true,type:string,payload:object}|{ok:false,error:string,reason:string}}
  */
 export function validateMessage(msg, sender, extensionId) {
   // Another extension does not get to talk here.
-  if (!sender || sender.id !== extensionId) return { ok: false, error: "expéditeur inconnu" };
+  if (!sender || sender.id !== extensionId) return { ok: false, error: "unknown sender", reason: ERROR.SENDER };
 
   // `hasOwn` rather than a plain read: without it, "constructor" or "toString"
   // come up from Object.prototype and clear the allowlist.
   const type = typeof msg?.type === "string" ? msg.type : "";
   if (!Object.hasOwn(MESSAGE_ORIGIN, type) || !Object.hasOwn(SANITIZERS, type)) {
-    return { ok: false, error: "type de message refusé" };
+    return { ok: false, error: "message type refused", reason: ERROR.MESSAGE_TYPE };
   }
   const origin = MESSAGE_ORIGIN[type];
 
@@ -117,14 +118,14 @@ export function validateMessage(msg, sender, extensionId) {
   // the options page is a tab too, so it has a `sender.tab` as well.
   if (origin === SENDER.PRIVILEGED) {
     if (!isExtensionUrl(sender.url, extensionId)) {
-      return { ok: false, error: "une page web ne peut pas piloter l'extension" };
+      return { ok: false, error: "a web page cannot drive the extension", reason: ERROR.NOT_PRIVILEGED };
     }
   } else if (!isTwitchUrl(sender.url) || !sender.tab) {
-    return { ok: false, error: "message attendu depuis un onglet Twitch" };
+    return { ok: false, error: "message expected from a Twitch tab", reason: ERROR.NOT_TWITCH };
   }
 
   const payload = SANITIZERS[type](msg.payload);
-  if (payload === null) return { ok: false, error: "charge utile invalide" };
+  if (payload === null) return { ok: false, error: "invalid payload", reason: ERROR.PAYLOAD };
 
   return { ok: true, type, payload };
 }
